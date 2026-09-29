@@ -1,5 +1,10 @@
 # acmer-coach · 小鲸教练
 
+[![npm](https://img.shields.io/npm/v/acmer-coach)](https://www.npmjs.com/package/acmer-coach)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![node](https://img.shields.io/badge/node-%E2%89%A524-brightgreen)](https://nodejs.org)
+[![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.1.1--rc.1-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
+
 一个给 ACMer 用的算法训练教练插件，跑在 [dsh](https://github.com/deepseek-ai/deepseek-harness) 上。
 
 **它解决的问题**：不是「不知道学什么」——那是搜一下就有答案的。
