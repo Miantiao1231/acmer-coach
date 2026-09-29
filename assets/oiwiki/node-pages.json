@@ -1,0 +1,1208 @@
+{
+ "RMQ": [
+  "topic/rmq.md"
+ ],
+ "并查集应用": [
+  "topic/dsu-app.md"
+ ],
+ "括号序列": [
+  "topic/bracket.md"
+ ],
+ "线段树与离线询问": [
+  "topic/segment-tree-offline.md"
+ ],
+ "DAG 上的 DP": [
+  "dp/dag.md"
+ ],
+ "DP 优化": [
+  "dp/opt/monotonous-queue-stack.md",
+  "dp/opt/slope.md",
+  "dp/opt/quadrangle.md",
+  "dp/opt/state.md"
+ ],
+ "其它 DP 方法": [
+  "dp/misc.md"
+ ],
+ "动态 DP": [
+  "dp/dynamic.md"
+ ],
+ "动态规划基础": [
+  "dp/basic.md"
+ ],
+ "区间 DP": [
+  "dp/interval.md"
+ ],
+ "插头 DP": [
+  "dp/plug.md"
+ ],
+ "数位 DP": [
+  "dp/number.md"
+ ],
+ "树形 DP": [
+  "dp/tree.md"
+ ],
+ "概率 DP": [
+  "dp/probability.md"
+ ],
+ "状压 DP": [
+  "dp/state.md"
+ ],
+ "背包 DP": [
+  "dp/knapsack.md"
+ ],
+ "计数 DP": [
+  "dp/count.md"
+ ],
+ "记忆化搜索": [
+  "dp/memo.md"
+ ],
+ "单调队列/单调栈优化": [
+  "dp/opt/monotonous-queue-stack.md"
+ ],
+ "四边形不等式优化": [
+  "dp/opt/quadrangle.md"
+ ],
+ "斜率优化": [
+  "dp/opt/slope.md"
+ ],
+ "状态设计优化": [
+  "dp/opt/state.md"
+ ],
+ "2-SAT": [
+  "graph/2-sat.md"
+ ],
+ "BFS（图论）": [
+  "graph/bfs.md"
+ ],
+ "DFS（图论）": [
+  "graph/dfs.md"
+ ],
+ "LGV 引理": [
+  "graph/lgv.md"
+ ],
+ "Prüfer 序列": [
+  "graph/prufer.md"
+ ],
+ "Stoer–Wagner 算法": [
+  "graph/stoer-wagner.md"
+ ],
+ "k 短路": [
+  "graph/kth-path.md"
+ ],
+ "二分图": [
+  "graph/bi-graph.md"
+ ],
+ "同余最短路": [
+  "graph/mod-shortest-path.md"
+ ],
+ "哈密顿图": [
+  "graph/hamilton.md"
+ ],
+ "图上随机游走": [
+  "graph/graph-random-walk.md"
+ ],
+ "图的匹配": [
+  "graph/graph-matching/graph-match.md",
+  "graph/graph-matching/augment.md",
+  "graph/graph-matching/bigraph-match.md",
+  "graph/graph-matching/bigraph-weight-match.md",
+  "graph/graph-matching/general-match.md",
+  "graph/graph-matching/general-weight-match.md"
+ ],
+ "图的存储": [
+  "graph/save.md"
+ ],
+ "图的着色": [
+  "graph/color.md"
+ ],
+ "图论相关概念": [
+  "graph/concept.md"
+ ],
+ "差分约束": [
+  "graph/diff-constraints.md"
+ ],
+ "平面图": [
+  "graph/planar.md"
+ ],
+ "弦图": [
+  "graph/chord.md"
+ ],
+ "拆点": [
+  "graph/node.md"
+ ],
+ "拓扑排序": [
+  "graph/topo.md"
+ ],
+ "支配树": [
+  "graph/dominator-tree.md"
+ ],
+ "斯坦纳树": [
+  "graph/steiner-tree.md"
+ ],
+ "最大团搜索算法": [
+  "graph/max-clique.md"
+ ],
+ "最小树形图": [
+  "graph/dmst.md"
+ ],
+ "最小环": [
+  "graph/min-cycle.md"
+ ],
+ "最小生成树": [
+  "graph/mst.md"
+ ],
+ "最小直径生成树": [
+  "graph/mdst.md"
+ ],
+ "最短路": [
+  "graph/shortest-path.md"
+ ],
+ "有向无环图": [
+  "graph/dag.md"
+ ],
+ "树上问题": [
+  "graph/tree-basic.md",
+  "graph/tree-diameter.md",
+  "graph/lca.md",
+  "graph/tree-centroid.md",
+  "graph/hld.md",
+  "graph/dsu-on-tree.md",
+  "graph/virtual-tree.md",
+  "graph/tree-divide.md",
+  "graph/dynamic-tree-divide.md",
+  "graph/tree-ahu.md",
+  "graph/tree-hash.md",
+  "graph/tree-random-walk.md"
+ ],
+ "欧拉图": [
+  "graph/euler.md"
+ ],
+ "环计数问题": [
+  "graph/rings-count.md"
+ ],
+ "矩阵树定理": [
+  "graph/matrix-tree.md"
+ ],
+ "网络流": [
+  "graph/flow.md",
+  "graph/flow/max-flow.md",
+  "graph/flow/min-cut.md",
+  "graph/flow/min-cost.md",
+  "graph/flow/bound.md"
+ ],
+ "连通性相关": [
+  "graph/scc.md",
+  "graph/bcc.md",
+  "graph/cut.md",
+  "graph/block-forest.md",
+  "graph/connectivity.md"
+ ],
+ "一般图最大匹配": [
+  "graph/graph-matching/general-match.md"
+ ],
+ "一般图最大权匹配": [
+  "graph/graph-matching/general-weight-match.md"
+ ],
+ "二分图最大匹配": [
+  "graph/graph-matching/bigraph-match.md"
+ ],
+ "二分图最大权匹配": [
+  "graph/graph-matching/bigraph-weight-match.md"
+ ],
+ "图匹配": [
+  "graph/graph-matching/graph-match.md"
+ ],
+ "增广路": [
+  "graph/graph-matching/augment.md"
+ ],
+ "AHU 算法": [
+  "graph/tree-ahu.md"
+ ],
+ "动态树分治": [
+  "graph/dynamic-tree-divide.md"
+ ],
+ "最近公共祖先": [
+  "graph/lca.md"
+ ],
+ "树上启发式合并": [
+  "graph/dsu-on-tree.md"
+ ],
+ "树上随机游走": [
+  "graph/tree-random-walk.md"
+ ],
+ "树分治": [
+  "graph/tree-divide.md"
+ ],
+ "树哈希": [
+  "graph/tree-hash.md"
+ ],
+ "树基础": [
+  "graph/tree-basic.md"
+ ],
+ "树的直径": [
+  "graph/tree-diameter.md"
+ ],
+ "树的重心": [
+  "graph/tree-centroid.md"
+ ],
+ "树链剖分": [
+  "graph/hld.md"
+ ],
+ "虚树": [
+  "graph/virtual-tree.md"
+ ],
+ "上下界网络流": [
+  "graph/flow/bound.md"
+ ],
+ "最大流": [
+  "graph/flow/max-flow.md"
+ ],
+ "最小割": [
+  "graph/flow/min-cut.md"
+ ],
+ "费用流": [
+  "graph/flow/min-cost.md"
+ ],
+ "割点和桥": [
+  "graph/cut.md"
+ ],
+ "双连通分量": [
+  "graph/bcc.md"
+ ],
+ "圆方树": [
+  "graph/block-forest.md"
+ ],
+ "强连通分量": [
+  "graph/scc.md"
+ ],
+ "点/边连通度": [
+  "graph/connectivity.md"
+ ],
+ "AC 自动机": [
+  "string/ac-automaton.md"
+ ],
+ "Boyer–Moore 算法": [
+  "string/bm.md"
+ ],
+ "Lyndon 分解": [
+  "string/lyndon.md"
+ ],
+ "Main–Lorentz 算法": [
+  "string/main-lorentz.md"
+ ],
+ "Manacher": [
+  "string/manacher.md"
+ ],
+ "Z 函数（扩展 KMP）": [
+  "string/z-func.md"
+ ],
+ "前缀函数与 KMP 算法": [
+  "string/kmp.md"
+ ],
+ "后缀平衡树": [
+  "string/suffix-bst.md"
+ ],
+ "后缀数组 (SA)": [
+  "string/sa.md",
+  "string/sa-optimal-inplace.md"
+ ],
+ "后缀树": [
+  "string/suffix-tree.md"
+ ],
+ "后缀自动机 (SAM)": [
+  "string/sam.md"
+ ],
+ "回文树": [
+  "string/pam.md"
+ ],
+ "字典树 (Trie)": [
+  "string/trie.md"
+ ],
+ "字符串匹配": [
+  "string/match.md"
+ ],
+ "字符串哈希": [
+  "string/hash.md"
+ ],
+ "字符串基础": [
+  "string/basic.md"
+ ],
+ "广义后缀自动机": [
+  "string/general-sam.md"
+ ],
+ "序列自动机": [
+  "string/seq-automaton.md"
+ ],
+ "最小表示法": [
+  "string/minimal-string.md"
+ ],
+ "标准库": [
+  "string/lib-func.md"
+ ],
+ "自动机": [
+  "string/automaton.md"
+ ],
+ "最优原地后缀排序算法": [
+  "string/sa-optimal-inplace.md"
+ ],
+ "A*": [
+  "search/astar.md"
+ ],
+ "Alpha-Beta 剪枝": [
+  "search/alpha-beta.md"
+ ],
+ "BFS（搜索）": [
+  "search/bfs.md"
+ ],
+ "DFS（搜索）": [
+  "search/dfs.md"
+ ],
+ "Dancing Links": [
+  "search/dlx.md"
+ ],
+ "IDA*": [
+  "search/idastar.md"
+ ],
+ "优化": [
+  "search/opt.md"
+ ],
+ "双向搜索": [
+  "search/bidirectional.md"
+ ],
+ "启发式搜索": [
+  "search/heuristic.md"
+ ],
+ "回溯法": [
+  "search/backtracking.md"
+ ],
+ "迭代加深搜索": [
+  "search/iterative.md"
+ ],
+ "Berlekamp–Massey 算法": [
+  "math/berlekamp-massey.md"
+ ],
+ "Schreier–Sims 算法": [
+  "math/schreier-sims.md"
+ ],
+ "二进制集合操作": [
+  "math/binary-set.md"
+ ],
+ "位运算": [
+  "math/bit.md"
+ ],
+ "傅里叶-莫茨金消元法": [
+  "math/fourier-motzkin-elimination.md"
+ ],
+ "博弈论": [
+  "math/game-theory/intro.md",
+  "math/game-theory/impartial-game.md",
+  "math/game-theory/partizan-game.md",
+  "math/game-theory/misere-game.md"
+ ],
+ "复数": [
+  "math/complex.md"
+ ],
+ "多项式与生成函数": [
+  "math/poly/intro.md",
+  "math/poly/fundamental.md",
+  "math/poly/fft.md",
+  "math/poly/ntt.md",
+  "math/poly/fwt.md",
+  "math/poly/czt.md",
+  "math/poly/newton.md",
+  "math/poly/multipoint-eval-interpolation.md",
+  "math/poly/elementary-func.md",
+  "math/poly/linear-recurrence.md",
+  "math/poly/shift.md",
+  "math/poly/symbolic-method.md",
+  "math/poly/ogf.md",
+  "math/poly/egf.md",
+  "math/poly/dgf.md"
+ ],
+ "平衡三进制": [
+  "math/balanced-ternary.md"
+ ],
+ "序理论": [
+  "math/order-theory.md"
+ ],
+ "弧度制与坐标系": [
+  "math/coordinate.md"
+ ],
+ "快速幂": [
+  "math/binary-exponentiation.md"
+ ],
+ "数值算法": [
+  "math/numerical/lagrange.md",
+  "math/numerical/integral.md",
+  "math/numerical/gauss.md",
+  "math/numerical/newton.md"
+ ],
+ "数论": [
+  "math/number-theory/basic.md",
+  "math/number-theory/prime.md",
+  "math/number-theory/gcd.md",
+  "math/number-theory/sqrt-decomposition.md",
+  "math/number-theory/euler-totient.md",
+  "math/number-theory/sieve.md",
+  "math/number-theory/meissel-lehmer.md",
+  "math/number-theory/pollard-rho.md",
+  "math/number-theory/bezouts.md",
+  "math/number-theory/euclidean.md",
+  "math/number-theory/fermat.md",
+  "math/number-theory/inverse.md",
+  "math/number-theory/linear-equation.md",
+  "math/number-theory/crt.md",
+  "math/number-theory/lift-the-exponent.md",
+  "math/number-theory/wilson.md",
+  "math/number-theory/lucas.md",
+  "math/number-theory/congruence-equation.md",
+  "math/number-theory/quad-residue.md",
+  "math/number-theory/primitive-root.md",
+  "math/number-theory/discrete-logarithm.md",
+  "math/number-theory/residue.md",
+  "math/number-theory/mobius.md",
+  "math/number-theory/du.md",
+  "math/number-theory/powerful-number.md",
+  "math/number-theory/min-25.md",
+  "math/number-theory/zhou.md",
+  "math/number-theory/continued-fraction.md",
+  "math/number-theory/stern-brocot.md",
+  "math/number-theory/quadratic.md",
+  "math/number-theory/periodic-continued-fraction.md",
+  "math/number-theory/pell-equation.md"
+ ],
+ "杨氏矩阵": [
+  "math/young-tableau.md"
+ ],
+ "概率论": [
+  "math/probability/basic-conception.md",
+  "math/probability/conditional-probability.md",
+  "math/probability/random-variable.md",
+  "math/probability/exp-var.md",
+  "math/probability/concentration-inequality.md"
+ ],
+ "符号": [
+  "math/notation.md"
+ ],
+ "线性代数": [
+  "math/linear-algebra/index.md",
+  "math/linear-algebra/vector.md",
+  "math/linear-algebra/product.md",
+  "math/linear-algebra/matrix.md",
+  "math/linear-algebra/elementary-operations.md",
+  "math/linear-algebra/determinant.md",
+  "math/linear-algebra/vector-space.md",
+  "math/linear-algebra/basis.md",
+  "math/linear-algebra/linear-mapping.md",
+  "math/linear-algebra/char-poly.md",
+  "math/linear-algebra/diagonalization.md",
+  "math/linear-algebra/jordan.md"
+ ],
+ "线性规划": [
+  "math/linear-programming.md",
+  "math/simplex.md"
+ ],
+ "组合数学": [
+  "math/combinatorics/combination.md",
+  "math/combinatorics/drawer-principle.md",
+  "math/combinatorics/inclusion-exclusion-principle.md",
+  "math/combinatorics/cantor.md",
+  "math/combinatorics/fibonacci.md",
+  "math/combinatorics/derangement.md",
+  "math/combinatorics/catalan.md",
+  "math/combinatorics/stirling.md",
+  "math/combinatorics/bell.md",
+  "math/combinatorics/bernoulli.md",
+  "math/combinatorics/entringer.md",
+  "math/combinatorics/eulerian.md",
+  "math/combinatorics/partition.md",
+  "math/combinatorics/vandermonde-convolution.md",
+  "math/combinatorics/graph-enumeration.md"
+ ],
+ "置换和排列": [
+  "math/permutation.md"
+ ],
+ "群论": [
+  "math/group-theory.md",
+  "math/permutation-group.md"
+ ],
+ "进位制": [
+  "math/base.md"
+ ],
+ "高精度计算": [
+  "math/bignum.md"
+ ],
+ "公平组合游戏": [
+  "math/game-theory/impartial-game.md"
+ ],
+ "反常游戏": [
+  "math/game-theory/misere-game.md"
+ ],
+ "非公平组合游戏": [
+  "math/game-theory/partizan-game.md"
+ ],
+ "Chirp Z 变换": [
+  "math/poly/czt.md"
+ ],
+ "代数基本定理": [
+  "math/poly/fundamental.md"
+ ],
+ "多项式初等函数": [
+  "math/poly/elementary-func.md"
+ ],
+ "多项式多点求值|快速插值": [
+  "math/poly/multipoint-eval-interpolation.md"
+ ],
+ "多项式平移|连续点值平移": [
+  "math/poly/shift.md"
+ ],
+ "多项式牛顿迭代": [
+  "math/poly/newton.md"
+ ],
+ "常系数齐次线性递推": [
+  "math/poly/linear-recurrence.md"
+ ],
+ "快速傅里叶变换": [
+  "math/poly/fft.md"
+ ],
+ "快速数论变换": [
+  "math/poly/ntt.md"
+ ],
+ "快速沃尔什变换": [
+  "math/poly/fwt.md"
+ ],
+ "指数生成函数": [
+  "math/poly/egf.md"
+ ],
+ "普通生成函数": [
+  "math/poly/ogf.md"
+ ],
+ "狄利克雷生成函数": [
+  "math/poly/dgf.md"
+ ],
+ "符号化方法": [
+  "math/poly/symbolic-method.md"
+ ],
+ "拉格朗日插值": [
+  "math/numerical/lagrange.md"
+ ],
+ "数值积分": [
+  "math/numerical/integral.md"
+ ],
+ "牛顿迭代法": [
+  "math/numerical/newton.md"
+ ],
+ "高斯消元": [
+  "math/numerical/gauss.md"
+ ],
+ "Meissel–Lehmer 算法": [
+  "math/number-theory/meissel-lehmer.md"
+ ],
+ "Min_25 筛": [
+  "math/number-theory/min-25.md"
+ ],
+ "Pell 方程": [
+  "math/number-theory/pell-equation.md"
+ ],
+ "Powerful Number 筛": [
+  "math/number-theory/powerful-number.md"
+ ],
+ "Stern–Brocot 树与 Farey 序列": [
+  "math/number-theory/stern-brocot.md"
+ ],
+ "中国剩余定理": [
+  "math/number-theory/crt.md"
+ ],
+ "乘法逆元": [
+  "math/number-theory/inverse.md"
+ ],
+ "二次剩余": [
+  "math/number-theory/quad-residue.md"
+ ],
+ "二次域": [
+  "math/number-theory/quadratic.md"
+ ],
+ "分解质因数": [
+  "math/number-theory/pollard-rho.md"
+ ],
+ "剩余": [
+  "math/number-theory/residue.md"
+ ],
+ "升幂引理": [
+  "math/number-theory/lift-the-exponent.md"
+ ],
+ "卢卡斯定理": [
+  "math/number-theory/lucas.md"
+ ],
+ "原根": [
+  "math/number-theory/primitive-root.md"
+ ],
+ "同余方程": [
+  "math/number-theory/congruence-equation.md"
+ ],
+ "威尔逊定理": [
+  "math/number-theory/wilson.md"
+ ],
+ "循环连分数": [
+  "math/number-theory/periodic-continued-fraction.md"
+ ],
+ "数论分块": [
+  "math/number-theory/sqrt-decomposition.md"
+ ],
+ "数论基础": [
+  "math/number-theory/basic.md"
+ ],
+ "最大公约数": [
+  "math/number-theory/gcd.md"
+ ],
+ "杜教筛": [
+  "math/number-theory/du.md"
+ ],
+ "欧拉函数": [
+  "math/number-theory/euler-totient.md"
+ ],
+ "欧拉定理 & 费马小定理": [
+  "math/number-theory/fermat.md"
+ ],
+ "洲阁筛": [
+  "math/number-theory/zhou.md"
+ ],
+ "离散对数": [
+  "math/number-theory/discrete-logarithm.md"
+ ],
+ "筛法": [
+  "math/number-theory/sieve.md"
+ ],
+ "类欧几里德算法": [
+  "math/number-theory/euclidean.md"
+ ],
+ "素数": [
+  "math/number-theory/prime.md"
+ ],
+ "线性同余方程": [
+  "math/number-theory/linear-equation.md"
+ ],
+ "莫比乌斯反演": [
+  "math/number-theory/mobius.md"
+ ],
+ "裴蜀定理": [
+  "math/number-theory/bezouts.md"
+ ],
+ "连分数": [
+  "math/number-theory/continued-fraction.md"
+ ],
+ "基本概念": [
+  "math/probability/basic-conception.md"
+ ],
+ "条件概率与独立性": [
+  "math/probability/conditional-probability.md"
+ ],
+ "概率不等式": [
+  "math/probability/concentration-inequality.md"
+ ],
+ "随机变量": [
+  "math/probability/random-variable.md"
+ ],
+ "随机变量的数字特征": [
+  "math/probability/exp-var.md"
+ ],
+ "Jordan标准型": [
+  "math/linear-algebra/jordan.md"
+ ],
+ "内积和外积": [
+  "math/linear-algebra/product.md"
+ ],
+ "初等变换": [
+  "math/linear-algebra/elementary-operations.md"
+ ],
+ "向量": [
+  "math/linear-algebra/vector.md"
+ ],
+ "对角化": [
+  "math/linear-algebra/diagonalization.md"
+ ],
+ "特征多项式": [
+  "math/linear-algebra/char-poly.md"
+ ],
+ "矩阵": [
+  "math/linear-algebra/matrix.md"
+ ],
+ "线性基": [
+  "math/linear-algebra/basis.md"
+ ],
+ "线性映射": [
+  "math/linear-algebra/linear-mapping.md"
+ ],
+ "线性空间": [
+  "math/linear-algebra/vector-space.md"
+ ],
+ "行列式": [
+  "math/linear-algebra/determinant.md"
+ ],
+ "单纯形算法": [
+  "math/simplex.md"
+ ],
+ "Entringer Number": [
+  "math/combinatorics/entringer.md"
+ ],
+ "Eulerian Number": [
+  "math/combinatorics/eulerian.md"
+ ],
+ "伯努利数": [
+  "math/combinatorics/bernoulli.md"
+ ],
+ "分拆数": [
+  "math/combinatorics/partition.md"
+ ],
+ "卡特兰数": [
+  "math/combinatorics/catalan.md"
+ ],
+ "图论计数": [
+  "math/combinatorics/graph-enumeration.md"
+ ],
+ "容斥原理": [
+  "math/combinatorics/inclusion-exclusion-principle.md"
+ ],
+ "康托展开": [
+  "math/combinatorics/cantor.md"
+ ],
+ "抽屉原理": [
+  "math/combinatorics/drawer-principle.md"
+ ],
+ "排列组合": [
+  "math/combinatorics/combination.md"
+ ],
+ "斐波那契数列": [
+  "math/combinatorics/fibonacci.md"
+ ],
+ "斯特林数": [
+  "math/combinatorics/stirling.md"
+ ],
+ "范德蒙德卷积": [
+  "math/combinatorics/vandermonde-convolution.md"
+ ],
+ "贝尔数": [
+  "math/combinatorics/bell.md"
+ ],
+ "错位排列": [
+  "math/combinatorics/derangement.md"
+ ],
+ "置换群": [
+  "math/permutation-group.md"
+ ],
+ "K-D Tree": [
+  "ds/kdt.md"
+ ],
+ "PQ 树": [
+  "ds/pq-tree.md"
+ ],
+ "ST 表": [
+  "ds/sparse-table.md"
+ ],
+ "二叉搜索树 & 平衡树": [
+  "ds/bst.md"
+ ],
+ "划分树": [
+  "ds/dividing.md"
+ ],
+ "动态树": [
+  "ds/lct.md",
+  "ds/ett.md",
+  "ds/top-tree.md"
+ ],
+ "区间最值操作 & 区间历史最值": [
+  "ds/seg-beats.md"
+ ],
+ "单调栈": [
+  "ds/monotonous-stack.md"
+ ],
+ "单调队列": [
+  "ds/monotonous-queue.md"
+ ],
+ "可持久化数据结构": [
+  "ds/persistent.md",
+  "ds/persistent-seg.md",
+  "ds/persistent-block-array.md",
+  "ds/persistent-balanced.md",
+  "ds/persistent-trie.md",
+  "ds/persistent-heap.md"
+ ],
+ "哈希表": [
+  "ds/hash.md"
+ ],
+ "块状数据结构": [
+  "ds/decompose.md",
+  "ds/block-array.md",
+  "ds/block-list.md",
+  "ds/tree-decompose.md",
+  "ds/sqrt-tree.md"
+ ],
+ "堆": [
+  "lang/pb-ds/pq.md"
+ ],
+ "并查集": [
+  "ds/dsu.md"
+ ],
+ "手指树": [
+  "ds/finger-tree.md"
+ ],
+ "李超线段树": [
+  "ds/li-chao-tree.md"
+ ],
+ "析合树": [
+  "ds/divide-combine.md"
+ ],
+ "栈": [
+  "ds/stack.md"
+ ],
+ "树套树": [
+  "ds/seg-in-seg.md",
+  "ds/seg-in-balanced.md",
+  "ds/balanced-in-seg.md",
+  "ds/seg-in-bit.md",
+  "ds/bit-in-block-array.md"
+ ],
+ "树状数组": [
+  "ds/fenwick.md"
+ ],
+ "线段树": [
+  "ds/seg.md"
+ ],
+ "跳表": [
+  "ds/skiplist.md"
+ ],
+ "链表": [
+  "ds/linked-list.md"
+ ],
+ "队列": [
+  "ds/queue.md"
+ ],
+ "霍夫曼树": [
+  "ds/huffman-tree.md"
+ ],
+ "2-3 树": [
+  "ds/2-3-tree.md"
+ ],
+ "AA 树": [
+  "ds/aa-tree.md"
+ ],
+ "AVL 树": [
+  "ds/avl.md"
+ ],
+ "B 树": [
+  "ds/b-tree.md"
+ ],
+ "B+ 树": [
+  "ds/bplus-tree.md"
+ ],
+ "Leafy Tree": [
+  "ds/leafy-tree.md"
+ ],
+ "Size Balanced Tree": [
+  "ds/sbt.md"
+ ],
+ "Splay 树": [
+  "ds/splay.md"
+ ],
+ "Treap": [
+  "ds/treap.md"
+ ],
+ "WBLT": [
+  "ds/wblt.md"
+ ],
+ "左偏红黑树": [
+  "ds/llrbt.md"
+ ],
+ "替罪羊树": [
+  "ds/sgt.md"
+ ],
+ "笛卡尔树": [
+  "ds/cartesian-tree.md"
+ ],
+ "红黑树": [
+  "ds/rbtree.md"
+ ],
+ "Euler Tour Tree": [
+  "ds/ett.md"
+ ],
+ "Link Cut Tree": [
+  "ds/lct.md"
+ ],
+ "Top Tree": [
+  "ds/top-tree.md"
+ ],
+ "可持久化可并堆": [
+  "ds/persistent-heap.md"
+ ],
+ "可持久化块状数组": [
+  "ds/persistent-block-array.md"
+ ],
+ "可持久化字典树": [
+  "ds/persistent-trie.md"
+ ],
+ "可持久化平衡树": [
+  "ds/persistent-balanced.md"
+ ],
+ "可持久化线段树": [
+  "ds/persistent-seg.md"
+ ],
+ "Sqrt Tree": [
+  "ds/sqrt-tree.md"
+ ],
+ "分块思想": [
+  "ds/decompose.md"
+ ],
+ "块状数组": [
+  "ds/block-array.md"
+ ],
+ "块状链表": [
+  "ds/block-list.md"
+ ],
+ "树分块": [
+  "ds/tree-decompose.md"
+ ],
+ "二叉堆": [
+  "ds/binary-heap.md"
+ ],
+ "左偏树": [
+  "ds/leftist-tree.md"
+ ],
+ "配对堆": [
+  "ds/pairing-heap.md"
+ ],
+ "并查集复杂度": [
+  "ds/dsu-complexity.md"
+ ],
+ "分块套树状数组": [
+  "ds/bit-in-block-array.md"
+ ],
+ "平衡树套线段树": [
+  "ds/seg-in-balanced.md"
+ ],
+ "树状数组套权值线段树": [
+  "ds/seg-in-bit.md"
+ ],
+ "线段树套平衡树": [
+  "ds/balanced-in-seg.md"
+ ],
+ "线段树套线段树": [
+  "ds/seg-in-seg.md"
+ ],
+ "15-puzzle": [
+  "misc/15-puzzle.md"
+ ],
+ "Garsia–Wachs 算法": [
+  "misc/garsia-wachs.md"
+ ],
+ "Kahan 求和": [
+  "misc/kahan-summation.md"
+ ],
+ "主元素问题": [
+  "misc/main-element.md"
+ ],
+ "分数规划": [
+  "misc/frac-programming.md"
+ ],
+ "双指针": [
+  "misc/two-pointer.md"
+ ],
+ "在一台机器上规划任务": [
+  "misc/job-order.md"
+ ],
+ "字节顺序": [
+  "misc/endianness.md"
+ ],
+ "悬线法": [
+  "misc/hoverline.md"
+ ],
+ "格雷码": [
+  "misc/gray-code.md"
+ ],
+ "珂朵莉树/颜色段均摊": [
+  "misc/odt.md"
+ ],
+ "离散化": [
+  "misc/discrete.md"
+ ],
+ "离线算法": [
+  "misc/offline.md",
+  "misc/cdq-divide.md",
+  "misc/parallel-binsearch.md",
+  "misc/mo-algo-intro.md",
+  "misc/mo-algo.md",
+  "misc/modifiable-mo-algo.md",
+  "misc/mo-algo-on-tree.md",
+  "misc/rollback-mo-algo.md",
+  "misc/mo-algo-2dimen.md",
+  "misc/mo-algo-secondary-offline.md",
+  "misc/mo-algo-with-bitset.md"
+ ],
+ "约瑟夫问题": [
+  "misc/josephus.md"
+ ],
+ "表达式求值": [
+  "misc/expression.md"
+ ],
+ "计算理论基础": [
+  "misc/cc-basic.md"
+ ],
+ "随机化": [
+  "misc/random.md",
+  "misc/rand-technique.md",
+  "misc/hill-climbing.md",
+  "misc/simulated-annealing.md"
+ ],
+ "CDQ 分治": [
+  "misc/cdq-divide.md"
+ ],
+ "整体二分": [
+  "misc/parallel-binsearch.md"
+ ],
+ "莫队算法": [
+  "misc/mo-algo-intro.md",
+  "misc/mo-algo.md",
+  "misc/modifiable-mo-algo.md",
+  "misc/mo-algo-on-tree.md",
+  "misc/rollback-mo-algo.md",
+  "misc/mo-algo-2dimen.md",
+  "misc/mo-algo-secondary-offline.md",
+  "misc/mo-algo-with-bitset.md"
+ ],
+ "模拟退火": [
+  "misc/simulated-annealing.md"
+ ],
+ "爬山算法": [
+  "misc/hill-climbing.md"
+ ],
+ "随机函数": [
+  "misc/random.md"
+ ],
+ "随机化技巧": [
+  "misc/rand-technique.md"
+ ],
+ "二分": [
+  "basic/binary.md"
+ ],
+ "倍增": [
+  "basic/binary-lifting.md"
+ ],
+ "前缀和 & 差分": [
+  "basic/prefix-sum.md"
+ ],
+ "复杂度": [
+  "basic/complexity.md"
+ ],
+ "排序": [
+  "basic/sort-intro.md",
+  "basic/selection-sort.md",
+  "basic/bubble-sort.md",
+  "basic/insertion-sort.md",
+  "basic/counting-sort.md",
+  "basic/radix-sort.md",
+  "basic/quick-sort.md",
+  "basic/merge-sort.md",
+  "basic/heap-sort.md",
+  "basic/bucket-sort.md",
+  "basic/shell-sort.md",
+  "basic/tournament-sort.md",
+  "basic/tim-sort.md",
+  "basic/stl-sort.md",
+  "basic/use-of-sort.md"
+ ],
+ "构造": [
+  "basic/construction.md"
+ ],
+ "枚举": [
+  "basic/enumerate.md"
+ ],
+ "模拟": [
+  "basic/simulate.md"
+ ],
+ "贪心": [
+  "basic/greedy.md"
+ ],
+ "递归 & 分治": [
+  "basic/divide-and-conquer.md"
+ ],
+ "tim排序": [
+  "basic/tim-sort.md"
+ ],
+ "冒泡排序": [
+  "basic/bubble-sort.md"
+ ],
+ "基数排序": [
+  "basic/radix-sort.md"
+ ],
+ "堆排序": [
+  "basic/heap-sort.md"
+ ],
+ "希尔排序": [
+  "basic/shell-sort.md"
+ ],
+ "归并排序": [
+  "basic/merge-sort.md"
+ ],
+ "快速排序": [
+  "basic/quick-sort.md"
+ ],
+ "排序应用": [
+  "basic/use-of-sort.md"
+ ],
+ "排序相关 STL": [
+  "basic/stl-sort.md"
+ ],
+ "插入排序": [
+  "basic/insertion-sort.md"
+ ],
+ "桶排序": [
+  "basic/bucket-sort.md"
+ ],
+ "计数排序": [
+  "basic/counting-sort.md"
+ ],
+ "选择排序": [
+  "basic/selection-sort.md"
+ ],
+ "锦标赛排序": [
+  "basic/tournament-sort.md"
+ ],
+ "Pick 定理": [
+  "geometry/pick.md"
+ ],
+ "三维计算几何基础": [
+  "geometry/3d.md"
+ ],
+ "三角剖分": [
+  "geometry/triangulation.md"
+ ],
+ "二维计算几何基础": [
+  "geometry/2d.md"
+ ],
+ "凸包": [
+  "geometry/convex-hull.md"
+ ],
+ "半平面交": [
+  "geometry/half-plane.md"
+ ],
+ "反演变换": [
+  "geometry/inverse.md"
+ ],
+ "平面最近点对": [
+  "geometry/nearest-points.md"
+ ],
+ "扫描线": [
+  "geometry/scanning.md"
+ ],
+ "旋转卡壳": [
+  "geometry/rotating-calipers.md"
+ ],
+ "计算几何杂项": [
+  "geometry/misc.md"
+ ],
+ "距离": [
+  "geometry/distance.md"
+ ],
+ "随机增量法": [
+  "geometry/random-incremental.md"
+ ]
+}

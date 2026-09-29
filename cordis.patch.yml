@@ -1,0 +1,10 @@
+# acmer-coach 组合层（bundle 形态）。
+#
+# ⚠️ 两条路**不能并存**：这份 insert 和 profile 的 cordis.patch.yml 里再来
+# 一条 insert，插件就会被挂两次。profile 那边现在是空的（留了说明）。
+#
+# ⚠️ id 必须和 index.js 导出的 `name` 逐字相同，name 必须和**包名**相同 ——
+# 对不上不会报错，工具会**静默不注册**，界面上完全看不出区别。
+- insert:
+    - id: acmer-coach
+      name: 'acmer-coach'

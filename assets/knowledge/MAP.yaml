@@ -1,0 +1,2540 @@
+# ══════════════════════════════════════════════════════════════
+# MAP.yaml — 教练地图 v3（前置 = depends，分类 = parent）
+#
+# 生成方式：coach/build_map.py（OI-wiki 导航 351 条 + knowledge/DEPENDS.yaml）
+#   ⚠️ 不要手改本文件 —— 改 DEPENDS.yaml 再重跑 build_map.py。
+#
+# 结构约定：
+#   depends  前置。学这个之前必须先掌握的直接前置。空列表 = 确认的根节点，
+#            null = 还没铺（**不是根，是不知道**，别把它排到最前面）。
+#   parent   分类归属，**只用于分组显示，不是前置**。
+#            「树上问题」是抽屉不是知识点 —— 它不参与任何依赖计算。
+#   tier     这个知识点重不重要：core/normal/rare/skip。
+#            来自 knowledge/NODE_META.yaml（人手维护），本文件只做合并。
+#   entry    题池的 p25，≈「什么水平开始学得起」。**只有有题池的节点才有**。
+#            来自 knowledge/NODE_ENTRY.yaml（机器算，跑 build-node-meta.mjs）。
+# ══════════════════════════════════════════════════════════════
+
+meta:
+  version: 3
+  source: OI-wiki 导航（mkdocs.yml）
+  node_count: 349
+  edge_count: 401
+  depends_covered: 349/349
+
+nodes:
+  # ── 专题 ──
+  - id: RMQ
+    name: RMQ
+    domain: 专题
+    depends: [倍增, 线段树]
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 14        # entry 是拿这么多道题算出来的
+
+  - id: 并查集应用
+    name: 并查集应用
+    domain: 专题
+    depends: [并查集]
+    tier: normal
+
+  - id: 括号序列
+    name: 括号序列
+    domain: 专题
+    depends: [栈, 动态规划基础]
+    tier: normal
+
+  - id: 线段树与离线询问
+    name: 线段树与离线询问
+    domain: 专题
+    depends: [线段树, 离线算法]
+    tier: rare
+
+  # ── 动态规划 ──
+  - id: DAG 上的 DP
+    name: DAG 上的 DP
+    domain: 动态规划
+    depends: [动态规划基础, 拓扑排序]
+    tier: normal
+
+  - id: DP 优化
+    name: DP 优化
+    domain: 动态规划
+    depends: [动态规划基础]
+    tier: normal
+
+  - id: 其它 DP 方法
+    name: 其它 DP 方法
+    domain: 动态规划
+    depends: [动态规划基础]
+    tier: rare
+
+  - id: 动态 DP
+    name: 动态 DP
+    domain: 动态规划
+    depends: [动态规划基础, 树链剖分]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 28        # entry 是拿这么多道题算出来的
+
+  - id: 动态规划基础
+    name: 动态规划基础
+    domain: 动态规划
+    depends: [递归 & 分治, 枚举]
+    tier: core
+
+  - id: 区间 DP
+    name: 区间 DP
+    domain: 动态规划
+    depends: [动态规划基础]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 108        # entry 是拿这么多道题算出来的
+
+  - id: 插头 DP
+    name: 插头 DP
+    domain: 动态规划
+    depends: [状压 DP]
+    tier: rare
+
+  - id: 数位 DP
+    name: 数位 DP
+    domain: 动态规划
+    depends: [动态规划基础, 位运算]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 96        # entry 是拿这么多道题算出来的
+
+  - id: 树形 DP
+    name: 树形 DP
+    domain: 动态规划
+    depends: [动态规划基础, DFS（搜索）]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 334        # entry 是拿这么多道题算出来的
+
+  - id: 概率 DP
+    name: 概率 DP
+    domain: 动态规划
+    depends: [动态规划基础, 概率论]
+    tier: normal
+
+  - id: 状压 DP
+    name: 状压 DP
+    domain: 动态规划
+    depends: [动态规划基础]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 251        # entry 是拿这么多道题算出来的
+
+  - id: 背包 DP
+    name: 背包 DP
+    domain: 动态规划
+    depends: [动态规划基础]
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 250        # entry 是拿这么多道题算出来的
+
+  - id: 计数 DP
+    name: 计数 DP
+    domain: 动态规划
+    depends: [动态规划基础, 排列组合]
+    tier: normal
+
+  - id: 记忆化搜索
+    name: 记忆化搜索
+    domain: 动态规划
+    depends: [递归 & 分治]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 209        # entry 是拿这么多道题算出来的
+
+  - id: 单调队列/单调栈优化
+    name: 单调队列/单调栈优化
+    domain: 动态规划
+    parent: DP 优化
+    depends: [动态规划基础, 单调队列, 单调栈]
+    tier: normal
+
+  - id: 四边形不等式优化
+    name: 四边形不等式优化
+    domain: 动态规划
+    parent: DP 优化
+    depends: [区间 DP]
+    tier: rare
+
+  - id: 斜率优化
+    name: 斜率优化
+    domain: 动态规划
+    parent: DP 优化
+    depends: [单调队列/单调栈优化]
+    tier: normal
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 58        # entry 是拿这么多道题算出来的
+
+  - id: 状态设计优化
+    name: 状态设计优化
+    domain: 动态规划
+    parent: DP 优化
+    depends: [区间 DP]
+    tier: normal
+
+  # ── 图论 ──
+  - id: 2-SAT
+    name: 2-SAT
+    domain: 图论
+    depends: [强连通分量]
+    tier: normal
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 25        # entry 是拿这么多道题算出来的
+
+  - id: BFS（图论）
+    name: BFS（图论）
+    domain: 图论
+    depends: [图的存储, 队列]
+    tier: core
+
+  - id: DFS（图论）
+    name: DFS（图论）
+    domain: 图论
+    depends: [图的存储, 递归 & 分治]
+    tier: core
+
+  - id: LGV 引理
+    name: LGV 引理
+    domain: 图论
+    depends: [组合数学, 行列式]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 8        # entry 是拿这么多道题算出来的
+
+  - id: Prüfer 序列
+    name: Prüfer 序列
+    domain: 图论
+    depends: [树基础]
+    tier: normal
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 15        # entry 是拿这么多道题算出来的
+
+  - id: Stoer–Wagner 算法
+    name: Stoer–Wagner 算法
+    domain: 图论
+    depends: [图的存储]
+    tier: rare
+
+  - id: k 短路
+    name: k 短路
+    domain: 图论
+    depends: [最短路]
+    tier: rare
+
+  - id: 二分图
+    name: 二分图
+    domain: 图论
+    depends: [图的存储]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 230        # entry 是拿这么多道题算出来的
+
+  - id: 同余最短路
+    name: 同余最短路
+    domain: 图论
+    depends: [最短路, 线性同余方程]
+    tier: rare
+
+  - id: 哈密顿图
+    name: 哈密顿图
+    domain: 图论
+    depends: [图的存储]
+    tier: rare
+
+  - id: 图上随机游走
+    name: 图上随机游走
+    domain: 图论
+    depends: [图的存储, 概率论]
+    tier: rare
+
+  - id: 图的匹配
+    name: 图的匹配
+    domain: 图论
+    depends: [图论相关概念]
+    tier: rare
+
+  - id: 图的存储
+    name: 图的存储
+    domain: 图论
+    depends: [图论相关概念]
+    tier: core
+
+  - id: 图的着色
+    name: 图的着色
+    domain: 图论
+    depends: [图的存储]
+    tier: rare
+
+  - id: 图论相关概念
+    name: 图论相关概念
+    domain: 图论
+    depends: []
+    tier: core
+
+  - id: 差分约束
+    name: 差分约束
+    domain: 图论
+    depends: [最短路]
+    tier: normal
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 32        # entry 是拿这么多道题算出来的
+
+  - id: 平面图
+    name: 平面图
+    domain: 图论
+    depends: [欧拉图]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 15        # entry 是拿这么多道题算出来的
+
+  - id: 弦图
+    name: 弦图
+    domain: 图论
+    depends: [图的匹配]
+    tier: rare
+
+  - id: 拆点
+    name: 拆点
+    domain: 图论
+    depends: [网络流]
+    tier: normal
+
+  - id: 拓扑排序
+    name: 拓扑排序
+    domain: 图论
+    depends: [有向无环图]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 221        # entry 是拿这么多道题算出来的
+
+  - id: 支配树
+    name: 支配树
+    domain: 图论
+    depends: [DFS（图论）]
+    tier: rare
+
+  - id: 斯坦纳树
+    name: 斯坦纳树
+    domain: 图论
+    depends: [状压 DP]
+    tier: rare
+
+  - id: 最大团搜索算法
+    name: 最大团搜索算法
+    domain: 图论
+    depends: [图的存储, DFS（搜索）]
+    tier: rare
+
+  - id: 最小树形图
+    name: 最小树形图
+    domain: 图论
+    depends: [最小生成树]
+    tier: rare
+
+  - id: 最小环
+    name: 最小环
+    domain: 图论
+    depends: [最短路]
+    tier: rare
+
+  - id: 最小生成树
+    name: 最小生成树
+    domain: 图论
+    depends: [并查集, 排序]
+    tier: core
+
+  - id: 最小直径生成树
+    name: 最小直径生成树
+    domain: 图论
+    depends: [最小生成树, 最短路]
+    tier: rare
+
+  - id: 最短路
+    name: 最短路
+    domain: 图论
+    depends: [二叉堆, BFS（图论）]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 748        # entry 是拿这么多道题算出来的
+
+  - id: 有向无环图
+    name: 有向无环图
+    domain: 图论
+    depends: [图的存储]
+    tier: core
+
+  - id: 树上问题
+    name: 树上问题
+    domain: 图论
+    depends: [树基础]
+    tier: skip
+
+  - id: 欧拉图
+    name: 欧拉图
+    domain: 图论
+    depends: [图的存储]
+    tier: normal
+
+  - id: 环计数问题
+    name: 环计数问题
+    domain: 图论
+    depends: [图的存储]
+    tier: rare
+
+  - id: 矩阵树定理
+    name: 矩阵树定理
+    domain: 图论
+    depends: [高斯消元, 行列式]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 18        # entry 是拿这么多道题算出来的
+
+  - id: 网络流
+    name: 网络流
+    domain: 图论
+    depends: [BFS（图论）]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 361        # entry 是拿这么多道题算出来的
+
+  - id: 连通性相关
+    name: 连通性相关
+    domain: 图论
+    depends: [图的存储]
+    tier: core
+
+  - id: 一般图最大匹配
+    name: 一般图最大匹配
+    domain: 图论
+    parent: 图的匹配
+    depends: [增广路]
+    tier: rare
+
+  - id: 一般图最大权匹配
+    name: 一般图最大权匹配
+    domain: 图论
+    parent: 图的匹配
+    depends: [一般图最大匹配, 二分图最大权匹配]
+    tier: rare
+
+  - id: 二分图最大匹配
+    name: 二分图最大匹配
+    domain: 图论
+    parent: 图的匹配
+    depends: [增广路, 二分图]
+    tier: normal
+
+  - id: 二分图最大权匹配
+    name: 二分图最大权匹配
+    domain: 图论
+    parent: 图的匹配
+    depends: [二分图最大匹配]
+    tier: rare
+
+  - id: 图匹配
+    name: 图匹配
+    domain: 图论
+    parent: 图的匹配
+    depends: [图的匹配]
+    tier: rare
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 80        # entry 是拿这么多道题算出来的
+
+  - id: 增广路
+    name: 增广路
+    domain: 图论
+    parent: 图的匹配
+    depends: [图的匹配, DFS（图论）]
+    tier: normal
+
+  - id: AHU 算法
+    name: AHU 算法
+    domain: 图论
+    parent: 树上问题
+    depends: [树哈希]
+    tier: skip
+
+  - id: 动态树分治
+    name: 动态树分治
+    domain: 图论
+    parent: 树上问题
+    depends: [树分治]
+    tier: rare
+
+  - id: 最近公共祖先
+    name: 最近公共祖先
+    domain: 图论
+    parent: 树上问题
+    depends: [倍增, DFS（图论）]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 265        # entry 是拿这么多道题算出来的
+
+  - id: 树上启发式合并
+    name: 树上启发式合并
+    domain: 图论
+    parent: 树上问题
+    depends: [DFS（图论）]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 42        # entry 是拿这么多道题算出来的
+
+  - id: 树上随机游走
+    name: 树上随机游走
+    domain: 图论
+    parent: 树上问题
+    depends: [树基础, 概率论]
+    tier: rare
+
+  - id: 树分治
+    name: 树分治
+    domain: 图论
+    parent: 树上问题
+    depends: [DFS（图论）]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 25        # entry 是拿这么多道题算出来的
+
+  - id: 树哈希
+    name: 树哈希
+    domain: 图论
+    parent: 树上问题
+    depends: [树基础, 字符串哈希]
+    tier: normal
+
+  - id: 树基础
+    name: 树基础
+    domain: 图论
+    parent: 树上问题
+    depends: [图的存储]
+    tier: core
+
+  - id: 树的直径
+    name: 树的直径
+    domain: 图论
+    parent: 树上问题
+    depends: [树基础]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 46        # entry 是拿这么多道题算出来的
+
+  - id: 树的重心
+    name: 树的重心
+    domain: 图论
+    parent: 树上问题
+    depends: [树基础]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 14        # entry 是拿这么多道题算出来的
+
+  - id: 树链剖分
+    name: 树链剖分
+    domain: 图论
+    parent: 树上问题
+    depends: [DFS（图论）, 线段树]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 273        # entry 是拿这么多道题算出来的
+
+  - id: 虚树
+    name: 虚树
+    domain: 图论
+    parent: 树上问题
+    depends: [最近公共祖先]
+    tier: normal
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 47        # entry 是拿这么多道题算出来的
+
+  - id: 上下界网络流
+    name: 上下界网络流
+    domain: 图论
+    parent: 网络流
+    depends: [网络流]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 13        # entry 是拿这么多道题算出来的
+
+  - id: 最大流
+    name: 最大流
+    domain: 图论
+    parent: 网络流
+    depends: [网络流, 增广路]
+    tier: normal
+
+  - id: 最小割
+    name: 最小割
+    domain: 图论
+    parent: 网络流
+    depends: [网络流]
+    tier: normal
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 61        # entry 是拿这么多道题算出来的
+
+  - id: 费用流
+    name: 费用流
+    domain: 图论
+    parent: 网络流
+    depends: [网络流]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 111        # entry 是拿这么多道题算出来的
+
+  - id: 割点和桥
+    name: 割点和桥
+    domain: 图论
+    parent: 连通性相关
+    depends: [连通性相关, DFS（图论）]
+    tier: core
+
+  - id: 双连通分量
+    name: 双连通分量
+    domain: 图论
+    parent: 连通性相关
+    depends: [连通性相关, DFS（图论）]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 48        # entry 是拿这么多道题算出来的
+
+  - id: 圆方树
+    name: 圆方树
+    domain: 图论
+    parent: 连通性相关
+    depends: [双连通分量]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 31        # entry 是拿这么多道题算出来的
+
+  - id: 强连通分量
+    name: 强连通分量
+    domain: 图论
+    parent: 连通性相关
+    depends: [连通性相关, DFS（图论）]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 71        # entry 是拿这么多道题算出来的
+
+  - id: 点/边连通度
+    name: 点/边连通度
+    domain: 图论
+    parent: 连通性相关
+    depends: [连通性相关]
+    tier: rare
+
+  # ── 字符串 ──
+  - id: AC 自动机
+    name: AC 自动机
+    domain: 字符串
+    depends: [字典树 (Trie), 前缀函数与 KMP 算法]
+    tier: normal
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 51        # entry 是拿这么多道题算出来的
+
+  - id: Boyer–Moore 算法
+    name: Boyer–Moore 算法
+    domain: 字符串
+    depends: [字符串匹配]
+    tier: skip
+
+  - id: Lyndon 分解
+    name: Lyndon 分解
+    domain: 字符串
+    depends: [字符串基础]
+    tier: rare
+
+  - id: Main–Lorentz 算法
+    name: Main–Lorentz 算法
+    domain: 字符串
+    depends: [前缀函数与 KMP 算法]
+    tier: skip
+
+  - id: Manacher
+    name: Manacher
+    domain: 字符串
+    depends: [字符串匹配]
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 21        # entry 是拿这么多道题算出来的
+
+  - id: Z 函数（扩展 KMP）
+    name: Z 函数（扩展 KMP）
+    domain: 字符串
+    depends: [前缀函数与 KMP 算法]
+    tier: normal
+
+  - id: 前缀函数与 KMP 算法
+    name: 前缀函数与 KMP 算法
+    domain: 字符串
+    depends: [字符串匹配]
+    tier: core
+
+  - id: 后缀平衡树
+    name: 后缀平衡树
+    domain: 字符串
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: 后缀数组 (SA)
+    name: 后缀数组 (SA)
+    domain: 字符串
+    depends: [倍增, 基数排序]
+    tier: normal
+
+  - id: 后缀树
+    name: 后缀树
+    domain: 字符串
+    depends: [后缀自动机 (SAM)]
+    tier: skip
+
+  - id: 后缀自动机 (SAM)
+    name: 后缀自动机 (SAM)
+    domain: 字符串
+    depends: [字典树 (Trie), 自动机]
+    tier: rare
+
+  - id: 回文树
+    name: 回文树
+    domain: 字符串
+    depends: [字典树 (Trie)]
+    tier: rare
+
+  - id: 字典树 (Trie)
+    name: 字典树 (Trie)
+    domain: 字符串
+    depends: [字符串基础]
+    tier: normal
+
+  - id: 字符串匹配
+    name: 字符串匹配
+    domain: 字符串
+    depends: [字符串基础]
+    tier: normal
+
+  - id: 字符串哈希
+    name: 字符串哈希
+    domain: 字符串
+    depends: [字符串基础]
+    tier: core
+
+  - id: 字符串基础
+    name: 字符串基础
+    domain: 字符串
+    depends: []
+    tier: core
+
+  - id: 广义后缀自动机
+    name: 广义后缀自动机
+    domain: 字符串
+    depends: [后缀自动机 (SAM)]
+    tier: rare
+
+  - id: 序列自动机
+    name: 序列自动机
+    domain: 字符串
+    depends: [字符串基础]
+    tier: rare
+
+  - id: 最小表示法
+    name: 最小表示法
+    domain: 字符串
+    depends: [字符串基础]
+    tier: rare
+
+  - id: 标准库
+    name: 标准库
+    domain: 字符串
+    depends: [字符串基础]
+    tier: skip
+
+  - id: 自动机
+    name: 自动机
+    domain: 字符串
+    depends: [字符串基础]
+    tier: skip
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 233        # entry 是拿这么多道题算出来的
+
+  - id: 最优原地后缀排序算法
+    name: 最优原地后缀排序算法
+    domain: 字符串
+    parent: 后缀数组 (SA)
+    depends: [后缀数组 (SA)]
+    tier: skip
+
+  # ── 搜索 ──
+  - id: A*
+    name: A*
+    domain: 搜索
+    depends: [启发式搜索, 二叉堆]
+    tier: rare
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 22        # entry 是拿这么多道题算出来的
+
+  - id: Alpha-Beta 剪枝
+    name: Alpha-Beta 剪枝
+    domain: 搜索
+    depends: [优化]
+    tier: skip
+
+  - id: BFS（搜索）
+    name: BFS（搜索）
+    domain: 搜索
+    depends: [队列]
+    tier: core
+
+  - id: DFS（搜索）
+    name: DFS（搜索）
+    domain: 搜索
+    depends: [递归 & 分治]
+    tier: core
+
+  - id: Dancing Links
+    name: Dancing Links
+    domain: 搜索
+    depends: [DFS（搜索）]
+    tier: skip
+
+  - id: IDA*
+    name: IDA*
+    domain: 搜索
+    depends: [迭代加深搜索, A*]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 10        # entry 是拿这么多道题算出来的
+
+  - id: 优化
+    name: 优化
+    domain: 搜索
+    depends: [DFS（搜索）]
+    tier: skip
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 4599        # entry 是拿这么多道题算出来的
+
+  - id: 双向搜索
+    name: 双向搜索
+    domain: 搜索
+    depends: [BFS（搜索）]
+    tier: normal
+
+  - id: 启发式搜索
+    name: 启发式搜索
+    domain: 搜索
+    depends: [BFS（搜索）]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 8        # entry 是拿这么多道题算出来的
+
+  - id: 回溯法
+    name: 回溯法
+    domain: 搜索
+    depends: [DFS（搜索）]
+    tier: normal
+
+  - id: 迭代加深搜索
+    name: 迭代加深搜索
+    domain: 搜索
+    depends: [DFS（搜索）, BFS（搜索）]
+    tier: rare
+
+  # ── 数学 ──
+  - id: Berlekamp–Massey 算法
+    name: Berlekamp–Massey 算法
+    domain: 数学
+    depends: [常系数齐次线性递推]
+    tier: skip
+
+  - id: Schreier–Sims 算法
+    name: Schreier–Sims 算法
+    domain: 数学
+    depends: [群论]
+    tier: skip
+
+  - id: 二进制集合操作
+    name: 二进制集合操作
+    domain: 数学
+    depends: [位运算]
+    tier: normal
+
+  - id: 位运算
+    name: 位运算
+    domain: 数学
+    depends: []
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 504        # entry 是拿这么多道题算出来的
+
+  - id: 傅里叶-莫茨金消元法
+    name: 傅里叶-莫茨金消元法
+    domain: 数学
+    depends: [线性规划]
+    tier: skip
+
+  - id: 博弈论
+    name: 博弈论
+    domain: 数学
+    depends: []
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 417        # entry 是拿这么多道题算出来的
+
+  - id: 复数
+    name: 复数
+    domain: 数学
+    depends: []
+    tier: rare
+
+  - id: 多项式与生成函数
+    name: 多项式与生成函数
+    domain: 数学
+    depends: []
+    tier: rare
+
+  - id: 平衡三进制
+    name: 平衡三进制
+    domain: 数学
+    depends: [进位制]
+    tier: skip
+
+  - id: 序理论
+    name: 序理论
+    domain: 数学
+    depends: []
+    tier: skip
+
+  - id: 弧度制与坐标系
+    name: 弧度制与坐标系
+    domain: 数学
+    depends: []
+    tier: rare
+
+  - id: 快速幂
+    name: 快速幂
+    domain: 数学
+    depends: [倍增]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 350        # entry 是拿这么多道题算出来的
+
+  - id: 数值算法
+    name: 数值算法
+    domain: 数学
+    depends: []
+    tier: skip
+
+  - id: 数论
+    name: 数论
+    domain: 数学
+    depends: [数论基础]
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 1130        # entry 是拿这么多道题算出来的
+
+  - id: 杨氏矩阵
+    name: 杨氏矩阵
+    domain: 数学
+    depends: [排列组合]
+    tier: skip
+
+  - id: 概率论
+    name: 概率论
+    domain: 数学
+    depends: []
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 95        # entry 是拿这么多道题算出来的
+
+  - id: 符号
+    name: 符号
+    domain: 数学
+    depends: []
+    tier: skip
+
+  - id: 线性代数
+    name: 线性代数
+    domain: 数学
+    depends: []
+    tier: rare
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 267        # entry 是拿这么多道题算出来的
+
+  - id: 线性规划
+    name: 线性规划
+    domain: 数学
+    depends: []
+    tier: skip
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 15        # entry 是拿这么多道题算出来的
+
+  - id: 组合数学
+    name: 组合数学
+    domain: 数学
+    depends: []
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 1021        # entry 是拿这么多道题算出来的
+
+  - id: 置换和排列
+    name: 置换和排列
+    domain: 数学
+    depends: [组合数学]
+    tier: rare
+
+  - id: 群论
+    name: 群论
+    domain: 数学
+    depends: [置换群]
+    tier: skip
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 17        # entry 是拿这么多道题算出来的
+
+  - id: 进位制
+    name: 进位制
+    domain: 数学
+    depends: []
+    tier: normal
+
+  - id: 高精度计算
+    name: 高精度计算
+    domain: 数学
+    depends: [模拟, 字符串基础]
+    tier: normal
+
+  - id: 公平组合游戏
+    name: 公平组合游戏
+    domain: 数学
+    parent: 博弈论
+    depends: [博弈论]
+    tier: normal
+
+  - id: 反常游戏
+    name: 反常游戏
+    domain: 数学
+    parent: 博弈论
+    depends: [公平组合游戏]
+    tier: skip
+
+  - id: 非公平组合游戏
+    name: 非公平组合游戏
+    domain: 数学
+    parent: 博弈论
+    depends: [公平组合游戏]
+    tier: rare
+
+  - id: Chirp Z 变换
+    name: Chirp Z 变换
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [快速傅里叶变换]
+    tier: skip
+
+  - id: 代数基本定理
+    name: 代数基本定理
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [复数]
+    tier: skip
+
+  - id: 多项式初等函数
+    name: 多项式初等函数
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [复数, 多项式与生成函数]
+    tier: skip
+
+  - id: 多项式多点求值|快速插值
+    name: 多项式多点求值|快速插值
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [多项式与生成函数, 快速傅里叶变换]
+    tier: skip
+
+  - id: 多项式平移|连续点值平移
+    name: 多项式平移|连续点值平移
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [多项式与生成函数]
+    tier: skip
+
+  - id: 多项式牛顿迭代
+    name: 多项式牛顿迭代
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [多项式初等函数, 牛顿迭代法]
+    tier: skip
+
+  - id: 常系数齐次线性递推
+    name: 常系数齐次线性递推
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [矩阵, 快速幂]
+    tier: rare
+
+  - id: 快速傅里叶变换
+    name: 快速傅里叶变换
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [复数]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 196        # entry 是拿这么多道题算出来的
+
+  - id: 快速数论变换
+    name: 快速数论变换
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [快速傅里叶变换, 原根]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 215        # entry 是拿这么多道题算出来的
+
+  - id: 快速沃尔什变换
+    name: 快速沃尔什变换
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [快速傅里叶变换, 位运算]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 116        # entry 是拿这么多道题算出来的
+
+  - id: 指数生成函数
+    name: 指数生成函数
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [普通生成函数]
+    tier: rare
+
+  - id: 普通生成函数
+    name: 普通生成函数
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [组合数学]
+    tier: rare
+
+  - id: 狄利克雷生成函数
+    name: 狄利克雷生成函数
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [普通生成函数, 数论基础]
+    tier: skip
+
+  - id: 符号化方法
+    name: 符号化方法
+    domain: 数学
+    parent: 多项式与生成函数
+    depends: [指数生成函数]
+    tier: skip
+
+  - id: 拉格朗日插值
+    name: 拉格朗日插值
+    domain: 数学
+    parent: 数值算法
+    depends: [多项式与生成函数]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 10        # entry 是拿这么多道题算出来的
+
+  - id: 数值积分
+    name: 数值积分
+    domain: 数学
+    parent: 数值算法
+    depends: [数值算法]
+    tier: skip
+
+  - id: 牛顿迭代法
+    name: 牛顿迭代法
+    domain: 数学
+    parent: 数值算法
+    depends: [数值算法]
+    tier: skip
+
+  - id: 高斯消元
+    name: 高斯消元
+    domain: 数学
+    parent: 数值算法
+    depends: [矩阵]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 107        # entry 是拿这么多道题算出来的
+
+  - id: Meissel–Lehmer 算法
+    name: Meissel–Lehmer 算法
+    domain: 数学
+    parent: 数论
+    depends: [筛法, 数论分块]
+    tier: skip
+
+  - id: Min_25 筛
+    name: Min_25 筛
+    domain: 数学
+    parent: 数论
+    depends: [筛法, 杜教筛]
+    tier: skip
+
+  - id: Pell 方程
+    name: Pell 方程
+    domain: 数学
+    parent: 数论
+    depends: [连分数, 二次域]
+    tier: skip
+
+  - id: Powerful Number 筛
+    name: Powerful Number 筛
+    domain: 数学
+    parent: 数论
+    depends: [筛法, 莫比乌斯反演]
+    tier: skip
+
+  - id: Stern–Brocot 树与 Farey 序列
+    name: Stern–Brocot 树与 Farey 序列
+    domain: 数学
+    parent: 数论
+    depends: [连分数]
+    tier: skip
+
+  - id: 中国剩余定理
+    name: 中国剩余定理
+    domain: 数学
+    parent: 数论
+    depends: [线性同余方程]
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 14        # entry 是拿这么多道题算出来的
+
+  - id: 乘法逆元
+    name: 乘法逆元
+    domain: 数学
+    parent: 数论
+    depends: [欧拉定理 & 费马小定理, 线性同余方程]
+    tier: core
+
+  - id: 二次剩余
+    name: 二次剩余
+    domain: 数学
+    parent: 数论
+    depends: [乘法逆元]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 8        # entry 是拿这么多道题算出来的
+
+  - id: 二次域
+    name: 二次域
+    domain: 数学
+    parent: 数论
+    depends: [二次剩余]
+    tier: skip
+
+  - id: 分解质因数
+    name: 分解质因数
+    domain: 数学
+    parent: 数论
+    depends: [素数]
+    tier: normal
+
+  - id: 剩余
+    name: 剩余
+    domain: 数学
+    parent: 数论
+    depends: [同余方程]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 57        # entry 是拿这么多道题算出来的
+
+  - id: 升幂引理
+    name: 升幂引理
+    domain: 数学
+    parent: 数论
+    depends: [欧拉定理 & 费马小定理]
+    tier: rare
+
+  - id: 卢卡斯定理
+    name: 卢卡斯定理
+    domain: 数学
+    parent: 数论
+    depends: [排列组合, 乘法逆元]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 13        # entry 是拿这么多道题算出来的
+
+  - id: 原根
+    name: 原根
+    domain: 数学
+    parent: 数论
+    depends: [欧拉定理 & 费马小定理]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 13        # entry 是拿这么多道题算出来的
+
+  - id: 同余方程
+    name: 同余方程
+    domain: 数学
+    parent: 数论
+    depends: [数论基础]
+    tier: normal
+
+  - id: 威尔逊定理
+    name: 威尔逊定理
+    domain: 数学
+    parent: 数论
+    depends: [素数, 同余方程]
+    tier: rare
+
+  - id: 循环连分数
+    name: 循环连分数
+    domain: 数学
+    parent: 数论
+    depends: [连分数]
+    tier: skip
+
+  - id: 数论分块
+    name: 数论分块
+    domain: 数学
+    parent: 数论
+    depends: [数论基础]
+    tier: normal
+
+  - id: 数论基础
+    name: 数论基础
+    domain: 数学
+    parent: 数论
+    depends: []
+    tier: core
+
+  - id: 最大公约数
+    name: 最大公约数
+    domain: 数学
+    parent: 数论
+    depends: [数论基础]
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 114        # entry 是拿这么多道题算出来的
+
+  - id: 杜教筛
+    name: 杜教筛
+    domain: 数学
+    parent: 数论
+    depends: [莫比乌斯反演, 数论分块]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 17        # entry 是拿这么多道题算出来的
+
+  - id: 欧拉函数
+    name: 欧拉函数
+    domain: 数学
+    parent: 数论
+    depends: [分解质因数, 同余方程]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 70        # entry 是拿这么多道题算出来的
+
+  - id: 欧拉定理 & 费马小定理
+    name: 欧拉定理 & 费马小定理
+    domain: 数学
+    parent: 数论
+    depends: [欧拉函数]
+    tier: core
+
+  - id: 洲阁筛
+    name: 洲阁筛
+    domain: 数学
+    parent: 数论
+    depends: [筛法, 莫比乌斯反演]
+    tier: skip
+
+  - id: 离散对数
+    name: 离散对数
+    domain: 数学
+    parent: 数论
+    depends: [原根]
+    tier: rare
+
+  - id: 筛法
+    name: 筛法
+    domain: 数学
+    parent: 数论
+    depends: [素数]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 116        # entry 是拿这么多道题算出来的
+
+  - id: 类欧几里德算法
+    name: 类欧几里德算法
+    domain: 数学
+    parent: 数论
+    depends: [最大公约数, 数论分块]
+    tier: rare
+
+  - id: 素数
+    name: 素数
+    domain: 数学
+    parent: 数论
+    depends: [数论基础]
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 224        # entry 是拿这么多道题算出来的
+
+  - id: 线性同余方程
+    name: 线性同余方程
+    domain: 数学
+    parent: 数论
+    depends: [最大公约数, 同余方程]
+    tier: normal
+
+  - id: 莫比乌斯反演
+    name: 莫比乌斯反演
+    domain: 数学
+    parent: 数论
+    depends: [容斥原理, 欧拉函数]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 131        # entry 是拿这么多道题算出来的
+
+  - id: 裴蜀定理
+    name: 裴蜀定理
+    domain: 数学
+    parent: 数论
+    depends: [最大公约数]
+    tier: core
+
+  - id: 连分数
+    name: 连分数
+    domain: 数学
+    parent: 数论
+    depends: [数论基础]
+    tier: skip
+
+  - id: 基本概念
+    name: 基本概念
+    domain: 数学
+    parent: 概率论
+    depends: [概率论]
+    tier: rare
+
+  - id: 条件概率与独立性
+    name: 条件概率与独立性
+    domain: 数学
+    parent: 概率论
+    depends: [基本概念]
+    tier: rare
+
+  - id: 概率不等式
+    name: 概率不等式
+    domain: 数学
+    parent: 概率论
+    depends: [随机变量]
+    tier: skip
+
+  - id: 随机变量
+    name: 随机变量
+    domain: 数学
+    parent: 概率论
+    depends: [条件概率与独立性]
+    tier: rare
+
+  - id: 随机变量的数字特征
+    name: 随机变量的数字特征
+    domain: 数学
+    parent: 概率论
+    depends: [随机变量]
+    tier: rare
+
+  - id: Jordan标准型
+    name: Jordan标准型
+    domain: 数学
+    parent: 线性代数
+    depends: [对角化]
+    tier: skip
+
+  - id: 内积和外积
+    name: 内积和外积
+    domain: 数学
+    parent: 线性代数
+    depends: [向量]
+    tier: rare
+
+  - id: 初等变换
+    name: 初等变换
+    domain: 数学
+    parent: 线性代数
+    depends: [矩阵]
+    tier: skip
+
+  - id: 向量
+    name: 向量
+    domain: 数学
+    parent: 线性代数
+    depends: []
+    tier: skip
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 31        # entry 是拿这么多道题算出来的
+
+  - id: 对角化
+    name: 对角化
+    domain: 数学
+    parent: 线性代数
+    depends: [特征多项式]
+    tier: skip
+
+  - id: 特征多项式
+    name: 特征多项式
+    domain: 数学
+    parent: 线性代数
+    depends: [行列式, 线性映射]
+    tier: skip
+
+  - id: 矩阵
+    name: 矩阵
+    domain: 数学
+    parent: 线性代数
+    depends: [线性代数]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 333        # entry 是拿这么多道题算出来的
+
+  - id: 线性基
+    name: 线性基
+    domain: 数学
+    parent: 线性代数
+    depends: [位运算]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 79        # entry 是拿这么多道题算出来的
+
+  - id: 线性映射
+    name: 线性映射
+    domain: 数学
+    parent: 线性代数
+    depends: [线性空间]
+    tier: skip
+
+  - id: 线性空间
+    name: 线性空间
+    domain: 数学
+    parent: 线性代数
+    depends: [向量]
+    tier: skip
+
+  - id: 行列式
+    name: 行列式
+    domain: 数学
+    parent: 线性代数
+    depends: [初等变换]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 9        # entry 是拿这么多道题算出来的
+
+  - id: 单纯形算法
+    name: 单纯形算法
+    domain: 数学
+    parent: 线性规划
+    depends: [矩阵]
+    tier: skip
+
+  - id: Entringer Number
+    name: Entringer Number
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: skip
+
+  - id: Eulerian Number
+    name: Eulerian Number
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: skip
+
+  - id: 伯努利数
+    name: 伯努利数
+    domain: 数学
+    parent: 组合数学
+    depends: [指数生成函数]
+    tier: skip
+
+  - id: 分拆数
+    name: 分拆数
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: rare
+
+  - id: 卡特兰数
+    name: 卡特兰数
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: normal
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 13        # entry 是拿这么多道题算出来的
+
+  - id: 图论计数
+    name: 图论计数
+    domain: 数学
+    parent: 组合数学
+    depends: [组合数学, Prüfer 序列]
+    tier: rare
+
+  - id: 容斥原理
+    name: 容斥原理
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 224        # entry 是拿这么多道题算出来的
+
+  - id: 康托展开
+    name: 康托展开
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: normal
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 8        # entry 是拿这么多道题算出来的
+
+  - id: 抽屉原理
+    name: 抽屉原理
+    domain: 数学
+    parent: 组合数学
+    depends: [组合数学]
+    tier: normal
+
+  - id: 排列组合
+    name: 排列组合
+    domain: 数学
+    parent: 组合数学
+    depends: [组合数学]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 249        # entry 是拿这么多道题算出来的
+
+  - id: 斐波那契数列
+    name: 斐波那契数列
+    domain: 数学
+    parent: 组合数学
+    depends: [组合数学]
+    tier: normal
+
+  - id: 斯特林数
+    name: 斯特林数
+    domain: 数学
+    parent: 组合数学
+    depends: [容斥原理]
+    tier: normal
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 9        # entry 是拿这么多道题算出来的
+
+  - id: 范德蒙德卷积
+    name: 范德蒙德卷积
+    domain: 数学
+    parent: 组合数学
+    depends: [排列组合]
+    tier: rare
+
+  - id: 贝尔数
+    name: 贝尔数
+    domain: 数学
+    parent: 组合数学
+    depends: [斯特林数]
+    tier: rare
+
+  - id: 错位排列
+    name: 错位排列
+    domain: 数学
+    parent: 组合数学
+    depends: [容斥原理]
+    tier: rare
+
+  - id: 置换群
+    name: 置换群
+    domain: 数学
+    parent: 群论
+    depends: [置换和排列]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 13        # entry 是拿这么多道题算出来的
+
+  # ── 数据结构 ──
+  - id: K-D Tree
+    name: K-D Tree
+    domain: 数据结构
+    depends: [线段树]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 23        # entry 是拿这么多道题算出来的
+
+  - id: PQ 树
+    name: PQ 树
+    domain: 数据结构
+    depends: []
+    tier: skip
+
+  - id: ST 表
+    name: ST 表
+    domain: 数据结构
+    depends: [倍增]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 126        # entry 是拿这么多道题算出来的
+
+  - id: 二叉搜索树 & 平衡树
+    name: 二叉搜索树 & 平衡树
+    domain: 数据结构
+    depends: [递归 & 分治]
+    tier: normal
+
+  - id: 划分树
+    name: 划分树
+    domain: 数据结构
+    depends: [线段树]
+    tier: rare
+
+  - id: 动态树
+    name: 动态树
+    domain: 数据结构
+    depends: [Splay 树]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 113        # entry 是拿这么多道题算出来的
+
+  - id: 区间最值操作 & 区间历史最值
+    name: 区间最值操作 & 区间历史最值
+    domain: 数据结构
+    depends: [线段树]
+    tier: rare
+
+  - id: 单调栈
+    name: 单调栈
+    domain: 数据结构
+    depends: [栈]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 133        # entry 是拿这么多道题算出来的
+
+  - id: 单调队列
+    name: 单调队列
+    domain: 数据结构
+    depends: [队列]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 147        # entry 是拿这么多道题算出来的
+
+  - id: 可持久化数据结构
+    name: 可持久化数据结构
+    domain: 数据结构
+    depends: [线段树]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 36        # entry 是拿这么多道题算出来的
+
+  - id: 哈希表
+    name: 哈希表
+    domain: 数据结构
+    depends: [链表]
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 23        # entry 是拿这么多道题算出来的
+
+  - id: 块状数据结构
+    name: 块状数据结构
+    domain: 数据结构
+    depends: [前缀和 & 差分]
+    tier: normal
+
+  - id: 堆
+    name: 堆
+    domain: 数据结构
+    depends: []
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 126        # entry 是拿这么多道题算出来的
+
+  - id: 并查集
+    name: 并查集
+    domain: 数据结构
+    depends: []
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 640        # entry 是拿这么多道题算出来的
+
+  - id: 手指树
+    name: 手指树
+    domain: 数据结构
+    depends: [链表]
+    tier: skip
+
+  - id: 李超线段树
+    name: 李超线段树
+    domain: 数据结构
+    depends: [线段树]
+    tier: normal
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 38        # entry 是拿这么多道题算出来的
+
+  - id: 析合树
+    name: 析合树
+    domain: 数据结构
+    depends: [单调栈]
+    tier: skip
+
+  - id: 栈
+    name: 栈
+    domain: 数据结构
+    depends: []
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 290        # entry 是拿这么多道题算出来的
+
+  - id: 树套树
+    name: 树套树
+    domain: 数据结构
+    depends: [线段树]
+    tier: rare
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 46        # entry 是拿这么多道题算出来的
+
+  - id: 树状数组
+    name: 树状数组
+    domain: 数据结构
+    depends: [前缀和 & 差分, 倍增]
+    tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 667        # entry 是拿这么多道题算出来的
+
+  - id: 线段树
+    name: 线段树
+    domain: 数据结构
+    depends: [递归 & 分治]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 1563        # entry 是拿这么多道题算出来的
+
+  - id: 跳表
+    name: 跳表
+    domain: 数据结构
+    depends: [链表]
+    tier: skip
+
+  - id: 链表
+    name: 链表
+    domain: 数据结构
+    depends: []
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 76        # entry 是拿这么多道题算出来的
+
+  - id: 队列
+    name: 队列
+    domain: 数据结构
+    depends: []
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 290        # entry 是拿这么多道题算出来的
+
+  - id: 霍夫曼树
+    name: 霍夫曼树
+    domain: 数据结构
+    depends: [二叉堆]
+    tier: rare
+
+  - id: 2-3 树
+    name: 2-3 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: AA 树
+    name: AA 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: AVL 树
+    name: AVL 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: B 树
+    name: B 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: B+ 树
+    name: B+ 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [B 树]
+    tier: skip
+
+  - id: Leafy Tree
+    name: Leafy Tree
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: Size Balanced Tree
+    name: Size Balanced Tree
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: Splay 树
+    name: Splay 树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: normal
+
+  - id: Treap
+    name: Treap
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树, 二叉堆]
+    tier: normal
+
+  - id: WBLT
+    name: WBLT
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: 左偏红黑树
+    name: 左偏红黑树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [红黑树]
+    tier: skip
+
+  - id: 替罪羊树
+    name: 替罪羊树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: 笛卡尔树
+    name: 笛卡尔树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树, 单调栈]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 44        # entry 是拿这么多道题算出来的
+
+  - id: 红黑树
+    name: 红黑树
+    domain: 数据结构
+    parent: 二叉搜索树 & 平衡树
+    depends: [二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: Euler Tour Tree
+    name: Euler Tour Tree
+    domain: 数据结构
+    parent: 动态树
+    depends: [动态树]
+    tier: skip
+
+  - id: Link Cut Tree
+    name: Link Cut Tree
+    domain: 数据结构
+    parent: 动态树
+    depends: [动态树]
+    tier: rare
+
+  - id: Top Tree
+    name: Top Tree
+    domain: 数据结构
+    parent: 动态树
+    depends: [Link Cut Tree]
+    tier: skip
+
+  - id: 可持久化可并堆
+    name: 可持久化可并堆
+    domain: 数据结构
+    parent: 可持久化数据结构
+    depends: [可持久化数据结构, 左偏树]
+    tier: rare
+
+  - id: 可持久化块状数组
+    name: 可持久化块状数组
+    domain: 数据结构
+    parent: 可持久化数据结构
+    depends: [可持久化数据结构, 块状数组]
+    tier: rare
+
+  - id: 可持久化字典树
+    name: 可持久化字典树
+    domain: 数据结构
+    parent: 可持久化数据结构
+    depends: [可持久化数据结构, 字典树 (Trie)]
+    tier: rare
+
+  - id: 可持久化平衡树
+    name: 可持久化平衡树
+    domain: 数据结构
+    parent: 可持久化数据结构
+    depends: [可持久化数据结构, 二叉搜索树 & 平衡树]
+    tier: rare
+
+  - id: 可持久化线段树
+    name: 可持久化线段树
+    domain: 数据结构
+    parent: 可持久化数据结构
+    depends: [线段树]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 140        # entry 是拿这么多道题算出来的
+
+  - id: Sqrt Tree
+    name: Sqrt Tree
+    domain: 数据结构
+    parent: 块状数据结构
+    depends: [分块思想]
+    tier: skip
+
+  - id: 分块思想
+    name: 分块思想
+    domain: 数据结构
+    parent: 块状数据结构
+    depends: [前缀和 & 差分]
+    tier: normal
+
+  - id: 块状数组
+    name: 块状数组
+    domain: 数据结构
+    parent: 块状数据结构
+    depends: [分块思想]
+    tier: normal
+
+  - id: 块状链表
+    name: 块状链表
+    domain: 数据结构
+    parent: 块状数据结构
+    depends: [分块思想, 链表]
+    tier: rare
+
+  - id: 树分块
+    name: 树分块
+    domain: 数据结构
+    parent: 块状数据结构
+    depends: [分块思想]
+    tier: rare
+
+  - id: 二叉堆
+    name: 二叉堆
+    domain: 数据结构
+    parent: 堆
+    depends: [堆]
+    tier: core
+
+  - id: 左偏树
+    name: 左偏树
+    domain: 数据结构
+    parent: 堆
+    depends: [二叉堆]
+    tier: rare
+
+  - id: 配对堆
+    name: 配对堆
+    domain: 数据结构
+    parent: 堆
+    depends: [二叉堆]
+    tier: skip
+
+  - id: 并查集复杂度
+    name: 并查集复杂度
+    domain: 数据结构
+    parent: 并查集
+    depends: [并查集]
+    tier: skip
+
+  - id: 分块套树状数组
+    name: 分块套树状数组
+    domain: 数据结构
+    parent: 树套树
+    depends: [树套树, 分块思想]
+    tier: skip
+
+  - id: 平衡树套线段树
+    name: 平衡树套线段树
+    domain: 数据结构
+    parent: 树套树
+    depends: [树套树, 二叉搜索树 & 平衡树]
+    tier: skip
+
+  - id: 树状数组套权值线段树
+    name: 树状数组套权值线段树
+    domain: 数据结构
+    parent: 树套树
+    depends: [树套树, 树状数组]
+    tier: rare
+
+  - id: 线段树套平衡树
+    name: 线段树套平衡树
+    domain: 数据结构
+    parent: 树套树
+    depends: [树套树, 二叉搜索树 & 平衡树]
+    tier: rare
+
+  - id: 线段树套线段树
+    name: 线段树套线段树
+    domain: 数据结构
+    parent: 树套树
+    depends: [树套树]
+    tier: rare
+
+  # ── 杂项 ──
+  - id: 15-puzzle
+    name: 15-puzzle
+    domain: 杂项
+    depends: [BFS（搜索）]
+    tier: skip
+
+  - id: Garsia–Wachs 算法
+    name: Garsia–Wachs 算法
+    domain: 杂项
+    depends: [二叉堆]
+    tier: skip
+
+  - id: Kahan 求和
+    name: Kahan 求和
+    domain: 杂项
+    depends: [模拟, 复杂度]
+    tier: skip
+
+  - id: 主元素问题
+    name: 主元素问题
+    domain: 杂项
+    depends: [枚举]
+    tier: rare
+
+  - id: 分数规划
+    name: 分数规划
+    domain: 杂项
+    depends: [二分]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 28        # entry 是拿这么多道题算出来的
+
+  - id: 双指针
+    name: 双指针
+    domain: 杂项
+    depends: [枚举]
+    tier: core
+    entry: 1200      # 题池 p25（≈入门段位），机器算
+    pool: 11        # entry 是拿这么多道题算出来的
+
+  - id: 在一台机器上规划任务
+    name: 在一台机器上规划任务
+    domain: 杂项
+    depends: [贪心]
+    tier: skip
+
+  - id: 字节顺序
+    name: 字节顺序
+    domain: 杂项
+    depends: [位运算]
+    tier: rare
+
+  - id: 悬线法
+    name: 悬线法
+    domain: 杂项
+    depends: [前缀和 & 差分]
+    tier: normal
+
+  - id: 格雷码
+    name: 格雷码
+    domain: 杂项
+    depends: [位运算]
+    tier: rare
+
+  - id: 珂朵莉树/颜色段均摊
+    name: 珂朵莉树/颜色段均摊
+    domain: 杂项
+    depends: [分块思想, 线段树]
+    tier: rare
+
+  - id: 离散化
+    name: 离散化
+    domain: 杂项
+    depends: [排序]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 277        # entry 是拿这么多道题算出来的
+
+  - id: 离线算法
+    name: 离线算法
+    domain: 杂项
+    depends: [排序]
+    tier: normal
+
+  - id: 约瑟夫问题
+    name: 约瑟夫问题
+    domain: 杂项
+    depends: [模拟]
+    tier: rare
+
+  - id: 表达式求值
+    name: 表达式求值
+    domain: 杂项
+    depends: [栈]
+    tier: normal
+
+  - id: 计算理论基础
+    name: 计算理论基础
+    domain: 杂项
+    depends: []
+    tier: skip
+
+  - id: 随机化
+    name: 随机化
+    domain: 杂项
+    depends: [概率论]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 98        # entry 是拿这么多道题算出来的
+
+  - id: CDQ 分治
+    name: CDQ 分治
+    domain: 杂项
+    parent: 离线算法
+    depends: [递归 & 分治, 排序]
+    tier: normal
+
+  - id: 整体二分
+    name: 整体二分
+    domain: 杂项
+    parent: 离线算法
+    depends: [二分]
+    tier: normal
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 44        # entry 是拿这么多道题算出来的
+
+  - id: 莫队算法
+    name: 莫队算法
+    domain: 杂项
+    parent: 离线算法
+    depends: [分块思想, 排序]
+    tier: normal
+
+  - id: 模拟退火
+    name: 模拟退火
+    domain: 杂项
+    parent: 随机化
+    depends: [随机化]
+    tier: rare
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 40        # entry 是拿这么多道题算出来的
+
+  - id: 爬山算法
+    name: 爬山算法
+    domain: 杂项
+    parent: 随机化
+    depends: [随机化]
+    tier: skip
+
+  - id: 随机函数
+    name: 随机函数
+    domain: 杂项
+    parent: 随机化
+    depends: [随机化]
+    tier: rare
+
+  - id: 随机化技巧
+    name: 随机化技巧
+    domain: 杂项
+    parent: 随机化
+    depends: [随机化]
+    tier: normal
+
+  # ── 算法基础 ──
+  - id: 二分
+    name: 二分
+    domain: 算法基础
+    depends: [排序, 复杂度]
+    tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 1470        # entry 是拿这么多道题算出来的
+
+  - id: 倍增
+    name: 倍增
+    domain: 算法基础
+    depends: [二分]
+    tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 285        # entry 是拿这么多道题算出来的
+
+  - id: 前缀和 & 差分
+    name: 前缀和 & 差分
+    domain: 算法基础
+    depends: [枚举]
+    tier: core
+
+  - id: 复杂度
+    name: 复杂度
+    domain: 算法基础
+    depends: []
+    tier: core
+
+  - id: 排序
+    name: 排序
+    domain: 算法基础
+    depends: []
+    tier: core
+    entry: 1200      # 题池 p25（≈入门段位），机器算
+    pool: 1160        # entry 是拿这么多道题算出来的
+
+  - id: 构造
+    name: 构造
+    domain: 算法基础
+    depends: [枚举]
+    tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 972        # entry 是拿这么多道题算出来的
+
+  - id: 枚举
+    name: 枚举
+    domain: 算法基础
+    depends: []
+    tier: core
+    entry: 1200      # 题池 p25（≈入门段位），机器算
+    pool: 2952        # entry 是拿这么多道题算出来的
+
+  - id: 模拟
+    name: 模拟
+    domain: 算法基础
+    depends: []
+    tier: core
+    entry: 800      # 题池 p25（≈入门段位），机器算
+    pool: 2791        # entry 是拿这么多道题算出来的
+
+  - id: 贪心
+    name: 贪心
+    domain: 算法基础
+    depends: [排序]
+    tier: core
+    entry: 1300      # 题池 p25（≈入门段位），机器算
+    pool: 2852        # entry 是拿这么多道题算出来的
+
+  - id: 递归 & 分治
+    name: 递归 & 分治
+    domain: 算法基础
+    depends: []
+    tier: core
+
+  - id: tim排序
+    name: tim排序
+    domain: 算法基础
+    parent: 排序
+    depends: [归并排序, 插入排序]
+    tier: skip
+
+  - id: 冒泡排序
+    name: 冒泡排序
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: skip
+
+  - id: 基数排序
+    name: 基数排序
+    domain: 算法基础
+    parent: 排序
+    depends: [计数排序]
+    tier: rare
+
+  - id: 堆排序
+    name: 堆排序
+    domain: 算法基础
+    parent: 排序
+    depends: [二叉堆]
+    tier: skip
+
+  - id: 希尔排序
+    name: 希尔排序
+    domain: 算法基础
+    parent: 排序
+    depends: [插入排序]
+    tier: skip
+
+  - id: 归并排序
+    name: 归并排序
+    domain: 算法基础
+    parent: 排序
+    depends: [递归 & 分治]
+    tier: normal
+
+  - id: 快速排序
+    name: 快速排序
+    domain: 算法基础
+    parent: 排序
+    depends: [递归 & 分治]
+    tier: normal
+
+  - id: 排序应用
+    name: 排序应用
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: normal
+
+  - id: 排序相关 STL
+    name: 排序相关 STL
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: core
+
+  - id: 插入排序
+    name: 插入排序
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: skip
+
+  - id: 桶排序
+    name: 桶排序
+    domain: 算法基础
+    parent: 排序
+    depends: [计数排序]
+    tier: skip
+
+  - id: 计数排序
+    name: 计数排序
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: rare
+
+  - id: 选择排序
+    name: 选择排序
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: skip
+
+  - id: 锦标赛排序
+    name: 锦标赛排序
+    domain: 算法基础
+    parent: 排序
+    depends: [排序]
+    tier: skip
+
+  # ── 计算几何 ──
+  - id: Pick 定理
+    name: Pick 定理
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: rare
+
+  - id: 三维计算几何基础
+    name: 三维计算几何基础
+    domain: 计算几何
+    depends: [向量]
+    tier: skip
+
+  - id: 三角剖分
+    name: 三角剖分
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: skip
+
+  - id: 二维计算几何基础
+    name: 二维计算几何基础
+    domain: 计算几何
+    depends: [向量, 弧度制与坐标系]
+    tier: normal
+
+  - id: 凸包
+    name: 凸包
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 152        # entry 是拿这么多道题算出来的
+
+  - id: 半平面交
+    name: 半平面交
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: rare
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 27        # entry 是拿这么多道题算出来的
+
+  - id: 反演变换
+    name: 反演变换
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: skip
+
+  - id: 平面最近点对
+    name: 平面最近点对
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: rare
+
+  - id: 扫描线
+    name: 扫描线
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: normal
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 264        # entry 是拿这么多道题算出来的
+
+  - id: 旋转卡壳
+    name: 旋转卡壳
+    domain: 计算几何
+    depends: [凸包]
+    tier: rare
+    entry: 2600      # 题池 p25（≈入门段位），机器算
+    pool: 11        # entry 是拿这么多道题算出来的
+
+  - id: 计算几何杂项
+    name: 计算几何杂项
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: normal
+
+  - id: 距离
+    name: 距离
+    domain: 计算几何
+    depends: [二维计算几何基础]
+    tier: normal
+
+  - id: 随机增量法
+    name: 随机增量法
+    domain: 计算几何
+    depends: [随机化]
+    tier: rare
+
+parallel_branches:
+  - a: 树状数组
+    b: 线段树
+    note: 区间维护的两条独立路线，走通一条即可
+  - a: 块状数据结构
+    b: 线段树
+    note: 分块是线段树的朴素退路，学不动时可先走分块
+  - a: Treap
+    b: Splay 树
+    note: 平衡树任选一种写熟即可，另一种按需补
+  - a: 后缀数组 (SA)
+    b: 后缀自动机 (SAM)
+    note: 字符串难题的两条路线，先走通一条
+  - a: 单调队列/单调栈优化
+    b: 线段树
+    note: 都是优化 DP 转移的手段

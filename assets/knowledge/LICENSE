@@ -1,0 +1,41 @@
+本目录下的知识资产（MAP.yaml / DEPENDS.yaml / NODE_ENTRY.yaml / NODE_META.yaml）
+**不是 MIT**，适用 CC BY-SA 4.0。原因见下。
+
+## 来源
+
+这些文件的知识点与分类**取自 OI Wiki**：
+<https://github.com/OI-wiki/OI-wiki>
+
+生成链路：`coach/extract_oiwiki.py` 读 OI Wiki 的 `mkdocs.yml` 导航（351 条）
+→ 得到 `oiwiki_tree.json` → `coach/build_map.py` 结合 `DEPENDS.yaml`
+（人工整理的前置关系）生成 `MAP.yaml`。
+
+## 上游许可
+
+OI Wiki 的 README 原文（`README.md:104-110`）：
+
+> 除特别注明外，项目中除了代码部分均采用 **(Creative Commons BY-SA 4.0)
+> 知识共享署名 - 相同方式共享 4.0 国际许可协议** 及附加的
+> [The Star And Thank Author License](https://github.com/zTrix/sata-license) 进行许可。
+>
+> 换言之，使用过程中您可以自由地共享、演绎，但是必须署名、以相同方式共享、
+> 分享时没有附加限制，而且应该为 GitHub 仓库点赞（Star）。
+
+## 因此
+
+- 本目录的内容**必须署名 OI Wiki Team**
+- 分发演绎版本时**必须沿用 CC BY-SA 4.0**（相同方式共享）
+- 上游还请求给仓库点个 star：<https://github.com/OI-wiki/OI-wiki>
+
+CC BY-SA 的 share-alike 只作用于**衍生部分**，不会传染本仓库里独立的代码
+（那些仍是 MIT，见仓库根的 `LICENSE`）。这里把它单独分开、单独声明，就是为了
+让这条边界清楚。
+
+## 哪部分是原创的
+
+- `DEPENDS.yaml` 里的**前置关系边**是人工整理的，不是从 OI Wiki 抄的
+  —— 但因为它和知识点集合打包在一起，一并按 CC BY-SA 处理最省事也最稳妥。
+- `NODE_ENTRY.yaml` 是从题池算出来的统计值。
+- `NODE_META.yaml` 的 `tier` 标注是人工判断。
+
+⚠️ **前置边首轮未经逐条复核**，见 `DEPENDS.yaml` 文件头。欢迎提 issue 修正。

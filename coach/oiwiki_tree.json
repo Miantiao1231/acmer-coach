@@ -1,0 +1,2987 @@
+[
+ {
+  "domain": "算法基础",
+  "path": [
+   "复杂度"
+  ],
+  "name": "复杂度",
+  "file": "basic/complexity.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "枚举"
+  ],
+  "name": "枚举",
+  "file": "basic/enumerate.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "模拟"
+  ],
+  "name": "模拟",
+  "file": "basic/simulate.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "递归 & 分治"
+  ],
+  "name": "递归 & 分治",
+  "file": "basic/divide-and-conquer.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "贪心"
+  ],
+  "name": "贪心",
+  "file": "basic/greedy.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序"
+  ],
+  "name": "排序",
+  "file": null
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "选择排序"
+  ],
+  "name": "选择排序",
+  "file": "basic/selection-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "冒泡排序"
+  ],
+  "name": "冒泡排序",
+  "file": "basic/bubble-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "插入排序"
+  ],
+  "name": "插入排序",
+  "file": "basic/insertion-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "计数排序"
+  ],
+  "name": "计数排序",
+  "file": "basic/counting-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "基数排序"
+  ],
+  "name": "基数排序",
+  "file": "basic/radix-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "快速排序"
+  ],
+  "name": "快速排序",
+  "file": "basic/quick-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "归并排序"
+  ],
+  "name": "归并排序",
+  "file": "basic/merge-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "堆排序"
+  ],
+  "name": "堆排序",
+  "file": "basic/heap-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "桶排序"
+  ],
+  "name": "桶排序",
+  "file": "basic/bucket-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "希尔排序"
+  ],
+  "name": "希尔排序",
+  "file": "basic/shell-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "锦标赛排序"
+  ],
+  "name": "锦标赛排序",
+  "file": "basic/tournament-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "tim排序"
+  ],
+  "name": "tim排序",
+  "file": "basic/tim-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "排序相关 STL"
+  ],
+  "name": "排序相关 STL",
+  "file": "basic/stl-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "排序",
+   "排序应用"
+  ],
+  "name": "排序应用",
+  "file": "basic/use-of-sort.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "前缀和 & 差分"
+  ],
+  "name": "前缀和 & 差分",
+  "file": "basic/prefix-sum.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "二分"
+  ],
+  "name": "二分",
+  "file": "basic/binary.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "倍增"
+  ],
+  "name": "倍增",
+  "file": "basic/binary-lifting.md"
+ },
+ {
+  "domain": "算法基础",
+  "path": [
+   "构造"
+  ],
+  "name": "构造",
+  "file": "basic/construction.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "DFS（搜索）"
+  ],
+  "name": "DFS（搜索）",
+  "file": "search/dfs.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "BFS（搜索）"
+  ],
+  "name": "BFS（搜索）",
+  "file": "search/bfs.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "双向搜索"
+  ],
+  "name": "双向搜索",
+  "file": "search/bidirectional.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "启发式搜索"
+  ],
+  "name": "启发式搜索",
+  "file": "search/heuristic.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "A*"
+  ],
+  "name": "A*",
+  "file": "search/astar.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "迭代加深搜索"
+  ],
+  "name": "迭代加深搜索",
+  "file": "search/iterative.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "IDA*"
+  ],
+  "name": "IDA*",
+  "file": "search/idastar.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "回溯法"
+  ],
+  "name": "回溯法",
+  "file": "search/backtracking.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "Dancing Links"
+  ],
+  "name": "Dancing Links",
+  "file": "search/dlx.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "Alpha-Beta 剪枝"
+  ],
+  "name": "Alpha-Beta 剪枝",
+  "file": "search/alpha-beta.md"
+ },
+ {
+  "domain": "搜索",
+  "path": [
+   "优化"
+  ],
+  "name": "优化",
+  "file": "search/opt.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "动态规划基础"
+  ],
+  "name": "动态规划基础",
+  "file": "dp/basic.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "记忆化搜索"
+  ],
+  "name": "记忆化搜索",
+  "file": "dp/memo.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "背包 DP"
+  ],
+  "name": "背包 DP",
+  "file": "dp/knapsack.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "区间 DP"
+  ],
+  "name": "区间 DP",
+  "file": "dp/interval.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DAG 上的 DP"
+  ],
+  "name": "DAG 上的 DP",
+  "file": "dp/dag.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "树形 DP"
+  ],
+  "name": "树形 DP",
+  "file": "dp/tree.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "状压 DP"
+  ],
+  "name": "状压 DP",
+  "file": "dp/state.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "数位 DP"
+  ],
+  "name": "数位 DP",
+  "file": "dp/number.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "插头 DP"
+  ],
+  "name": "插头 DP",
+  "file": "dp/plug.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "计数 DP"
+  ],
+  "name": "计数 DP",
+  "file": "dp/count.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "动态 DP"
+  ],
+  "name": "动态 DP",
+  "file": "dp/dynamic.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "概率 DP"
+  ],
+  "name": "概率 DP",
+  "file": "dp/probability.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DP 优化"
+  ],
+  "name": "DP 优化",
+  "file": null
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DP 优化",
+   "单调队列/单调栈优化"
+  ],
+  "name": "单调队列/单调栈优化",
+  "file": "dp/opt/monotonous-queue-stack.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DP 优化",
+   "斜率优化"
+  ],
+  "name": "斜率优化",
+  "file": "dp/opt/slope.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DP 优化",
+   "四边形不等式优化"
+  ],
+  "name": "四边形不等式优化",
+  "file": "dp/opt/quadrangle.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "DP 优化",
+   "状态设计优化"
+  ],
+  "name": "状态设计优化",
+  "file": "dp/opt/state.md"
+ },
+ {
+  "domain": "动态规划",
+  "path": [
+   "其它 DP 方法"
+  ],
+  "name": "其它 DP 方法",
+  "file": "dp/misc.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "字符串基础"
+  ],
+  "name": "字符串基础",
+  "file": "string/basic.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "标准库"
+  ],
+  "name": "标准库",
+  "file": "string/lib-func.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "字符串匹配"
+  ],
+  "name": "字符串匹配",
+  "file": "string/match.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "字符串哈希"
+  ],
+  "name": "字符串哈希",
+  "file": "string/hash.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "字典树 (Trie)"
+  ],
+  "name": "字典树 (Trie)",
+  "file": "string/trie.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "前缀函数与 KMP 算法"
+  ],
+  "name": "前缀函数与 KMP 算法",
+  "file": "string/kmp.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "Boyer–Moore 算法"
+  ],
+  "name": "Boyer–Moore 算法",
+  "file": "string/bm.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "Z 函数（扩展 KMP）"
+  ],
+  "name": "Z 函数（扩展 KMP）",
+  "file": "string/z-func.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "自动机"
+  ],
+  "name": "自动机",
+  "file": "string/automaton.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "AC 自动机"
+  ],
+  "name": "AC 自动机",
+  "file": "string/ac-automaton.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "后缀数组 (SA)"
+  ],
+  "name": "后缀数组 (SA)",
+  "file": null
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "后缀数组 (SA)",
+   "最优原地后缀排序算法"
+  ],
+  "name": "最优原地后缀排序算法",
+  "file": "string/sa-optimal-inplace.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "后缀自动机 (SAM)"
+  ],
+  "name": "后缀自动机 (SAM)",
+  "file": "string/sam.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "后缀平衡树"
+  ],
+  "name": "后缀平衡树",
+  "file": "string/suffix-bst.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "广义后缀自动机"
+  ],
+  "name": "广义后缀自动机",
+  "file": "string/general-sam.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "后缀树"
+  ],
+  "name": "后缀树",
+  "file": "string/suffix-tree.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "Manacher"
+  ],
+  "name": "Manacher",
+  "file": "string/manacher.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "回文树"
+  ],
+  "name": "回文树",
+  "file": "string/pam.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "序列自动机"
+  ],
+  "name": "序列自动机",
+  "file": "string/seq-automaton.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "最小表示法"
+  ],
+  "name": "最小表示法",
+  "file": "string/minimal-string.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "Lyndon 分解"
+  ],
+  "name": "Lyndon 分解",
+  "file": "string/lyndon.md"
+ },
+ {
+  "domain": "字符串",
+  "path": [
+   "Main–Lorentz 算法"
+  ],
+  "name": "Main–Lorentz 算法",
+  "file": "string/main-lorentz.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "符号"
+  ],
+  "name": "符号",
+  "file": "math/notation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "进位制"
+  ],
+  "name": "进位制",
+  "file": "math/base.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "位运算"
+  ],
+  "name": "位运算",
+  "file": "math/bit.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "二进制集合操作"
+  ],
+  "name": "二进制集合操作",
+  "file": "math/binary-set.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "平衡三进制"
+  ],
+  "name": "平衡三进制",
+  "file": "math/balanced-ternary.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "高精度计算"
+  ],
+  "name": "高精度计算",
+  "file": "math/bignum.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "快速幂"
+  ],
+  "name": "快速幂",
+  "file": "math/binary-exponentiation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "置换和排列"
+  ],
+  "name": "置换和排列",
+  "file": "math/permutation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "弧度制与坐标系"
+  ],
+  "name": "弧度制与坐标系",
+  "file": "math/coordinate.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "复数"
+  ],
+  "name": "复数",
+  "file": "math/complex.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论"
+  ],
+  "name": "数论",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "数论基础"
+  ],
+  "name": "数论基础",
+  "file": "math/number-theory/basic.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "素数"
+  ],
+  "name": "素数",
+  "file": "math/number-theory/prime.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "最大公约数"
+  ],
+  "name": "最大公约数",
+  "file": "math/number-theory/gcd.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "数论分块"
+  ],
+  "name": "数论分块",
+  "file": "math/number-theory/sqrt-decomposition.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "欧拉函数"
+  ],
+  "name": "欧拉函数",
+  "file": "math/number-theory/euler-totient.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "筛法"
+  ],
+  "name": "筛法",
+  "file": "math/number-theory/sieve.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "Meissel–Lehmer 算法"
+  ],
+  "name": "Meissel–Lehmer 算法",
+  "file": "math/number-theory/meissel-lehmer.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "分解质因数"
+  ],
+  "name": "分解质因数",
+  "file": "math/number-theory/pollard-rho.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "裴蜀定理"
+  ],
+  "name": "裴蜀定理",
+  "file": "math/number-theory/bezouts.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "类欧几里德算法"
+  ],
+  "name": "类欧几里德算法",
+  "file": "math/number-theory/euclidean.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "欧拉定理 & 费马小定理"
+  ],
+  "name": "欧拉定理 & 费马小定理",
+  "file": "math/number-theory/fermat.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "乘法逆元"
+  ],
+  "name": "乘法逆元",
+  "file": "math/number-theory/inverse.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "线性同余方程"
+  ],
+  "name": "线性同余方程",
+  "file": "math/number-theory/linear-equation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "中国剩余定理"
+  ],
+  "name": "中国剩余定理",
+  "file": "math/number-theory/crt.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "升幂引理"
+  ],
+  "name": "升幂引理",
+  "file": "math/number-theory/lift-the-exponent.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "威尔逊定理"
+  ],
+  "name": "威尔逊定理",
+  "file": "math/number-theory/wilson.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "卢卡斯定理"
+  ],
+  "name": "卢卡斯定理",
+  "file": "math/number-theory/lucas.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "同余方程"
+  ],
+  "name": "同余方程",
+  "file": "math/number-theory/congruence-equation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "二次剩余"
+  ],
+  "name": "二次剩余",
+  "file": "math/number-theory/quad-residue.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "原根"
+  ],
+  "name": "原根",
+  "file": "math/number-theory/primitive-root.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "离散对数"
+  ],
+  "name": "离散对数",
+  "file": "math/number-theory/discrete-logarithm.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "剩余"
+  ],
+  "name": "剩余",
+  "file": "math/number-theory/residue.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "莫比乌斯反演"
+  ],
+  "name": "莫比乌斯反演",
+  "file": "math/number-theory/mobius.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "杜教筛"
+  ],
+  "name": "杜教筛",
+  "file": "math/number-theory/du.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "Powerful Number 筛"
+  ],
+  "name": "Powerful Number 筛",
+  "file": "math/number-theory/powerful-number.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "Min_25 筛"
+  ],
+  "name": "Min_25 筛",
+  "file": "math/number-theory/min-25.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "洲阁筛"
+  ],
+  "name": "洲阁筛",
+  "file": "math/number-theory/zhou.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "连分数"
+  ],
+  "name": "连分数",
+  "file": "math/number-theory/continued-fraction.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "Stern–Brocot 树与 Farey 序列"
+  ],
+  "name": "Stern–Brocot 树与 Farey 序列",
+  "file": "math/number-theory/stern-brocot.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "二次域"
+  ],
+  "name": "二次域",
+  "file": "math/number-theory/quadratic.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "循环连分数"
+  ],
+  "name": "循环连分数",
+  "file": "math/number-theory/periodic-continued-fraction.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数论",
+   "Pell 方程"
+  ],
+  "name": "Pell 方程",
+  "file": "math/number-theory/pell-equation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数"
+  ],
+  "name": "多项式与生成函数",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "代数基本定理"
+  ],
+  "name": "代数基本定理",
+  "file": "math/poly/fundamental.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "快速傅里叶变换"
+  ],
+  "name": "快速傅里叶变换",
+  "file": "math/poly/fft.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "快速数论变换"
+  ],
+  "name": "快速数论变换",
+  "file": "math/poly/ntt.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "快速沃尔什变换"
+  ],
+  "name": "快速沃尔什变换",
+  "file": "math/poly/fwt.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "Chirp Z 变换"
+  ],
+  "name": "Chirp Z 变换",
+  "file": "math/poly/czt.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "多项式牛顿迭代"
+  ],
+  "name": "多项式牛顿迭代",
+  "file": "math/poly/newton.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "多项式多点求值|快速插值"
+  ],
+  "name": "多项式多点求值|快速插值",
+  "file": "math/poly/multipoint-eval-interpolation.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "多项式初等函数"
+  ],
+  "name": "多项式初等函数",
+  "file": "math/poly/elementary-func.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "常系数齐次线性递推"
+  ],
+  "name": "常系数齐次线性递推",
+  "file": "math/poly/linear-recurrence.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "多项式平移|连续点值平移"
+  ],
+  "name": "多项式平移|连续点值平移",
+  "file": "math/poly/shift.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "符号化方法"
+  ],
+  "name": "符号化方法",
+  "file": "math/poly/symbolic-method.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "普通生成函数"
+  ],
+  "name": "普通生成函数",
+  "file": "math/poly/ogf.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "指数生成函数"
+  ],
+  "name": "指数生成函数",
+  "file": "math/poly/egf.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "多项式与生成函数",
+   "狄利克雷生成函数"
+  ],
+  "name": "狄利克雷生成函数",
+  "file": "math/poly/dgf.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学"
+  ],
+  "name": "组合数学",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "排列组合"
+  ],
+  "name": "排列组合",
+  "file": "math/combinatorics/combination.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "抽屉原理"
+  ],
+  "name": "抽屉原理",
+  "file": "math/combinatorics/drawer-principle.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "容斥原理"
+  ],
+  "name": "容斥原理",
+  "file": "math/combinatorics/inclusion-exclusion-principle.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "康托展开"
+  ],
+  "name": "康托展开",
+  "file": "math/combinatorics/cantor.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "斐波那契数列"
+  ],
+  "name": "斐波那契数列",
+  "file": "math/combinatorics/fibonacci.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "错位排列"
+  ],
+  "name": "错位排列",
+  "file": "math/combinatorics/derangement.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "卡特兰数"
+  ],
+  "name": "卡特兰数",
+  "file": "math/combinatorics/catalan.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "斯特林数"
+  ],
+  "name": "斯特林数",
+  "file": "math/combinatorics/stirling.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "贝尔数"
+  ],
+  "name": "贝尔数",
+  "file": "math/combinatorics/bell.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "伯努利数"
+  ],
+  "name": "伯努利数",
+  "file": "math/combinatorics/bernoulli.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "Entringer Number"
+  ],
+  "name": "Entringer Number",
+  "file": "math/combinatorics/entringer.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "Eulerian Number"
+  ],
+  "name": "Eulerian Number",
+  "file": "math/combinatorics/eulerian.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "分拆数"
+  ],
+  "name": "分拆数",
+  "file": "math/combinatorics/partition.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "范德蒙德卷积"
+  ],
+  "name": "范德蒙德卷积",
+  "file": "math/combinatorics/vandermonde-convolution.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "组合数学",
+   "图论计数"
+  ],
+  "name": "图论计数",
+  "file": "math/combinatorics/graph-enumeration.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数"
+  ],
+  "name": "线性代数",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "向量"
+  ],
+  "name": "向量",
+  "file": "math/linear-algebra/vector.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "内积和外积"
+  ],
+  "name": "内积和外积",
+  "file": "math/linear-algebra/product.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "矩阵"
+  ],
+  "name": "矩阵",
+  "file": "math/linear-algebra/matrix.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "初等变换"
+  ],
+  "name": "初等变换",
+  "file": "math/linear-algebra/elementary-operations.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "行列式"
+  ],
+  "name": "行列式",
+  "file": "math/linear-algebra/determinant.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "线性空间"
+  ],
+  "name": "线性空间",
+  "file": "math/linear-algebra/vector-space.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "线性基"
+  ],
+  "name": "线性基",
+  "file": "math/linear-algebra/basis.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "线性映射"
+  ],
+  "name": "线性映射",
+  "file": "math/linear-algebra/linear-mapping.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "特征多项式"
+  ],
+  "name": "特征多项式",
+  "file": "math/linear-algebra/char-poly.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "对角化"
+  ],
+  "name": "对角化",
+  "file": "math/linear-algebra/diagonalization.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性代数",
+   "Jordan标准型"
+  ],
+  "name": "Jordan标准型",
+  "file": "math/linear-algebra/jordan.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性规划"
+  ],
+  "name": "线性规划",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "线性规划",
+   "单纯形算法"
+  ],
+  "name": "单纯形算法",
+  "file": "math/simplex.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "群论"
+  ],
+  "name": "群论",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "群论",
+   "置换群"
+  ],
+  "name": "置换群",
+  "file": "math/permutation-group.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论"
+  ],
+  "name": "概率论",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论",
+   "基本概念"
+  ],
+  "name": "基本概念",
+  "file": "math/probability/basic-conception.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论",
+   "条件概率与独立性"
+  ],
+  "name": "条件概率与独立性",
+  "file": "math/probability/conditional-probability.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论",
+   "随机变量"
+  ],
+  "name": "随机变量",
+  "file": "math/probability/random-variable.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论",
+   "随机变量的数字特征"
+  ],
+  "name": "随机变量的数字特征",
+  "file": "math/probability/exp-var.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "概率论",
+   "概率不等式"
+  ],
+  "name": "概率不等式",
+  "file": "math/probability/concentration-inequality.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "博弈论"
+  ],
+  "name": "博弈论",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "博弈论",
+   "公平组合游戏"
+  ],
+  "name": "公平组合游戏",
+  "file": "math/game-theory/impartial-game.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "博弈论",
+   "非公平组合游戏"
+  ],
+  "name": "非公平组合游戏",
+  "file": "math/game-theory/partizan-game.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "博弈论",
+   "反常游戏"
+  ],
+  "name": "反常游戏",
+  "file": "math/game-theory/misere-game.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数值算法"
+  ],
+  "name": "数值算法",
+  "file": null
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数值算法",
+   "拉格朗日插值"
+  ],
+  "name": "拉格朗日插值",
+  "file": "math/numerical/lagrange.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数值算法",
+   "数值积分"
+  ],
+  "name": "数值积分",
+  "file": "math/numerical/integral.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数值算法",
+   "高斯消元"
+  ],
+  "name": "高斯消元",
+  "file": "math/numerical/gauss.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "数值算法",
+   "牛顿迭代法"
+  ],
+  "name": "牛顿迭代法",
+  "file": "math/numerical/newton.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "傅里叶-莫茨金消元法"
+  ],
+  "name": "傅里叶-莫茨金消元法",
+  "file": "math/fourier-motzkin-elimination.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "序理论"
+  ],
+  "name": "序理论",
+  "file": "math/order-theory.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "杨氏矩阵"
+  ],
+  "name": "杨氏矩阵",
+  "file": "math/young-tableau.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "Schreier–Sims 算法"
+  ],
+  "name": "Schreier–Sims 算法",
+  "file": "math/schreier-sims.md"
+ },
+ {
+  "domain": "数学",
+  "path": [
+   "Berlekamp–Massey 算法"
+  ],
+  "name": "Berlekamp–Massey 算法",
+  "file": "math/berlekamp-massey.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "栈"
+  ],
+  "name": "栈",
+  "file": "ds/stack.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "队列"
+  ],
+  "name": "队列",
+  "file": "ds/queue.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "链表"
+  ],
+  "name": "链表",
+  "file": "ds/linked-list.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "哈希表"
+  ],
+  "name": "哈希表",
+  "file": "ds/hash.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "并查集"
+  ],
+  "name": "并查集",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "并查集",
+   "并查集"
+  ],
+  "name": "并查集",
+  "file": "ds/dsu.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "并查集",
+   "并查集复杂度"
+  ],
+  "name": "并查集复杂度",
+  "file": "ds/dsu-complexity.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "堆"
+  ],
+  "name": "堆",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "堆",
+   "二叉堆"
+  ],
+  "name": "二叉堆",
+  "file": "ds/binary-heap.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "堆",
+   "配对堆"
+  ],
+  "name": "配对堆",
+  "file": "ds/pairing-heap.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "堆",
+   "左偏树"
+  ],
+  "name": "左偏树",
+  "file": "ds/leftist-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构"
+  ],
+  "name": "块状数据结构",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构",
+   "分块思想"
+  ],
+  "name": "分块思想",
+  "file": "ds/decompose.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构",
+   "块状数组"
+  ],
+  "name": "块状数组",
+  "file": "ds/block-array.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构",
+   "块状链表"
+  ],
+  "name": "块状链表",
+  "file": "ds/block-list.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构",
+   "树分块"
+  ],
+  "name": "树分块",
+  "file": "ds/tree-decompose.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "块状数据结构",
+   "Sqrt Tree"
+  ],
+  "name": "Sqrt Tree",
+  "file": "ds/sqrt-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "单调栈"
+  ],
+  "name": "单调栈",
+  "file": "ds/monotonous-stack.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "单调队列"
+  ],
+  "name": "单调队列",
+  "file": "ds/monotonous-queue.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "ST 表"
+  ],
+  "name": "ST 表",
+  "file": "ds/sparse-table.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树状数组"
+  ],
+  "name": "树状数组",
+  "file": "ds/fenwick.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "线段树"
+  ],
+  "name": "线段树",
+  "file": "ds/seg.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "李超线段树"
+  ],
+  "name": "李超线段树",
+  "file": "ds/li-chao-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "区间最值操作 & 区间历史最值"
+  ],
+  "name": "区间最值操作 & 区间历史最值",
+  "file": "ds/seg-beats.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "划分树"
+  ],
+  "name": "划分树",
+  "file": "ds/dividing.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树"
+  ],
+  "name": "二叉搜索树 & 平衡树",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "二叉搜索树 & 平衡树"
+  ],
+  "name": "二叉搜索树 & 平衡树",
+  "file": "ds/bst.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "Treap"
+  ],
+  "name": "Treap",
+  "file": "ds/treap.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "Splay 树"
+  ],
+  "name": "Splay 树",
+  "file": "ds/splay.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "WBLT"
+  ],
+  "name": "WBLT",
+  "file": "ds/wblt.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "Size Balanced Tree"
+  ],
+  "name": "Size Balanced Tree",
+  "file": "ds/sbt.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "AVL 树"
+  ],
+  "name": "AVL 树",
+  "file": "ds/avl.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "B 树"
+  ],
+  "name": "B 树",
+  "file": "ds/b-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "B+ 树"
+  ],
+  "name": "B+ 树",
+  "file": "ds/bplus-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "替罪羊树"
+  ],
+  "name": "替罪羊树",
+  "file": "ds/sgt.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "Leafy Tree"
+  ],
+  "name": "Leafy Tree",
+  "file": "ds/leafy-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "笛卡尔树"
+  ],
+  "name": "笛卡尔树",
+  "file": "ds/cartesian-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "红黑树"
+  ],
+  "name": "红黑树",
+  "file": "ds/rbtree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "左偏红黑树"
+  ],
+  "name": "左偏红黑树",
+  "file": "ds/llrbt.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "AA 树"
+  ],
+  "name": "AA 树",
+  "file": "ds/aa-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "二叉搜索树 & 平衡树",
+   "2-3 树"
+  ],
+  "name": "2-3 树",
+  "file": "ds/2-3-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "跳表"
+  ],
+  "name": "跳表",
+  "file": "ds/skiplist.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构"
+  ],
+  "name": "可持久化数据结构",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构",
+   "可持久化线段树"
+  ],
+  "name": "可持久化线段树",
+  "file": "ds/persistent-seg.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构",
+   "可持久化块状数组"
+  ],
+  "name": "可持久化块状数组",
+  "file": "ds/persistent-block-array.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构",
+   "可持久化平衡树"
+  ],
+  "name": "可持久化平衡树",
+  "file": "ds/persistent-balanced.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构",
+   "可持久化字典树"
+  ],
+  "name": "可持久化字典树",
+  "file": "ds/persistent-trie.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "可持久化数据结构",
+   "可持久化可并堆"
+  ],
+  "name": "可持久化可并堆",
+  "file": "ds/persistent-heap.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树"
+  ],
+  "name": "树套树",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树",
+   "线段树套线段树"
+  ],
+  "name": "线段树套线段树",
+  "file": "ds/seg-in-seg.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树",
+   "平衡树套线段树"
+  ],
+  "name": "平衡树套线段树",
+  "file": "ds/seg-in-balanced.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树",
+   "线段树套平衡树"
+  ],
+  "name": "线段树套平衡树",
+  "file": "ds/balanced-in-seg.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树",
+   "树状数组套权值线段树"
+  ],
+  "name": "树状数组套权值线段树",
+  "file": "ds/seg-in-bit.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "树套树",
+   "分块套树状数组"
+  ],
+  "name": "分块套树状数组",
+  "file": "ds/bit-in-block-array.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "K-D Tree"
+  ],
+  "name": "K-D Tree",
+  "file": "ds/kdt.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "动态树"
+  ],
+  "name": "动态树",
+  "file": null
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "动态树",
+   "Link Cut Tree"
+  ],
+  "name": "Link Cut Tree",
+  "file": "ds/lct.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "动态树",
+   "Euler Tour Tree"
+  ],
+  "name": "Euler Tour Tree",
+  "file": "ds/ett.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "动态树",
+   "Top Tree"
+  ],
+  "name": "Top Tree",
+  "file": "ds/top-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "析合树"
+  ],
+  "name": "析合树",
+  "file": "ds/divide-combine.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "PQ 树"
+  ],
+  "name": "PQ 树",
+  "file": "ds/pq-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "手指树"
+  ],
+  "name": "手指树",
+  "file": "ds/finger-tree.md"
+ },
+ {
+  "domain": "数据结构",
+  "path": [
+   "霍夫曼树"
+  ],
+  "name": "霍夫曼树",
+  "file": "ds/huffman-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图论相关概念"
+  ],
+  "name": "图论相关概念",
+  "file": "graph/concept.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的存储"
+  ],
+  "name": "图的存储",
+  "file": "graph/save.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "DFS（图论）"
+  ],
+  "name": "DFS（图论）",
+  "file": "graph/dfs.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "BFS（图论）"
+  ],
+  "name": "BFS（图论）",
+  "file": "graph/bfs.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题"
+  ],
+  "name": "树上问题",
+  "file": null
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树基础"
+  ],
+  "name": "树基础",
+  "file": "graph/tree-basic.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树的直径"
+  ],
+  "name": "树的直径",
+  "file": "graph/tree-diameter.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "最近公共祖先"
+  ],
+  "name": "最近公共祖先",
+  "file": "graph/lca.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树的重心"
+  ],
+  "name": "树的重心",
+  "file": "graph/tree-centroid.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树链剖分"
+  ],
+  "name": "树链剖分",
+  "file": "graph/hld.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树上启发式合并"
+  ],
+  "name": "树上启发式合并",
+  "file": "graph/dsu-on-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "虚树"
+  ],
+  "name": "虚树",
+  "file": "graph/virtual-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树分治"
+  ],
+  "name": "树分治",
+  "file": "graph/tree-divide.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "动态树分治"
+  ],
+  "name": "动态树分治",
+  "file": "graph/dynamic-tree-divide.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "AHU 算法"
+  ],
+  "name": "AHU 算法",
+  "file": "graph/tree-ahu.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树哈希"
+  ],
+  "name": "树哈希",
+  "file": "graph/tree-hash.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "树上问题",
+   "树上随机游走"
+  ],
+  "name": "树上随机游走",
+  "file": "graph/tree-random-walk.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "矩阵树定理"
+  ],
+  "name": "矩阵树定理",
+  "file": "graph/matrix-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "有向无环图"
+  ],
+  "name": "有向无环图",
+  "file": "graph/dag.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "拓扑排序"
+  ],
+  "name": "拓扑排序",
+  "file": "graph/topo.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最小生成树"
+  ],
+  "name": "最小生成树",
+  "file": "graph/mst.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "斯坦纳树"
+  ],
+  "name": "斯坦纳树",
+  "file": "graph/steiner-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最小树形图"
+  ],
+  "name": "最小树形图",
+  "file": "graph/dmst.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最小直径生成树"
+  ],
+  "name": "最小直径生成树",
+  "file": "graph/mdst.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最短路"
+  ],
+  "name": "最短路",
+  "file": "graph/shortest-path.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "拆点"
+  ],
+  "name": "拆点",
+  "file": "graph/node.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "差分约束"
+  ],
+  "name": "差分约束",
+  "file": "graph/diff-constraints.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "k 短路"
+  ],
+  "name": "k 短路",
+  "file": "graph/kth-path.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "同余最短路"
+  ],
+  "name": "同余最短路",
+  "file": "graph/mod-shortest-path.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关"
+  ],
+  "name": "连通性相关",
+  "file": null
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关",
+   "强连通分量"
+  ],
+  "name": "强连通分量",
+  "file": "graph/scc.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关",
+   "双连通分量"
+  ],
+  "name": "双连通分量",
+  "file": "graph/bcc.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关",
+   "割点和桥"
+  ],
+  "name": "割点和桥",
+  "file": "graph/cut.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关",
+   "圆方树"
+  ],
+  "name": "圆方树",
+  "file": "graph/block-forest.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "连通性相关",
+   "点/边连通度"
+  ],
+  "name": "点/边连通度",
+  "file": "graph/connectivity.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "环计数问题"
+  ],
+  "name": "环计数问题",
+  "file": "graph/rings-count.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "2-SAT"
+  ],
+  "name": "2-SAT",
+  "file": "graph/2-sat.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "欧拉图"
+  ],
+  "name": "欧拉图",
+  "file": "graph/euler.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "哈密顿图"
+  ],
+  "name": "哈密顿图",
+  "file": "graph/hamilton.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "二分图"
+  ],
+  "name": "二分图",
+  "file": "graph/bi-graph.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最小环"
+  ],
+  "name": "最小环",
+  "file": "graph/min-cycle.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "平面图"
+  ],
+  "name": "平面图",
+  "file": "graph/planar.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的着色"
+  ],
+  "name": "图的着色",
+  "file": "graph/color.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "网络流"
+  ],
+  "name": "网络流",
+  "file": null
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "网络流",
+   "最大流"
+  ],
+  "name": "最大流",
+  "file": "graph/flow/max-flow.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "网络流",
+   "最小割"
+  ],
+  "name": "最小割",
+  "file": "graph/flow/min-cut.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "网络流",
+   "费用流"
+  ],
+  "name": "费用流",
+  "file": "graph/flow/min-cost.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "网络流",
+   "上下界网络流"
+  ],
+  "name": "上下界网络流",
+  "file": "graph/flow/bound.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "Stoer–Wagner 算法"
+  ],
+  "name": "Stoer–Wagner 算法",
+  "file": "graph/stoer-wagner.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配"
+  ],
+  "name": "图的匹配",
+  "file": null
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "图匹配"
+  ],
+  "name": "图匹配",
+  "file": "graph/graph-matching/graph-match.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "增广路"
+  ],
+  "name": "增广路",
+  "file": "graph/graph-matching/augment.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "二分图最大匹配"
+  ],
+  "name": "二分图最大匹配",
+  "file": "graph/graph-matching/bigraph-match.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "二分图最大权匹配"
+  ],
+  "name": "二分图最大权匹配",
+  "file": "graph/graph-matching/bigraph-weight-match.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "一般图最大匹配"
+  ],
+  "name": "一般图最大匹配",
+  "file": "graph/graph-matching/general-match.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图的匹配",
+   "一般图最大权匹配"
+  ],
+  "name": "一般图最大权匹配",
+  "file": "graph/graph-matching/general-weight-match.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "Prüfer 序列"
+  ],
+  "name": "Prüfer 序列",
+  "file": "graph/prufer.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "LGV 引理"
+  ],
+  "name": "LGV 引理",
+  "file": "graph/lgv.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "弦图"
+  ],
+  "name": "弦图",
+  "file": "graph/chord.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "最大团搜索算法"
+  ],
+  "name": "最大团搜索算法",
+  "file": "graph/max-clique.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "支配树"
+  ],
+  "name": "支配树",
+  "file": "graph/dominator-tree.md"
+ },
+ {
+  "domain": "图论",
+  "path": [
+   "图上随机游走"
+  ],
+  "name": "图上随机游走",
+  "file": "graph/graph-random-walk.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "二维计算几何基础"
+  ],
+  "name": "二维计算几何基础",
+  "file": "geometry/2d.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "三维计算几何基础"
+  ],
+  "name": "三维计算几何基础",
+  "file": "geometry/3d.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "距离"
+  ],
+  "name": "距离",
+  "file": "geometry/distance.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "Pick 定理"
+  ],
+  "name": "Pick 定理",
+  "file": "geometry/pick.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "三角剖分"
+  ],
+  "name": "三角剖分",
+  "file": "geometry/triangulation.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "凸包"
+  ],
+  "name": "凸包",
+  "file": "geometry/convex-hull.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "扫描线"
+  ],
+  "name": "扫描线",
+  "file": "geometry/scanning.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "旋转卡壳"
+  ],
+  "name": "旋转卡壳",
+  "file": "geometry/rotating-calipers.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "半平面交"
+  ],
+  "name": "半平面交",
+  "file": "geometry/half-plane.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "平面最近点对"
+  ],
+  "name": "平面最近点对",
+  "file": "geometry/nearest-points.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "随机增量法"
+  ],
+  "name": "随机增量法",
+  "file": "geometry/random-incremental.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "反演变换"
+  ],
+  "name": "反演变换",
+  "file": "geometry/inverse.md"
+ },
+ {
+  "domain": "计算几何",
+  "path": [
+   "计算几何杂项"
+  ],
+  "name": "计算几何杂项",
+  "file": "geometry/misc.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "离散化"
+  ],
+  "name": "离散化",
+  "file": "misc/discrete.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "双指针"
+  ],
+  "name": "双指针",
+  "file": "misc/two-pointer.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "离线算法"
+  ],
+  "name": "离线算法",
+  "file": null
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "离线算法",
+   "CDQ 分治"
+  ],
+  "name": "CDQ 分治",
+  "file": "misc/cdq-divide.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "离线算法",
+   "整体二分"
+  ],
+  "name": "整体二分",
+  "file": "misc/parallel-binsearch.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "离线算法",
+   "莫队算法"
+  ],
+  "name": "莫队算法",
+  "file": null
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "分数规划"
+  ],
+  "name": "分数规划",
+  "file": "misc/frac-programming.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "随机化"
+  ],
+  "name": "随机化",
+  "file": null
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "随机化",
+   "随机函数"
+  ],
+  "name": "随机函数",
+  "file": "misc/random.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "随机化",
+   "随机化技巧"
+  ],
+  "name": "随机化技巧",
+  "file": "misc/rand-technique.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "随机化",
+   "爬山算法"
+  ],
+  "name": "爬山算法",
+  "file": "misc/hill-climbing.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "随机化",
+   "模拟退火"
+  ],
+  "name": "模拟退火",
+  "file": "misc/simulated-annealing.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "悬线法"
+  ],
+  "name": "悬线法",
+  "file": "misc/hoverline.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "计算理论基础"
+  ],
+  "name": "计算理论基础",
+  "file": "misc/cc-basic.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "字节顺序"
+  ],
+  "name": "字节顺序",
+  "file": "misc/endianness.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "约瑟夫问题"
+  ],
+  "name": "约瑟夫问题",
+  "file": "misc/josephus.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "格雷码"
+  ],
+  "name": "格雷码",
+  "file": "misc/gray-code.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "表达式求值"
+  ],
+  "name": "表达式求值",
+  "file": "misc/expression.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "在一台机器上规划任务"
+  ],
+  "name": "在一台机器上规划任务",
+  "file": "misc/job-order.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "主元素问题"
+  ],
+  "name": "主元素问题",
+  "file": "misc/main-element.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "Garsia–Wachs 算法"
+  ],
+  "name": "Garsia–Wachs 算法",
+  "file": "misc/garsia-wachs.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "15-puzzle"
+  ],
+  "name": "15-puzzle",
+  "file": "misc/15-puzzle.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "Kahan 求和"
+  ],
+  "name": "Kahan 求和",
+  "file": "misc/kahan-summation.md"
+ },
+ {
+  "domain": "杂项",
+  "path": [
+   "珂朵莉树/颜色段均摊"
+  ],
+  "name": "珂朵莉树/颜色段均摊",
+  "file": "misc/odt.md"
+ },
+ {
+  "domain": "专题",
+  "path": [
+   "RMQ"
+  ],
+  "name": "RMQ",
+  "file": "topic/rmq.md"
+ },
+ {
+  "domain": "专题",
+  "path": [
+   "并查集应用"
+  ],
+  "name": "并查集应用",
+  "file": "topic/dsu-app.md"
+ },
+ {
+  "domain": "专题",
+  "path": [
+   "括号序列"
+  ],
+  "name": "括号序列",
+  "file": "topic/bracket.md"
+ },
+ {
+  "domain": "专题",
+  "path": [
+   "线段树与离线询问"
+  ],
+  "name": "线段树与离线询问",
+  "file": "topic/segment-tree-offline.md"
+ }
+]

@@ -1,0 +1,49 @@
+本目录是 OI Wiki 正文的**本地检索副本**，**不是 MIT**，适用 CC BY-SA 4.0。
+
+## 来源
+
+<https://github.com/OI-wiki/OI-wiki>
+
+| 文件 | 是什么 |
+|---|---|
+| `chunks.jsonl` | OI Wiki 正文切成的 2177 个文本块（每行 `{i, src, text}`） |
+| `node-pages.json` | 地图节点 → OI Wiki 页面的映射表（349 条） |
+
+`src` 是相对 OI Wiki `docs/` 的路径。
+
+## 上游许可
+
+OI Wiki 的 README 原文（`README.md:104-110`）：
+
+> 除特别注明外，项目中除了代码部分均采用 **(Creative Commons BY-SA 4.0)
+> 知识共享署名 - 相同方式共享 4.0 国际许可协议** 及附加的
+> [The Star And Thank Author License](https://github.com/zTrix/sata-license) 进行许可。
+>
+> 换言之，使用过程中您可以自由地共享、演绎，但是必须署名、以相同方式共享、
+> 分享时没有附加限制，而且应该为 GitHub 仓库点赞（Star）。
+
+## 因此
+
+- 本目录的内容**必须署名 OI Wiki Team**
+- 分发演绎版本时**必须沿用 CC BY-SA 4.0**
+- 上游还请求给仓库点个 star：<https://github.com/OI-wiki/OI-wiki>
+
+CC BY-SA 的 share-alike 只作用于**衍生部分**，不会传染本仓库里独立的代码
+（那些仍是 MIT，见仓库根的 `LICENSE`）。
+
+## 已知的不完整
+
+原索引跳过了 6 个文件（`dp/count.md`、`dp/misc.md`、`ds/persistent-block-array.md`、
+`ds/seg-in-balanced.md`、`math/game-theory/partizan-game.md`、`misc/offline.md`），
+所以映射到这几页的节点查不到正文。遇到时照实说查不到，别硬编。
+
+## 怎么重建
+
+```bash
+# 1. 正文（需要一份 langchain 格式的旧索引；或者直接用 OI Wiki 的 markdown 重新切）
+python coach/export_oiwiki_chunks.py <index.pkl> assets/oiwiki
+
+# 2. 节点映射（需要 OI Wiki 仓库里的 mkdocs.yml）
+python coach/build_node_pages.py assets/knowledge/MAP.yaml \
+    <OI-wiki>/mkdocs.yml assets/oiwiki/node-pages.json
+```

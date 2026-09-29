@@ -1,0 +1,457 @@
+# ══════════════════════════════════════════════════════════════
+# NODE_META.yaml —— 知识点标注 · **人维护的源文件**
+#
+# 这份文件回答地图回答不了的那个问题：
+#   地图说「谁是谁的前置」   →  **允许**学什么
+#   这份说「这知识点重不重要」→  **该不该**学
+#
+# 两者都满足，才轮到"现在学不学得起"（那个是机器算的，见 NODE_ENTRY.yaml）。
+#
+# ══ 判定标准 ══════════════════════════════════════════════════
+#
+# 校准目标：**ICPC 区域赛稳定拿牌**（远期 WF 领奖台）。
+# 不是"CF 上分需要什么"——这两者的侧重不一样，见下面的差异记录。
+# 校准对象：**全能型选手**，不针对特定队伍角色做特化。
+# ⚠️ 这是**默认校准**。你的目标不一样（比如只想稳过区域赛签到）就该自己改这份文件
+#    —— 它本来就是人维护的源文件，改成你自己的判断是对的用法。
+#
+#   core    区域赛签到到中档题的主力。不会它，题就读不懂或做不出来。
+#   normal  常见，值得学。但不决定成败——少一个不至于崩。
+#   rare    偶见，或只在特定题型里用得上。时间紧张时靠后。
+#   skip    ICPC 区域赛基本不考（OI 特有 / 纯理论 / 库已代劳的实现细节）。
+#
+# ══ 依据来源（按可信度） ══════════════════════════════════════
+#
+# 1. 粗粒度考频共识（多方一致，但**都没有挂数据**——是共识不是证据）：
+#      DP、图论最高 ／ 数据结构、贪心、构造、模拟次之
+#      基础算法是支撑 ／ 字符串、计算几何、高级数论靠后
+# 2. 论文 [Finding Winning Patterns in ICPC data]（Utrecht，1342 道区域赛+WF 真题
+#    2012-2018，专家标注 9 类）。可引用的结论只有一条：**data structures 类
+#    与其它类差异最显著**。细分占比拿不到（原始页面 403）。
+# 3. Halim《Competitive Programming》Table 1.1「近年 ICPC 亚洲区域赛题型」，
+#    作者是 ICPC Asia 赛事总监——这批来源里唯一有执业资格的。内容没抓到。
+# 4. 本机题库算出的**入门段位**（NODE_ENTRY.yaml，可复现）——用来校验：
+#    一个标 core 的知识点如果入门段位 2600，那它对初学者不是 core 是 rare。
+#
+# ⚠️ 不存在官方 ICPC 考纲。World Finals 技术文档只规定编程环境（语言/文件/沙箱）。
+# ⚠️ 网上被转得最多的《2025 亚洲区域赛算法类型分布统计》经核实**通篇没有数字**，
+#    是个人经验帖冒充统计，不作为依据。
+#
+# ══ CF 路线 vs ICPC 路线的差异（校准目标的由来）══════════════
+#
+# · CF：个人赛，2 小时 7 题，Div 分级，预测试+hack，重**观察和数学**
+# · ICPC：3 人 1 机，5 小时 8-13 题，罚时制，重**综合与实现**
+# · 赛区差异极大：欧洲重算法数学（有时超 WF），美国重模拟代码量，亚洲居中
+#
+# 落到具体：**数据结构类在亚洲区域赛比在 CF 上更重要**（CF 的 "Chinese-ness"
+# 不如亚洲赛区明显）。所以本文件在数据结构和实现细节上，比 CF 路线图给得更高。
+#
+# ══ 写法约定 ═════════════════════════════════════════════════
+#
+# · 只写 `tier`。**偏离同域默认的**才加 `why` —— 那些正是该人工复核的。
+# · 每个域名在 group_defaults 里给一个默认 tier，节点没写的继承它。
+# · 节点名必须与 MAP.yaml 逐字相同（build_map.py 按名字合并，对不上会报错）。
+# ══════════════════════════════════════════════════════════════
+
+meta:
+  version: 1
+  authored: 2026-09-13
+  target: ICPC 区域赛稳定拿牌（远期 WF）
+  persona: 全能手（不做队伍角色特化）
+
+group_defaults:
+  算法基础: normal
+  动态规划: normal
+  图论: normal
+  数据结构: normal
+  数学: rare
+  字符串: rare
+  计算几何: rare
+  搜索: rare
+  杂项: normal
+  专题: normal
+
+nodes:
+  # ══ 算法基础 ══════════════════════════════════════════════
+  # 全部是"支撑"，但支撑的性质不同：模拟/枚举/贪心/二分/构造是**天天的活**，
+  # 排序家族里除快排归并外都是库已代劳的实现细节。
+  模拟: { tier: core }
+  枚举: { tier: core }
+  贪心: { tier: core, why: "共识列为高频；也是 CF 与区域赛重合度最高的板块之一" }
+  构造: { tier: core, why: "共识高频；区域赛签到/中档题主力" }
+  二分: { tier: core }
+  排序: { tier: core }
+  前缀和 & 差分: { tier: core }
+  递归 & 分治: { tier: core }
+  倍增: { tier: core }
+  复杂度: { tier: core, why: "不会算复杂度等于不会判断解法能不能过" }
+  排序相关 STL: { tier: core }
+  快速排序: { tier: normal, why: "库已代劳，但要懂分治思想" }
+  归并排序: { tier: normal, why: "库已代劳，但归并思想是 CDQ 分治的基础" }
+  排序应用: { tier: normal }
+  计数排序: { tier: rare }
+  冒泡排序: { tier: skip }
+  插入排序: { tier: skip }
+  选择排序: { tier: skip }
+  希尔排序: { tier: skip }
+  堆排序: { tier: skip }
+  桶排序: { tier: skip }
+  基数排序: { tier: rare }
+  tim排序: { tier: skip }
+  锦标赛排序: { tier: skip }
+
+  # ══ 动态规划 ══════════════════════════════════════════════
+  # 共识「最高频核心考点」，但**要注意 cfRating**：dp 的 p25 只有 1800。
+  # 高频 ≠ 早学。基础那批 core，优化那批是"会用得上但不决定成败"。
+  动态规划基础: { tier: core }
+  背包 DP: { tier: core }
+  区间 DP: { tier: core }
+  树形 DP: { tier: core }
+  状压 DP: { tier: core }
+  数位 DP: { tier: core, why: "区域赛数位 DP 出现稳定，且是入门级数论型 DP" }
+  记忆化搜索: { tier: core }
+  计数 DP: { tier: normal }
+  概率 DP: { tier: normal }
+  DAG 上的 DP: { tier: normal }
+  动态 DP: { tier: rare }
+  插头 DP: { tier: rare, why: "只在棋盘覆盖类特定题型出现" }
+  其它 DP 方法: { tier: rare }
+  状态设计优化: { tier: normal }
+  DP 优化: { tier: normal }
+  单调队列/单调栈优化: { tier: normal, why: "入门段位 1700，是 DP 优化里最该先拿下的" }
+  斜率优化: { tier: normal, why: "入门段位 2300，超出入门水平一档，但区域赛反复出现" }
+  四边形不等式优化: { tier: rare }
+
+  # ══ 图论 ══════════════════════════════════════════════════
+  # 共识「次高频、覆盖最全面」。基础全是 core；高阶匹配/特殊图 rare。
+  图的存储: { tier: core }
+  图论相关概念: { tier: core }
+  BFS（图论）: { tier: core }
+  DFS（图论）: { tier: core }
+  拓扑排序: { tier: core }
+  连通性相关: { tier: core }
+  最短路: { tier: core }
+  最小生成树: { tier: core }
+  最近公共祖先: { tier: core }
+  二分图: { tier: core }
+  树的直径: { tier: core }
+  树的重心: { tier: core }
+  树基础: { tier: core }
+  强连通分量: { tier: core }
+  割点和桥: { tier: core }
+  双连通分量: { tier: core }
+  有向无环图: { tier: core }
+  欧拉图: { tier: normal }
+  差分约束: { tier: normal }
+  2-SAT: { tier: normal, why: "区域赛偶见，且是「条件→图」建模的经典套路" }
+  网络流: { tier: normal, why: "整体标 normal 不标 core：区域赛出现，但不做签到题" }
+  最大流: { tier: normal, why: "网络流的主干，Dinic 模板必须写熟" }
+  最小割: { tier: normal }
+  费用流: { tier: normal }
+  二分图最大匹配: { tier: normal }
+  树链剖分: { tier: normal, why: "入门段位 2000，亚洲区域赛数据结构题常客" }
+  树分治: { tier: normal }
+  树上启发式合并: { tier: normal }
+  虚树: { tier: normal }
+  树哈希: { tier: normal }
+  Prüfer 序列: { tier: normal }
+  增广路: { tier: normal }
+  最小环: { tier: rare }
+  上下界网络流: { tier: rare }
+  二分图最大权匹配: { tier: rare }
+  一般图最大匹配: { tier: rare }
+  一般图最大权匹配: { tier: rare }
+  图匹配: { tier: rare }
+  支配树: { tier: rare }
+  最小树形图: { tier: rare }
+  最小直径生成树: { tier: rare }
+  斯坦纳树: { tier: rare }
+  k 短路: { tier: rare }
+  同余最短路: { tier: rare }
+  最大团搜索算法: { tier: rare }
+  Stoer–Wagner 算法: { tier: rare }
+  矩阵树定理: { tier: rare }
+  LGV 引理: { tier: rare }
+  平面图: { tier: rare }
+  弦图: { tier: rare }
+  哈密顿图: { tier: rare }
+  图的着色: { tier: rare }
+  图的匹配: { tier: rare }
+  圆方树: { tier: rare }
+  图上随机游走: { tier: rare }
+  树上随机游走: { tier: rare }
+  动态树分治: { tier: rare }
+  拆点: { tier: normal, why: "网络流建模的基本功，不是独立知识点" }
+  环计数问题: { tier: rare }
+  点/边连通度: { tier: rare }
+  AHU 算法: { tier: skip }
+  树上问题: { tier: skip, why: "这是分类抽屉不是知识点——MAP.yaml 头部已注明 parent 不参与依赖" }
+
+  # ══ 数据结构 ══════════════════════════════════════════════
+  # 论文明确「data structures 类与其它类差异最显著」+ 亚洲区域赛吃这个。
+  # 但**平衡树家族要狠狠往下压**——除 Treap/Splay 外，区域赛基本用不到，
+  # 实现了也是靠库或模板，不是"学会"。
+  栈: { tier: core }
+  队列: { tier: core }
+  链表: { tier: core }
+  堆: { tier: core }
+  二叉堆: { tier: core }
+  并查集: { tier: core }
+  哈希表: { tier: core }
+  ST 表: { tier: core }
+  单调栈: { tier: core }
+  单调队列: { tier: core }
+  树状数组: { tier: core }
+  线段树: { tier: core }
+  分块思想: { tier: normal }
+  块状数据结构: { tier: normal }
+  块状数组: { tier: normal }
+  块状链表: { tier: rare }
+  树分块: { tier: rare }
+  二叉搜索树 & 平衡树: { tier: normal }
+  Treap: { tier: normal, why: "平衡树里最该先写熟的一种，可当 set 增强用" }
+  Splay 树: { tier: normal, why: "LCT 的前置；本身在区域赛也有出现" }
+  可持久化数据结构: { tier: normal }
+  可持久化线段树: { tier: normal, why: "主席树，亚洲区域赛常客；入门段位 2600 但那是最难题的门槛" }
+  李超线段树: { tier: normal, why: "斜率优化的替代品，写起来更省事，区域赛会用" }
+  动态树: { tier: rare }
+  Link Cut Tree: { tier: rare, why: "LCT 在区域赛属于「会了加分不会也没事」档，且实现成本极高" }
+  Euler Tour Tree: { tier: skip }
+  Top Tree: { tier: skip }
+  可持久化平衡树: { tier: rare }
+  可持久化字典树: { tier: rare }
+  可持久化可并堆: { tier: rare }
+  可持久化块状数组: { tier: rare }
+  树套树: { tier: rare }
+  线段树套线段树: { tier: rare }
+  线段树套平衡树: { tier: rare }
+  树状数组套权值线段树: { tier: rare }
+  平衡树套线段树: { tier: skip }
+  分块套树状数组: { tier: skip }
+  区间最值操作 & 区间历史最值: { tier: rare }
+  划分树: { tier: rare }
+  K-D Tree: { tier: rare }
+  Sqrt Tree: { tier: skip }
+  析合树: { tier: skip }
+  PQ 树: { tier: skip }
+  霍夫曼树: { tier: rare }
+  左偏树: { tier: rare }
+  配对堆: { tier: skip }
+  跳表: { tier: skip }
+  手指树: { tier: skip }
+  并查集复杂度: { tier: skip }
+  AVL 树: { tier: skip }
+  红黑树: { tier: skip }
+  左偏红黑树: { tier: skip }
+  AA 树: { tier: skip }
+  2-3 树: { tier: skip }
+  B 树: { tier: skip }
+  B+ 树: { tier: skip }
+  替罪羊树: { tier: skip }
+  Size Balanced Tree: { tier: skip }
+  Leafy Tree: { tier: skip }
+  WBLT: { tier: skip }
+  笛卡尔树: { tier: rare }
+
+  # ══ 数学 ══════════════════════════════════════════════════
+  # 这个域最大（110 个）也最杂。数论基础/组合基础是 core，
+  # 多项式家族和纯理论（线性空间、群论、数值算法）大面积 skip。
+  基本概念: { tier: rare, why: "OI-wiki 的抽屉节点，内容散，当数论基础的补充看" }
+  位运算: { tier: core }
+  快速幂: { tier: core }
+  最大公约数: { tier: core }
+  素数: { tier: core }
+  筛法: { tier: core }
+  数论基础: { tier: core }
+  乘法逆元: { tier: core }
+  欧拉函数: { tier: core }
+  欧拉定理 & 费马小定理: { tier: core }
+  裴蜀定理: { tier: core }
+  排列组合: { tier: core }
+  容斥原理: { tier: core }
+  高精度计算: { tier: normal, why: "区域赛直接考得少，但大数题绕不开" }
+  数论: { tier: normal }
+  中国剩余定理: { tier: normal }
+  卢卡斯定理: { tier: normal }
+  数论分块: { tier: normal }
+  同余方程: { tier: normal }
+  线性同余方程: { tier: normal }
+  分解质因数: { tier: normal }
+  卡特兰数: { tier: normal }
+  斯特林数: { tier: normal }
+  抽屉原理: { tier: normal }
+  斐波那契数列: { tier: normal }
+  矩阵: { tier: core, why: "矩阵快速幂是区域赛常考的加速手段" }
+  高斯消元: { tier: normal }
+  线性基: { tier: normal, why: "异或类题的标准工具，区域赛稳定出现" }
+  博弈论: { tier: normal }
+  公平组合游戏: { tier: normal }
+  概率论: { tier: normal }
+  随机变量: { tier: rare }
+  随机变量的数字特征: { tier: rare }
+  条件概率与独立性: { tier: rare }
+  概率不等式: { tier: skip }
+  组合数学: { tier: normal }
+  康托展开: { tier: normal }
+  范德蒙德卷积: { tier: rare }
+  贝尔数: { tier: rare }
+  错位排列: { tier: rare }
+  分拆数: { tier: rare }
+  Eulerian Number: { tier: skip }
+  Entringer Number: { tier: skip }
+  伯努利数: { tier: skip }
+  图论计数: { tier: rare }
+  置换和排列: { tier: rare }
+  置换群: { tier: rare }
+  群论: { tier: skip }
+  莫比乌斯反演: { tier: normal }
+  杜教筛: { tier: rare }
+  Min_25 筛: { tier: skip }
+  洲阁筛: { tier: skip }
+  Powerful Number 筛: { tier: skip }
+  Meissel–Lehmer 算法: { tier: skip }
+  二次剩余: { tier: rare }
+  原根: { tier: rare }
+  离散对数: { tier: rare }
+  类欧几里德算法: { tier: rare }
+  升幂引理: { tier: rare }
+  威尔逊定理: { tier: rare }
+  二次域: { tier: skip }
+  剩余: { tier: rare }
+  Pell 方程: { tier: skip }
+  Stern–Brocot 树与 Farey 序列: { tier: skip }
+  循环连分数: { tier: skip }
+  连分数: { tier: skip }
+  多项式与生成函数: { tier: rare }
+  快速傅里叶变换: { tier: rare, why: "CF 上 fft 的 p25 是 2500；区域赛偶现，但入门成本高" }
+  快速数论变换: { tier: rare }
+  快速沃尔什变换: { tier: rare }
+  普通生成函数: { tier: rare }
+  指数生成函数: { tier: rare }
+  狄利克雷生成函数: { tier: skip }
+  符号化方法: { tier: skip }
+  多项式初等函数: { tier: skip }
+  多项式多点求值|快速插值: { tier: skip }
+  多项式平移|连续点值平移: { tier: skip }
+  多项式牛顿迭代: { tier: skip }
+  常系数齐次线性递推: { tier: rare }
+  Chirp Z 变换: { tier: skip }
+  拉格朗日插值: { tier: rare }
+  线性代数: { tier: rare }
+  线性空间: { tier: skip }
+  线性映射: { tier: skip }
+  向量: { tier: skip }
+  内积和外积: { tier: rare }
+  行列式: { tier: rare }
+  初等变换: { tier: skip }
+  对角化: { tier: skip }
+  特征多项式: { tier: skip }
+  Jordan标准型: { tier: skip }
+  线性规划: { tier: skip }
+  单纯形算法: { tier: skip }
+  数值算法: { tier: skip }
+  数值积分: { tier: skip }
+  牛顿迭代法: { tier: skip }
+  二进制集合操作: { tier: normal }
+  进位制: { tier: normal }
+  平衡三进制: { tier: skip }
+  复数: { tier: rare, why: "只在 FFT 里真正用到" }
+  弧度制与坐标系: { tier: rare }
+  符号: { tier: skip }
+  序理论: { tier: skip }
+  杨氏矩阵: { tier: skip }
+  代数基本定理: { tier: skip }
+  反常游戏: { tier: skip }
+  非公平组合游戏: { tier: rare }
+  傅里叶-莫茨金消元法: { tier: skip }
+  Berlekamp–Massey 算法: { tier: skip }
+  Schreier–Sims 算法: { tier: skip }
+
+  # ══ 字符串 ══════════════════════════════════════════════
+  # 共识「中频，匹配与自动机为主」。基础哈希/KMP 是 core，自动机以上 rare。
+  字符串基础: { tier: core }
+  字符串哈希: { tier: core, why: "区域赛字符串题的万能钥匙，性价比极高" }
+  前缀函数与 KMP 算法: { tier: core }
+  字典树 (Trie): { tier: normal }
+  字符串匹配: { tier: normal }
+  Z 函数（扩展 KMP）: { tier: normal }
+  Manacher: { tier: normal }
+  AC 自动机: { tier: normal, why: "多模式串匹配的标准解法，区域赛出现过" }
+  后缀数组 (SA): { tier: normal }
+  后缀自动机 (SAM): { tier: rare }
+  广义后缀自动机: { tier: rare }
+  回文树: { tier: rare }
+  后缀树: { tier: skip }
+  后缀平衡树: { tier: skip }
+  Lyndon 分解: { tier: rare }
+  Main–Lorentz 算法: { tier: skip }
+  Boyer–Moore 算法: { tier: skip }
+  序列自动机: { tier: rare }
+  自动机: { tier: skip }
+  最小表示法: { tier: rare }
+  最优原地后缀排序算法: { tier: skip }
+  标准库: { tier: skip, why: "这是分类抽屉不是知识点" }
+
+  # ══ 计算几何 ══════════════════════════════════════════════
+  # 来源打架：一份说"区域赛常出现但选手因精度问题避开"，另一份列为中频。
+  # 取前者——常出现且难，所以是 normal 到 rare，不是 skip。
+  # ⚠️ 这一组是我按判断拍的，不是来源直接说的，复核时优先看这里。
+  二维计算几何基础: { tier: normal }
+  凸包: { tier: normal }
+  距离: { tier: normal }
+  计算几何杂项: { tier: normal }
+  扫描线: { tier: normal, why: "扫描线是计算几何+数据结构的交叉点，区域赛常考" }
+  平面最近点对: { tier: rare }
+  旋转卡壳: { tier: rare }
+  半平面交: { tier: rare }
+  三角剖分: { tier: skip }
+  三维计算几何基础: { tier: skip }
+  反演变换: { tier: skip }
+  随机增量法: { tier: rare }
+  Pick 定理: { tier: rare }
+
+  # ══ 搜索 ══════════════════════════════════════════════
+  # ICPC 全部测试点必须过（不像 CF 有部分分），所以剪枝比 OI 更重要。
+  DFS（搜索）: { tier: core }
+  BFS（搜索）: { tier: core }
+  回溯法: { tier: normal }
+  双向搜索: { tier: normal }
+  迭代加深搜索: { tier: rare }
+  A*: { tier: rare }
+  IDA*: { tier: rare }
+  启发式搜索: { tier: rare }
+  Dancing Links: { tier: skip }
+  Alpha-Beta 剪枝: { tier: skip }
+  优化: { tier: skip, why: "OI-wiki 的抽屉节点，不是独立知识点" }
+
+  # ══ 杂项 ══════════════════════════════════════════════
+  双指针: { tier: core }
+  离散化: { tier: core }
+  离线算法: { tier: normal }
+  CDQ 分治: { tier: normal }
+  整体二分: { tier: normal }
+  莫队算法: { tier: normal, why: "亚洲区域赛数据结构题常客；入门段位 2400 但模板化程度高" }
+  分数规划: { tier: normal }
+  悬线法: { tier: normal }
+  表达式求值: { tier: normal }
+  随机化技巧: { tier: normal, why: "ICPC 不允许近似解，但随机化算法（如哈希/随机化判定）有位置" }
+  随机化: { tier: rare }
+  随机函数: { tier: rare }
+  模拟退火: { tier: rare }
+  爬山算法: { tier: skip }
+  约瑟夫问题: { tier: rare }
+  格雷码: { tier: rare }
+  珂朵莉树/颜色段均摊: { tier: rare }
+  主元素问题: { tier: rare }
+  15-puzzle: { tier: skip }
+  Garsia–Wachs 算法: { tier: skip }
+  Kahan 求和: { tier: skip }
+  在一台机器上规划任务: { tier: skip }
+  字节顺序: { tier: rare }
+  计算理论基础: { tier: skip }
+
+  # ══ 专题 ══════════════════════════════════════════════
+  RMQ: { tier: normal }
+  并查集应用: { tier: normal }
+  括号序列: { tier: normal }
+  线段树与离线询问: { tier: rare }
