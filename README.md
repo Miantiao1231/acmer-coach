@@ -52,11 +52,14 @@ coach_schedule → coach_plan              排课
 # 1. 装 dsh（需要 Node ≥ 24）
 npm i -g @deepseek-ai/dsh
 
-# 2. 装插件
-dsh plugin --profile web add acmer-coach
+# 2. 装插件（二选一）
+dsh plugin --profile web add acmer-coach                        # 从 npm（推荐）
+dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 
 # 3. 重启 dsh，然后跟小鲸说「初始化」
 ```
+
+> npm 上搜 `acmer-coach`，或者直接开 <https://www.npmjs.com/package/acmer-coach>。
 
 **初始化流程**（说话就行，不用敲命令）：
 
