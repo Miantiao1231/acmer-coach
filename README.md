@@ -15,7 +15,7 @@
 
 ## 它到底做了什么
 
-19 个工具，两条轴：
+20 个工具，两条轴：
 
 | 轴 | 含义 |
 |---|---|
@@ -25,7 +25,8 @@
 核心闭环：
 
 ```
-coach_setup     首次：体检 → 建目录建库 → 从 CF 同步数据
+coach_setup     首次：体检 → 建目录建库 → 灌题池 → 从 CF 同步数据
+coach_import    洛谷/牛客的记录从这里进（CF 不用，有公开接口）
   ↓
 coach_next      看游标能开哪些节点（前置满足的）
   ↓
@@ -94,11 +95,35 @@ dsh plugin --profile web add acmer-coach
 一个人某题提交 11 次，数据能说"花了很久"，说不出"缺哪个机制"。
 "他碰过"和"他会"是两件事，前者能从数据看出来，后者只能靠检测。
 
+## 三个平台怎么接
+
+**题池是随包发的**（41,518 道，三个平台），`coach_setup init` 时灌进本地库。
+没有它 `coach_pool` 挑不出「他没做过」的题 —— 那个条件永远满足不了。
+
+**提交记录**是另一回事，三个平台难度差很多：
+
+| 平台 | 题池 | 提交记录 | 怎么拿 |
+|---|---|---|---|
+| **Codeforces** | ✓ | ✓ | **官方公开接口**，`coach_setup { action: "sync", handle: "..." }` 一条命令，不需要登录 |
+| **Nowcoder** | ✓ | — | 没有公开的记录接口。走 `coach_import`（自己导出 / 手敲） |
+| **Luogu** | ✓ | — | 同上。仓库里带了个**可选**的浏览器扩展，见下 |
+
+### ⚠️ 洛谷：先说风险
+
+洛谷的服务条款不欢迎抓取，而且**这个项目的原版有账号因爬取被封的真实先例**。
+题池里那 16,483 道洛谷题是爬来的（见 `assets/pool/LICENSE`）。
+
+`assets/extension/luogu/` 里带了一个扩展，它**不发任何网络请求** ——
+只读你屏幕上已经显示的内容，然后让你下载一个文件。比爬虫轻得多，**但不等于零**。
+
+**用不用你自己判断。** 不想担风险的话：只关注 CF（零风险），
+或者手动记几道题。详见 `assets/extension/luogu/README.md`。
+
 ## 文件
 
 | 文件 | 作用 |
 |---|---|
-| `index.js` | 插件本体（host 端，19 个工具 + 规则注入） |
+| `index.js` | 插件本体（host 端，20 个工具 + 规则注入） |
 | `lib/setup.js` | 环境搭建 + CF 公开数据同步 |
 | `lib/client.js` | 浏览器端：会话头部「技能树」按钮 + 弹层 |
 | `package.json` | 声明 `dsh.bundle.patch` + `dsh.client` |
@@ -111,6 +136,8 @@ dsh plugin --profile web add acmer-coach
 | `assets/rules/` | **教练规则** —— 由插件注入 system prompt |
 | `assets/knowledge/` | 地图与元数据 |
 | `assets/oiwiki/` | OI Wiki 本地检索库 |
+| `assets/pool/` | 随包发的题池（41,518 道，三平台）—— 见该目录下的 LICENSE（有风险说明） |
+| `assets/extension/` | 可选的浏览器扩展（洛谷记录导出） |
 | `coach/` | 地图工具链（Python）+ 指标脚本 |
 
 ### 三层
@@ -223,6 +250,7 @@ OI Wiki 是个了不起的社区项目 —— 如果你觉得这里的地图有�
 | 代码（`index.js` / `lib/` / `*.mjs` / `coach/*.py` 等） | MIT（见根目录 `LICENSE`） |
 | `assets/knowledge/` | **CC BY-SA 4.0** —— 衍生自 OI Wiki |
 | `assets/oiwiki/` | **CC BY-SA 4.0** —— OI Wiki 正文 |
+| `assets/pool/` | **来源与风险见该目录下的 `LICENSE`** —— CF 部分是官方公开接口（无风险），洛谷部分是爬取的（有风险），仓库不对它主张权利 |
 
 OI Wiki 的内容部分采用 **CC BY-SA 4.0**（署名 + 相同方式共享）及附加的
 [The Star And Thank Author License](https://github.com/zTrix/sata-license)。

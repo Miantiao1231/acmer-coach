@@ -28,7 +28,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { initDataDir, syncCodeforces, contactEvidence } from './lib/setup.js'
+import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
@@ -1893,11 +1893,20 @@ function apply(ctx) {
       if (args.action === 'init') {
         // assetsDir 是**assets 目录本身** —— initDataDir 会在它下面找 knowledge/
         const made = initDataDir({ dataDir: DATA_DIR, dbPath, assetsDir: join(import.meta.dirname, 'assets'), DatabaseSync })
-        base.note = `建了 ${made.knowledge.length} 个地图文件${made.db ? '，训练库是新建的' : '，训练库本来就在'}`
+        // 顺手灌题池：没有它 `coach_pool` 挑不出「他没做过」的题。
+        // 幂等，重复 init 不会翻倍。
+        let pool = { imported: 0, note: '' }
+        try {
+          pool = importPool({ dbPath, poolPath: join(import.meta.dirname, 'assets', 'pool', 'problems.jsonl.gz'), DatabaseSync })
+        } catch (e) { pool = { imported: 0, note: `题库灌库失败：${e.message}` } }
+
+        base.note = `建了 ${made.knowledge.length} 个地图文件${made.db ? '，训练库是新建的' : '，训练库本来就在'}；` +
+          `题库 ${pool.imported} 道${pool.note ? `（${pool.note}）` : ''}`
         base.items = [
           { name: '数据目录', status: 'ok', detail: DATA_DIR },
           { name: '地图', status: made.knowledge.length ? 'ok' : '已有', detail: made.knowledge.join(',') || '没动（已存在）' },
           { name: '训练库', status: 'ok', detail: dbPath },
+          { name: '题库', status: pool.imported ? 'ok' : '缺', detail: pool.imported ? `${pool.imported} 道（CF/洛谷/牛客）` : pool.note },
         ]
         return base
       }
@@ -1965,6 +1974,105 @@ function apply(ctx) {
           : !wiki.chunks.length ? 'OI Wiki 知识库没装，讲知识点之前查不了 —— 别凭记忆讲。'
             : '都就位了。'
       return base
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_import',
+    description:
+      '导入提交记录。**洛谷和牛客的记录只能这么进来** —— 这两个平台没有公开的提交接口，' +
+      '正路是浏览器扩展导出文件（见 assets/extension/）或者你自己写的脚本，' +
+      '然后把这个文件交给它。CF 不用走这里（`coach_setup sync` 能直接拉）。' +
+      '格式：JSON 数组或 JSONL，每条至少要有 `platform` / `problem_id` / `verdict`。' +
+      '**按题去重**：同一道题的多次提交只留一条 —— 一份「全部提交记录」倒进来不会把 AC 集合淹掉。',
+    parameters: {
+      path: {
+        type: 'string',
+        description: '记录文件路径（.json 数组 或 .jsonl 每行一条）。与 records 二选一',
+      },
+      records: {
+        type: 'array',
+        description: '也可以直接给记录数组（几条的话）',
+        items: {
+          type: 'object', additionalProperties: true,
+          properties: {
+            platform: { type: 'string', description: 'codeforces / luogu / nowcoder' },
+            problem_id: { type: 'string', description: '题号，如 P1001 / 1015D / NC12345' },
+            verdict: { type: 'string', description: 'AC 或其它' },
+            submitted_at: { type: 'string', description: 'ISO 时间，缺省用当前时间' },
+          },
+        },
+      },
+      platform: {
+        type: 'string',
+        description: '记录里没写 platform 时用这个补（比如整份文件都是洛谷的）',
+      },
+      handle: { type: 'string', description: '记到谁名下，缺省 trainer' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          ok: { type: 'boolean', required: true },
+          note: { type: 'string', required: true },
+          inserted: { type: 'number', required: true },
+          skipped: { type: 'number', required: true },
+          byPlatform: {
+            type: 'array', required: true,
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: {
+                platform: { type: 'string', required: true },
+                count: { type: 'number', required: true },
+              },
+            },
+          },
+        },
+      },
+      render: (_a, v) => [{
+        type: 'text',
+        text: !v.ok ? `导入失败：${v.note}`
+          : `导入 ${v.inserted} 条${v.skipped ? `（跳过 ${v.skipped} 条认不出的）` : ''}\n` +
+            v.byPlatform.map((p) => `  ${p.platform}：${p.count} 条`).join('\n') +
+            (v.note ? `\n${v.note}` : ''),
+      }],
+    },
+    async execute(args) {
+      const { DatabaseSync } = await import('node:sqlite')
+      const out = { ok: false, note: '', inserted: 0, skipped: 0, byPlatform: [] }
+
+      let records = Array.isArray(args.records) ? args.records : null
+      if (!records && args.path) {
+        try {
+          const txt = readFileSync(String(args.path), 'utf8')
+          const t = txt.trim()
+          if (t.startsWith('[')) records = JSON.parse(t)
+          else records = t.split('\n').filter(Boolean).map((l) => JSON.parse(l))
+        } catch (e) {
+          return { ...out, note: `读不了这个文件：${e.message}（路径对不对？文件是 JSON 数组或 JSONL 吗？）` }
+        }
+      }
+      if (!records) return { ...out, note: '没给记录 —— 要么给 path（文件），要么给 records（数组）' }
+
+      // 整份文件同属一个平台时，用 platform 参数补上
+      if (args.platform) {
+        const p = String(args.platform).toLowerCase().trim()
+        records = records.map((r) => (r && r.platform ? r : { ...r, platform: p }))
+      }
+
+      try {
+        const r = importRecords({ dbPath: DB_PATH(), records, handle: args.handle, DatabaseSync })
+        return {
+          ok: r.inserted > 0 || r.skipped === 0,
+          note: r.note ?? '',
+          inserted: r.inserted,
+          skipped: r.skipped,
+          byPlatform: Object.entries(r.byPlatform ?? {}).map(([platform, count]) => ({ platform, count })),
+        }
+      } catch (e) {
+        return { ...out, note: e.message }
+      }
     },
   }))
 

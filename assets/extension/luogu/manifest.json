@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "洛谷记录导出（给 acmer-coach 用）",
+  "version": "1.0.0",
+  "description": "读你当前打开的洛谷评测记录页，导出成 JSON 文件。零网络请求、零定时、只在你点击时跑。",
+  "permissions": [
+    "downloads"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.luogu.com.cn/*",
+        "https://luogu.com.cn/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

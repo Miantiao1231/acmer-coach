@@ -88,6 +88,82 @@ console.log('\n── 5. sync 不给 handle → 要问，不要瞎猜一个 ─�
   check('明确说「问他」', r.note.includes('handle'), r.note.slice(0, 60))
 }
 
+console.log('\n── 6. 题池随包发（没有它 coach_pool 挑不出「他没做过」的题）──')
+{
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(process.env.COACH_DB, { readOnly: true })
+  const lib = db.prepare('SELECT COUNT(*) c FROM unified_problems WHERE is_library=1').get().c
+  check('题库灌进去了', lib > 40000, `${lib} 道`)
+  const by = db.prepare(
+    "SELECT platform, COUNT(*) c FROM unified_problems WHERE is_library=1 GROUP BY platform").all()
+  for (const p of ['codeforces', 'luogu', 'nowcoder']) {
+    const n = by.find((r) => r.platform === p)?.c ?? 0
+    check(`  含 ${p}`, n > 5000, `${n} 道`)
+  }
+  check('题池带难度和标签（挑题要用）',
+    db.prepare("SELECT COUNT(*) c FROM unified_problems WHERE is_library=1 AND difficulty>0 AND tags!=''").get().c > 35000)
+  db.close()
+}
+
+console.log('\n── 7. 记录导入（洛谷/牛客走这条；CF 有公开接口不用）──')
+{
+  // 先拿 import 工具（setup 之外还要它）
+  const mod2 = await import('../index.js?imp=1')
+  const reg2 = []
+  mod2.apply({ tools: { register: (t) => reg2.push(t) }, inject: () => {}, on: () => {}, get: () => undefined })
+  const imp = reg2.find((t) => t.name === 'coach_import')
+  check('注册了 coach_import', Boolean(imp))
+  const ic = (a) => imp.execute(a, undefined)
+
+  // 洛谷：status 是数字码，只认 12 → AC，其余 → Other（细分码没映射，见 lib/setup.js）
+  const luogu = [
+    { platform: 'luogu', problem_id: 'P1001', verdict: '12', submitted_at: '2026-09-01T10:00:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1001', verdict: '6', submitted_at: '2026-09-01T09:00:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1002', verdict: '6', submitted_at: '2026-09-01T11:00:00+08:00' },
+  ]
+  const r1 = await ic({ records: luogu })
+  check('导入成功', r1.ok === true, r1.note || `${r1.inserted} 条`)
+  check('同一题多次提交 → 只留一条 AC（不是把提交数当题数）', r1.inserted === 2,
+    `inserted=${r1.inserted}（3 条输入：P1001 的 AC 覆盖了它的失败提交，P1002 只有失败）`)
+
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(process.env.COACH_DB, { readOnly: true })
+  const vs = db.prepare("SELECT problem_id, verdict FROM unified_submissions WHERE platform='luogu' ORDER BY problem_id").all()
+  check('洛谷 12 → AC', vs.some((r) => r.problem_id === 'P1001' && r.verdict === 'AC'),
+    JSON.stringify(vs))
+  check('非 12 → Other（细分码没映射，宁可少说不可猜）',
+    vs.every((r) => ['AC', 'Other'].includes(r.verdict)), vs.map((r) => r.verdict).join(','))
+  db.close()
+
+  // 牛客：NC 前缀要剥（插件里 normId 就是这么认的）
+  const r2 = await ic({ records: [{ platform: 'nowcoder', problem_id: 'NC204457', verdict: 'AC' }] })
+  check('牛客 NC 前缀被剥掉', r2.inserted === 1, `inserted=${r2.inserted}`)
+  const db2 = new DatabaseSync(process.env.COACH_DB, { readOnly: true })
+  check('存的是裸数字',
+    Boolean(db2.prepare("SELECT 1 FROM unified_submissions WHERE platform='nowcoder' AND problem_id='204457'").get()))
+  db2.close()
+
+  // 再导一次同一个文件：**不该把 AC 覆盖成失败**
+  const r3 = await ic({ records: [{ platform: 'luogu', problem_id: 'P1001', verdict: '6' }] })
+  const db3 = new DatabaseSync(process.env.COACH_DB, { readOnly: true })
+  check('已 AC 的题再导入失败记录 → 不覆盖',
+    Boolean(db3.prepare("SELECT 1 FROM unified_submissions WHERE platform='luogu' AND problem_id='P1001' AND verdict='AC'").get()),
+    `这次 inserted=${r3.inserted}`)
+  db3.close()
+
+  // 认不出的记录要计数，不是静默丢
+  const r4 = await ic({ records: [{ platform: 'atcoder', problem_id: 'abc300_f', verdict: 'AC' }] })
+  check('不认识的平台被跳过并计数', r4.skipped === 1, `skipped=${r4.skipped}`)
+
+  // 文件形式（扩展导出就是这个）
+  const f = join(home, 'records.jsonl')
+  writeFileSync(f, luogu.map((r) => JSON.stringify(r)).join('\n'))
+  const r5 = await ic({ path: f })
+  check('能吃 JSONL 文件', r5.ok === true, `inserted=${r5.inserted}`)
+  const r6 = await ic({ path: join(home, '不存在.json') })
+  check('文件不存在 → 如实报错', r6.ok === false && r6.note.includes('读不了'), r6.note.slice(0, 50))
+}
+
 if (process.env.COACH_TEST_NET === '1') {
   const handle = process.argv[2] || 'tourist'
   console.log(`\n── 6. 联网：真打 CF 接口拉「${handle}」 ──`)

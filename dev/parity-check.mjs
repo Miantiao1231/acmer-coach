@@ -71,8 +71,13 @@ const namesB = [...B.byName.keys()].sort()
 const onlyB = namesB.filter((n) => !namesA.includes(n))
 const onlyA = namesA.filter((n) => !namesB.includes(n))
 check('开源版没有丢掉任何原有工具', onlyB.length === 0, onlyB.join(',') || '（没丢）')
-check('新增的只有搭建与检索两个', onlyA.length <= 2, onlyA.join(',') || '（无新增）')
-console.log(`     线上 ${namesB.length} 个 / 开源 ${namesA.length} 个`)
+// 新增的只能是「搭环境 / 拉数据 / 查知识」这三类 —— 它们补的正是
+// 开源版缺的那些基础设施（原版靠本地已有的库和 skill，别人没有）。
+const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import'])
+check('新增的都在预期内（搭建 / 检索 / 导入）',
+  onlyA.every((n) => EXPECTED_NEW.has(n)), onlyA.join(',') || '（无新增）')
+check('原有的 17 个行为没变（下面逐条比）', namesB.length === 17, `${namesB.length} 个`)
+console.log(`     线上 ${namesB.length} 个 / 开源 ${namesA.length} 个（+${onlyA.join(', ') || '无'}）`)
 
 console.log('\n── 2. 共有工具：同样的输入 → 同样的输出 ──')
 // 每条：[工具, 参数, 说明]

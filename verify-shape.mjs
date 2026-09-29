@@ -170,6 +170,10 @@ const cases = [
   // 搭建/同步：体检是常走的成功路；不给 handle 走拒绝路（**不联网**）
   ['coach_setup', { action: 'status' }],
   ['coach_setup', { action: 'sync' }],
+  // 记录导入：有记录（成功） / 没记录（拒） / 认不出（跳过计数）
+  ['coach_import', { records: [{ platform: 'luogu', problem_id: 'P1', verdict: '12' }] }],
+  ['coach_import', {}],
+  ['coach_import', { records: [{ platform: 'atcoder', problem_id: 'x', verdict: 'AC' }] }],
   // OI Wiki 检索：四条路都要扫 —— 命中、读页、空结果、参数缺失
   ['coach_wiki', { action: 'search', query: '线段树', topK: 3 }],
   ['coach_wiki', { action: 'node', node: '线段树' }],
