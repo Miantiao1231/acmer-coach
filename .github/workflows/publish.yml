@@ -1,0 +1,29 @@
+# 发布走 npm 官方正道 Trusted Publishing（OIDC 信任发布）：
+# 不需要 token、不需要 2FA 码 —— GitHub Actions 用工作流身份直接换取发布权限。
+#
+# 前置（一次性）：npm 网站 → acmer-coach 包页面 → Settings → Trusted Publisher
+# 绑上这个仓库（Miantiao1231/acmer-coach）+ 本文件名（publish.yml）。
+#
+# 之后发布两条路：
+#   · 打 tag 推上来（v*）→ 自动发
+#   · 或 Actions 页手动触一次（首次发布用这个）
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # OIDC 必须，别删
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm publish --provenance --access public
