@@ -1,0 +1,10 @@
+# whale-notes bundle patch：把笔记库 × 教练地图的桥插件插入 profile 插件清单。
+#
+# 必须用 file: 而非 link: —— link: 的 realpath 在 ~/.dsh/profiles/ 外，
+# 解析不到 profiles/node_modules/@deepseek-ai 下的共享链接。
+#
+# ⚠️ id 必须和 index.js 导出的 `name` 逐字相同，name 必须和**包名**相同 ——
+# 对不上不会报错，工具会**静默不注册**。
+- insert:
+    - id: whale-notes
+      name: 'whale-notes'

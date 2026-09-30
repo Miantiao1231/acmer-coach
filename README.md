@@ -127,6 +127,28 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 **用不用你自己判断。** 不想担风险的话：只关注 CF（零风险），
 或者手动记几道题。详见 `assets/extension/luogu/README.md`。
 
+## 可选扩展：接上你的 Obsidian 笔记
+
+如果你用 Obsidian 记竞赛笔记，`assets/extension/notes/` 是一个**可选**的 dsh 插件，
+把笔记库和教练地图接起来：给一个知识点名，一次拿到「你为它写的笔记正文 +
+图上的前置 / 后继 + 你的学习进度」。
+
+最直接的收益在讲知识点那一步 —— 教练讲完会附一份板子，**接上笔记后，
+这份板子能对着你自己的写法来**（宏、命名、大括号、注释密度，照你的笔记全套对齐）。
+
+纯附加，不装不影响任何功能。装法、配置（一个必需的环境变量：你的库路径）、
+「映射怎么建」的说明都在 [`assets/extension/notes/README.md`](assets/extension/notes/README.md)。
+
+## 给教练接持久记忆（可选）
+
+dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次聊到哪。想让它跨会话记住你，
+可以接一个记忆服务：[**Hindsight**](https://github.com/vectorize-io/hindsight)
+是一个开源的 agent 记忆系统（MIT 许可，有云版，也可以自己 Docker 部署），
+挂上去之后每轮自动召回相关记忆、对话结束自动归档。
+
+**本项目不带这个插件** —— 自己装 Hindsight，再写一个 dsh 插件做桥
+（进对话时 recall 注入、结束时 retain 归档）即可。
+
 ## 文件
 
 | 文件 | 作用 |
@@ -145,7 +167,7 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 | `assets/knowledge/` | 地图与元数据 |
 | `assets/oiwiki/` | OI Wiki 本地检索库 |
 | `assets/pool/` | 随包发的题池（41,518 道，三平台）—— 见该目录下的 LICENSE（有风险说明） |
-| `assets/extension/` | 可选的浏览器扩展（洛谷记录导出） |
+| `assets/extension/` | **可选**扩展：洛谷记录导出（浏览器扩展）+ Obsidian 笔记桥（dsh 插件） |
 | `coach/` | 地图工具链（Python）+ 指标脚本 |
 
 ### 三层

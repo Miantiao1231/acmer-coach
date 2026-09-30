@@ -1,0 +1,22 @@
+{
+  "name": "whale-notes",
+  "description": "把 Obsidian 笔记库 × 教练地图接起来：图节点 → 笔记正文 → 学习进度，一次给全。dsh 插件，配合 acmer-coach 使用。热插拔，删掉即还原。",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.1-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}
