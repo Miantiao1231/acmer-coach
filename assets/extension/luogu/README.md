@@ -47,7 +47,7 @@
 3. 浏览器下载一个 `luogu-<uid>-<日期>.json`
 4. 把文件交给教练，说：
 
-   > 导入这个文件：`C:\Users\你\Downloads\luogu-1855438-2026-09-29.json`
+   > 导入这个文件：`%USERPROFILE%\Downloads\luogu-123456-2026-01-01.json`
 
    或者直接让教练调 `coach_import`，参数 `path` 填那个路径。
 

@@ -9,8 +9,7 @@
 2. **可读。** JS 读不了 pickle。检索层要跑在 Node 里，格式必须能直接读。
 
 顺便把 metadata 里的绝对路径换成**相对路径** —— 原索引里存的是构建机器上的
-`~/.openclaw/skills/oi-wiki/OI-wiki/docs/...`，那个目录早就不在了，
-换台机器全部失效。
+绝对路径（旧工具链的 skills 目录），那台机器不在之后，换台机器全部失效。
 
 用法: python export_oiwiki_chunks.py <index.pkl> <输出目录>
 产物: <输出目录>/chunks.jsonl   每行 {"i":序号,"src":相对路径,"text":正文}
