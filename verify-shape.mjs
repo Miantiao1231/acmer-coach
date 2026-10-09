@@ -167,6 +167,10 @@ const today = new Date().toLocaleDateString('sv-SE')   // YYYY-MM-DD（本地）
 // 每个工具至少两条路：走得通的 + 被拒的（**被拒的那条最容易形状不齐**）
 const cases = [
   ['coach_ping', {}],
+  // 无课程的读取 / 无课程的推进拒绝，不建立课程以免改变后续旧工具夹具。
+  ['coach_curriculum', { action: 'read' }],
+  ['coach_curriculum', { action: 'assess' }],
+  ['coach_curriculum', { action: 'advance', expectedRevision: 0, reason: '测试：没有课程时不能推进阶段' }],
   // 搭建/同步：体检是常走的成功路；不给 handle 走拒绝路（**不联网**）
   ['coach_setup', { action: 'status' }],
   ['coach_setup', { action: 'sync' }],

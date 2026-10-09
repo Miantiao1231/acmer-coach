@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # 一条命令跑全套验收。
 #
-# 六套：
-#   verify / verify-shape   主验收（509 条断言 + 19 个工具的形状扫描）
+# 八套：
+#   verify / verify-shape   主验收和全工具形状扫描
 #   w1-check                解绑、夹具闸门、规则注入
 #   wiki-check              OI Wiki 检索
 #   setup-check             冷启动（离线）
+#   curriculum-check        长期课程、版本、阶段验收与任务关联
+#   curriculum-evidence     编排证据目录、引用与事件身份
 #   parity-check            和线上那份的保真度对比
 #
 # 主验收跑的是**已安装副本**（不是源码）—— 那才是运行时真正加载的东西。
@@ -13,6 +15,7 @@
 #
 # 跑法：bash dev/run-all.sh
 #   加 COACH_TEST_NET=1 连联网段一起跑
+#   默认旧对照不存在时跳过 parity；显式 COACH_LIVE_INDEX 无效时仍报失败
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 SRC="$(pwd)"
@@ -58,7 +61,16 @@ cd "$SRC"
 run "w1-check"      node dev/w1-check.mjs
 run "wiki-check"    node dev/wiki-check.mjs
 run "setup-check"   node dev/setup-check.mjs
-run "parity-check"  node dev/parity-check.mjs
+run "curriculum"    node --test dev/curriculum-check.mjs
+run "evidence"      node --test dev/curriculum-evidence-check.mjs
+if [ "${COACH_LIVE_INDEX+x}" = x ] || node -e "
+  const fs=require('fs'), os=require('os'), path=require('path');
+  process.exit(fs.existsSync(path.join(os.homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')) ? 0 : 1);
+"; then
+  run "parity-check" node dev/parity-check.mjs
+else
+  printf '%-16s %s\n' 'parity-check' 'SKIP 默认旧对照不存在；设置 COACH_LIVE_INDEX 可启用'
+fi
 
 echo
 if [ "${COACH_TEST_NET:-0}" = "1" ]; then

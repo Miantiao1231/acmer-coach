@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
@@ -105,7 +105,7 @@ if (stale.length) {
   // 看上去"验收通过"—— 这正是这一关要防的东西。
   console.log()
   console.log(`✗ 副本是旧的，后面几关测的会是老代码，不跑了。`)
-  console.log(`  → 跑 bash dev.sh（内部 remove+add 强制重链），再来。`)
+  console.log(`  → 跑 bash dev.sh 同步源码及运行时模块，再来。`)
   process.exit(1)
 }
 

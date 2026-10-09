@@ -20,7 +20,7 @@
 
 ## 它到底做了什么
 
-20 个工具，两条轴：
+21 个工具，两条轴：
 
 | 轴 | 含义 |
 |---|---|
@@ -30,6 +30,8 @@
 核心闭环：
 
 ```
+coach_curriculum  assess 查真实记录 → 目标与前置排序 → 建有依据的阶段
+  ↓                缺依据先诊断；保存本周主线；产生新证据并验收后推进
 coach_setup     首次：体检 → 建目录建库 → 灌题池 → 从 CF 同步数据
 coach_import    洛谷/牛客的记录从这里进（CF 不用，有公开接口）
   ↓
@@ -46,6 +48,37 @@ coach_schedule → coach_plan              排课
 ```
 
 `coach_wiki` 是知识来源：讲任何知识点之前先查本地 OI Wiki，**别凭记忆讲**。
+
+### 长期学习路线
+
+`coach_curriculum assess` 从已有检测、代码判因、做题记录和日程实际完成中列出
+可引用的证据；不会把 rating、学习状态或取消的卷子当成短板。每条记录带内容引用
+`id` 和事件身份 `eventId`。训练阶段的每个节点必须有真实记录：`finding=gap`
+引用失败/超时/依赖提示等短板，`finding=extension` 引用已独立做出或过卷的能力起点。
+
+缺记录时先建 `diagnostic` 阶段，写明要确认的问题与取证方法，不能直接宣布弱项。
+远期设想用 `provisional` 保留，补足依据前不能执行。每个阶段除能力成果和验收条件外，
+还要写 `basis`、`goalContribution`、`priorityReason`、`estimatedHours`、`evidenceRefs`、
+`finding`、`kind`、`uncertainty`、`diagnosticMethod`。前置必须来自显式的
+learned/verified 记录，或路线中在此前安排的必验训练，不能从游标位置推定已经学会。
+
+`CURRICULUM.yaml` 保存路线与修订历史：`read` 查看，`create` 建立，`revise` 调整，
+`advance` 推进。进入阶段时保存证据事件快照；诊断阶段每个节点需有新的真实观察，
+训练阶段所有节点必须 verified，且各有新的独立做出或过卷记录。改旧备注、成绩或
+把同次做题从课表迁入进度，不算新训练。当前诊断也不能通过改种类或删节点逃过验收。
+写操作带 `expectedRevision` 和理由，避免旧上下文覆盖新计划。
+路线按剩余 `estimatedHours`、每周预算和目标日期提示容量不足或估算缺失；这只是
+调整范围的提示，不会把周平均当成精确日程，也不阻止执行。
+
+每轮注入长期目标、当前阶段和未完成单元。`coach_assign` 带课程版本，普通训练
+限于当前主线；补漏/复习需声明目的和返回依据。完成记录仍归原进度文件，
+不会因一题 AC 或日历到期自动跳阶段。没有建立课程的用户保持原有工具行为。
+
+本周主线可设置 `focusUntil`，到期先复盘修订。路线不提前占用数月日程，
+`coach_plan` 继续管理近期时间块。旧 v1 路线可读，会标记 `needsReview`；需明确
+修订当前及后续阶段后迁移 v2，插件不会自动重写。优先级与教学方案仍由模型判断，
+程序只检查证据、前置和验收边界。本功能没有新增 VP 自动读取或后台周报。
+详见 [长期课程机制](docs/长期课程机制.md)。
 
 **「学过」和「已验证」是两级，绝不合并。** 自评 ≠ 掌握 ——
 合成一个「会/不会」就等于退回「从数据推断掌握度」，而数据能说「花了很久」，
@@ -153,8 +186,11 @@ dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次�
 
 | 文件 | 作用 |
 |---|---|
-| `index.js` | 插件本体（host 端，20 个工具 + 规则注入） |
+| `index.js` | 插件本体（host 端，21 个工具 + 规则注入） |
 | `lib/setup.js` | 环境搭建 + CF 公开数据同步 |
+| `lib/curriculum.js` | 持久课程路线、阶段验收门槛、版本与修订历史 |
+| `lib/curriculum-evidence.js` | 从实际记录派生证据引用与事件身份，去重课表和训练记录 |
+| `lib/curriculum-planning.js` | 阶段编排依据、前置顺序与进入阶段后的新证据检查 |
 | `lib/client.js` | 浏览器端：会话头部「技能树」按钮 + 弹层 |
 | `package.json` | 声明 `dsh.bundle.patch` + `dsh.client` |
 | `cordis.patch.yml` | bundle 层的 insert 行 |
@@ -176,7 +212,7 @@ dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次�
 |---|---|---|
 | **规则** | `assets/rules/coach-rules.md` | 插件用 `systemPrompt.section()` 注进 system prompt（和人设同一条路）。**改它要重启 dsh** |
 | **知识** | 地图 4 份 + OI Wiki 检索库 | `coach_setup init` 铺到数据目录；OI Wiki 直接从包里读 |
-| **工具** | 19 个 | 装完就在 |
+| **工具** | 21 个 | 装完就在 |
 
 规则进的是 **system prompt，不是消息流**：行为约束每轮都得在场，
 而消息流会被长对话把尾巴挤掉。文本是**静态**的（只在加载时读一次）——
@@ -191,13 +227,13 @@ dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次�
 | `NODE_ENTRY.yaml` | 每个节点的入门段位（题池 p25），机器算 |
 | `NODE_META.yaml` | `tier` 标注（core / normal / rare / skip），人维护 |
 
-`PROGRESS.yaml` 和 `SCHEDULE.yaml` **不随包发** —— 它们是你的进度和日程，
+`PROGRESS.yaml`、`SCHEDULE.yaml` 和 `CURRICULUM.yaml` **不随包发** —— 它们是你的进度、日程和课程，
 首次写入时由插件自己生成（带正确的文件头）。发模板等于给文件头造第二份真相。
 
 ## 开发回路
 
 ```bash
-bash dev.sh          # 同步副本 + 验收 + 形状扫描 + 比账本指纹
+bash dev.sh          # 同步副本 + 验收 + 形状扫描 + 课程/证据测试 + 比账本指纹
 ```
 
 单独跑：
@@ -207,6 +243,8 @@ node verify.mjs && node verify-shape.mjs      # 主验收
 node dev/w1-check.mjs                          # 解绑 + 闸门 + 规则注入
 node dev/wiki-check.mjs                        # OI Wiki 检索
 node dev/setup-check.mjs                       # 冷启动（离线）
+node --test dev/curriculum-check.mjs            # 长期课程（隔离数据）
+node --test dev/curriculum-evidence-check.mjs   # 证据目录、事件身份与重复记录
 COACH_TEST_NET=1 node dev/setup-check.mjs <handle>   # 冷启动（真打 CF）
 bash dev/trace-scan.sh                         # 开源前反证：没留私人痕迹
 ```

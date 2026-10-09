@@ -13,7 +13,7 @@ import { tmpdir, homedir } from 'node:os'
 import { join } from 'node:path'
 
 const LIVE = process.env.COACH_LIVE_INDEX
-  || join(homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')
+  ?? join(homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')
 
 let pass = 0, fail = 0, diff = 0
 const check = (n, ok, d = '') => { console.log(`${ok ? '  ✓' : '  ✗'} ${n}${d ? `  — ${d}` : ''}`); ok ? pass++ : fail++ }
@@ -71,12 +71,19 @@ const namesB = [...B.byName.keys()].sort()
 const onlyB = namesB.filter((n) => !namesA.includes(n))
 const onlyA = namesA.filter((n) => !namesB.includes(n))
 check('开源版没有丢掉任何原有工具', onlyB.length === 0, onlyB.join(',') || '（没丢）')
-// 新增的只能是「搭环境 / 拉数据 / 查知识」这三类 —— 它们补的正是
+// 新增的只能是「搭环境 / 拉数据 / 查知识 / 长期课程」这几类 —— 它们补的正是
 // 开源版缺的那些基础设施（原版靠本地已有的库和 skill，别人没有）。
-const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import'])
-check('新增的都在预期内（搭建 / 检索 / 导入）',
+const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum'])
+check('新增的都在预期内（搭建 / 检索 / 导入 / 长期课程）',
   onlyA.every((n) => EXPECTED_NEW.has(n)), onlyA.join(',') || '（无新增）')
-check('原有的 17 个行为没变（下面逐条比）', namesB.length === 17, `${namesB.length} 个`)
+// 对照副本可能也已经升级到 20/21 个工具；检查原工具集合，不能拿固定数量拒绝新版。
+const ORIGINAL_TOOLS = ['coach_ping', 'coach_next', 'coach_assign', 'coach_status',
+  'coach_mark', 'coach_set_cursor', 'coach_diagnose', 'coach_pool', 'coach_test',
+  'coach_verify', 'coach_grade', 'coach_cancel', 'coach_unassign', 'coach_schedule',
+  'coach_plan', 'coach_unplan', 'coach_log']
+const missingOriginal = ORIGINAL_TOOLS.filter((tool) => !A.byName.has(tool) || !B.byName.has(tool))
+check('原有的 17 个工具都保留（下面逐条比行为）', missingOriginal.length === 0,
+  missingOriginal.join(',') || '（两份都保留）')
 console.log(`     线上 ${namesB.length} 个 / 开源 ${namesA.length} 个（+${onlyA.join(', ') || '无'}）`)
 
 console.log('\n── 2. 共有工具：同样的输入 → 同样的输出 ──')
@@ -99,12 +106,15 @@ const CALLS = [
 // 归一化：把**有意不同**的东西抹平，免得假差异淹掉真差异。
 //   ① 包名（改名了）
 //   ② 数据目录路径（两份故意用不同临时目录，否则后跑的会看到先跑的那份被写过）
+//   ③ 探针显示的版本号；功能输出仍逐项比较。
 const ALLOWED = [
   ['name', /^(dsh-coach|acmer-coach)$/],
   ['version', /^1\.0\.0$/],
 ]
 const strip = (s) => s
   .replace(/acmer-coach/g, 'dsh-coach')
+  .replaceAll(`v${A.mod.VERSION}`, '<VERSION>')
+  .replaceAll(`v${B.mod.VERSION}`, '<VERSION>')
   .split(join(base, 'A')).join('<DATA>')
   .split(join(base, 'B')).join('<DATA>')
   .split(base).join('<DATA>')

@@ -29,11 +29,12 @@ import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
+import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '1.0.0'
+const VERSION = '1.2.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -69,6 +70,7 @@ const TEACH_FLOOR_MIN = 10
 const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
+const curriculum = createCurriculumStore({ dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule })
 
 // 探针要的文件，各自代表一条后面的依赖：
 //   MAP.yaml      地图（coach_next 读它算候选）
@@ -1597,13 +1599,16 @@ function registerStateHook(ctx) {
         .filter(([, r]) => r?.status === 'studying')
         .map(([id]) => id)
 
-      // 三样都没有就不注入 —— 一个空的状态块只是白烧 token
-      if (!cursor && !pending && !studying.length) return decision
+      // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
+      let hasCurriculum = false
+      try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
+      if (!cursor && !pending && !studying.length && !hasCurriculum) return decision
 
       const { byId } = loadMap()
       const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
       const node = byId.get(cursor)
       const lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
+      lines.push(curriculum.context())
       lines.push(cursor
         ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
         : '- 游标：**还没设** —— 先问清他现在在哪个知识点，用 coach_set_cursor 设上')
@@ -1805,6 +1810,8 @@ function apply(ctx) {
       sp.section({ name: 'coach:rules', order: 400, text: readFileSync(join(RULES_DIR, 'coach-rules.md'), 'utf8') })
     }
   } catch { /* 没这服务 / 没这文件 → 不注，照常加载 */ }
+
+  ctx.tools.register(defineTool(curriculumTool(curriculum)))
 
   ctx.tools.register(defineTool({
     name: 'coach_setup',
@@ -2218,7 +2225,8 @@ function apply(ctx) {
       '给一个**当前知识点**（游标），列出它的直接后继（技能树的下一层），并标出每个后继的前置满足情况。' +
       '用于回答「下一步学什么」「这个学完能开哪些」。' +
       '返回里 ready=true 的是现在就能开的；ready=false 的会给出 missing（还差哪些前置）。' +
-      '注意：本工具只给候选集，**排序和挑哪一个是你的事** —— 程序不替你判断轻重缓急。',
+      '注意：本工具只给候选集，**排序和挑哪一个是你的事** —— 程序不替你判断轻重缓急。' +
+      '有长期课程时先看 coach_curriculum 当前主线；技能图用于核查前置，不要据此每轮换方向。',
     parameters: {
       cursor: {
         type: 'string',
@@ -2347,6 +2355,7 @@ function apply(ctx) {
         }
         const ready = v.candidates.filter((c) => c.ready)
         const blocked = v.candidates.filter((c) => !c.ready)
+        const course = curriculum.execute({ action: 'read' })
         // 缺 entry 的候选：只要有一个，就必须说出来 + 给出下一步动作。
         // 不说的话「有的行有 ≈ 有的行没有」又变回静默差异 —— 这正是这条需求治的病。
         const noData = v.candidates.filter((c) => !c.hasEntry)
@@ -2389,8 +2398,10 @@ function apply(ctx) {
             // 需求 #9：光说"这是跨分支"不够 —— 教练很自然会挑一个
             // 去布置，而 coach_assign 只认「游标的下一层」或游标自己，**当场被拒**。
             // 两个工具的口径对不上，不能靠"你自己意识到"：这里直接给可执行的动作。
-            '**要布置这里面的某一个，得先把游标挪过去**（`coach_set_cursor`）—— ' +
-              'coach_assign 只收「游标的下一层」或游标自己，留在原地直接布置会被拒。',
+            course.exists
+              ? '有长期课程时，这些图候选只用于核查前置；主线内节点可直接用当前 curriculumRevision 布置，主线外先声明补漏/复习理由或修订路线。'
+              : '**要布置这里面的某一个，得先把游标挪过去**（`coach_set_cursor`）—— ' +
+                'coach_assign 只收「游标的下一层」或游标自己，留在原地直接布置会被拒。',
             '',
             // 状态和日期跟候选那半一样要渲染出来：AGENTS.md 第 8 条要求
             // 「接着放了没几天的 > 开全新的」，而兜底这条路是 214 个末端节点的
@@ -2414,7 +2425,9 @@ function apply(ctx) {
           : []
         return [{
           type: 'text',
-          text: [...head, ...foot, `地图版本：${v.mapStamp}`].filter(Boolean).join('\n'),
+          text: [...head, ...foot,
+            course.exists || !course.ok ? curriculum.context() : '',
+            `地图版本：${v.mapStamp}`].filter(Boolean).join('\n'),
         }]
       },
     },
@@ -2548,13 +2561,15 @@ function apply(ctx) {
       '布置**一个**训练动作。给训练员下指令时**必须**走这个工具，不要在正文里自由发挥 —— ' +
       '它会把指令固定成「做什么 + 时间盒 + 交付物」，并校验你挑的知识点：' +
       '必须存在于地图、必须是当前游标的下一层、前置必须都满足。校验不过会被拒绝并说明原因。' +
-      '它一次只收一个节点，所以**给不出候选列表** —— 这正是设计意图。',
+      '它一次只收一个节点，所以**给不出候选列表** —— 这正是设计意图。' +
+      '有长期课程时先读 coach_curriculum，带 curriculumRevision；主线必须属于当前阶段，' +
+      '补漏或复习用 purpose 与 routeReason 说明关系和回归条件。课程节点可以跨图分支，但前置检查仍生效。',
     parameters: {
       cursor: {
         type: 'string',
         description: '当前游标。不填就用 PROGRESS.yaml 里的（这是常态）。',
       },
-      node: { type: 'string', required: true, description: '你挑中的知识点 id。必须先在 coach_next 的候选里，不许自己造' },
+      node: { type: 'string', required: true, description: '地图知识点 id。无课程时从 coach_next 候选取；有课程时沿用当前主线，仍核查前置' },
       deliverable: { type: 'string', required: true, description: '做完交什么，如「把代码贴给我」' },
       minutes: {
         type: 'number',
@@ -2573,6 +2588,9 @@ function apply(ctx) {
           `最低 ${TEACH_FLOOR_MIN} 分钟，没有上限。已经在学或学过的节点不用给。`,
       },
       why: { type: 'string', description: '为什么挑它（一句话，进台账，供训练员质疑时举证）' },
+      curriculumRevision: { type: 'integer', description: '有效课程 read 返回的 revision；无课程时可不填。' },
+      purpose: { type: 'string', enum: ['progress', 'remediation', 'review'], description: '推进当前主线/针对性补漏/复习，默认 progress。' },
+      routeReason: { type: 'string', description: '补漏或复习至少 10 字，说明与当前阶段的关系和回归条件。' },
     },
     output: {
       schema: {
@@ -2665,7 +2683,7 @@ function apply(ctx) {
       const cursor = resolveCursor(args?.cursor)
       const node = String(args?.node ?? '').trim()
       const deliverable = String(args?.deliverable ?? '').trim()
-      const why = String(args?.why ?? '').trim()
+      let why = String(args?.why ?? '').trim()
       // 需求 #7：这个数现在是**净时间**（他自己动手做多久），不是整块长度。
       // 整块 = 净 + TAIL_MIN（收尾固定 20），下面 blocks 和 totalMinutes 都照这个算。
       const net = Number.isFinite(args?.minutes)
@@ -2700,7 +2718,19 @@ function apply(ctx) {
           `地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先调 coach_next 看候选。'))
       }
-      // ③ 必须是游标的直接下一层 —— 挡住跳阶段乱指。
+      let route
+      try {
+        route = curriculum.assignment({ node, revision: args?.curriculumRevision,
+          purpose: args?.purpose, reason: args?.routeReason })
+      } catch (err) { return deny(`课程读取失败：${err.message}；先核查，不凭印象布置。`) }
+      if (!route.ok) return deny(route.reject)
+      if (route.binding) {
+        if (!why) return deny('有长期课程时必须写 why，说明这个动作怎样服务于阶段能力成果。')
+        why = `课程「${route.binding.phaseTitle}」· ${route.binding.purpose}：${why}` +
+          (route.binding.reason ? `；补充依据：${route.binding.reason}` : '')
+      }
+
+      // ③ 未建课程时沿用直接后继；有课程时允许当前阶段跨分支，仍检查前置。
       //
       // **例外：允许指向游标自己。**      // 原先只能指"下一层"，隐含假设是"游标 = 已经学完了的位置"。
       // 但游标的定义是"今天聚焦哪个"——**正在学的那个**。
@@ -2710,11 +2740,11 @@ function apply(ctx) {
       //
       // 已经 verified 的不许再指回来：学完了就该往前走。
       if (node === cursor) {
-        if (nodeStatus(loadProgress(), cursor) === 'verified') {
+        if (nodeStatus(loadProgress(), cursor) === 'verified' && route.binding?.purpose !== 'review') {
           return deny(`「${cursor}」已经验证过了 —— 学完了就往前走，` +
             '别在验证过的地方打转。用 coach_next 看下一层，或者往前沿退。')
         }
-      } else if (!(dependents.get(cursor) ?? []).includes(node)) {
+      } else if (!(dependents.get(cursor) ?? []).includes(node) && !route.binding) {
         return deny(`「${node}」不是「${cursor}」的下一层。先调 coach_next 看它到底能开哪些。`)
       }
       // ④ 前置必须都满足 —— 挡住「你得先学那个」这类空头指令
@@ -2804,6 +2834,7 @@ function apply(ctx) {
         solveMinutes: solve, tailMinutes: TAIL_MIN, teachMinutes: teach,
         totalMinutes: net + teach + TAIL_MIN, why,
       }
+      if (route.binding) pend[node].curriculum = route.binding
       // 讲授段落盘：带 teachMinutes = 这次布置含讲授段，
       // 在节点上记一条 `taught` 日期 —— 它是「讲过没」唯一的结构化痕迹。
       // 在这之前讲完**不留任何记录**：coach_status 永远报「还没有教学记录」，
@@ -4564,7 +4595,10 @@ function apply(ctx) {
         if (v.outcome === 'passed') {
           lines.push(`  这一节标成「已验证」了 —— 验证于 ≈${v.verifiedAt} 段位。` +
             '（等他 rating 涨上去，这个段位的题也会变难，到时候该复检）')
-          lines.push('  用 coach_assign 布置下一节 —— **推进，别回头**。')
+          const course = curriculum.execute({ action: 'read' })
+          lines.push(course.exists || !course.ok
+            ? '  先读 coach_curriculum 检查当前阶段验收；单点过卷不会自动推进阶段。继续当前主线，整体成果达标后再 advance。'
+            : '  用 coach_assign 布置下一节 —— **推进，别回头**。')
         } else if (v.outcome === 'overTime') {
           lines.push('  他不是不会，是慢。别推进，也别当「不会」去补课 —— ' +
             '换个同难度的题限时加练，把速度压进限时里。')
