@@ -169,6 +169,11 @@ const cases = [
   ['coach_ping', {}],
   ['coach_target', { action: 'read' }],
   ['coach_target', { action: 'set', expectedRevision: 0, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'contest-reading', weight: 80, reason: '测试目标' }] }],
+  // 真正走一遍「目标 → 动作」硬闸：不属于当前能力的 progress 节点必须拒绝，
+  // 再切回无地图能力的读题卡，保留后续旧夹具的成功路径。
+  ['coach_target', { action: 'set', expectedRevision: 1, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'dp-modeling', weight: 80, reason: '测试硬闸' }] }],
+  ['coach_assign#target-gate', { node: 'B', deliverable: '把代码贴给我', why: '测试目标硬闸', minutes: 60, teachMinutes: 25 }],
+  ['coach_target', { action: 'set', expectedRevision: 2, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'contest-reading', weight: 80, reason: '测试目标' }] }],
   ['coach_vp_import', { events: [{ eventId: 'shape-vp', contest: '测试 VP', date: today, durationMinutes: 300, problems: [{ problemId: 'A', status: 'AC', competencies: ['contest-reading'] }] }] }],
   ['coach_postmortem', { eventId: 'shape-vp', competencies: ['contest-reading'], rootCauses: ['测试复盘'], nextActions: ['测试动作'] }],
   ['coach_focus', {}],
@@ -295,6 +300,11 @@ for (const [name, args, preset] of cases) {
     out = preset ?? await tool.execute(args ?? {}, undefined)
   } catch (err) {
     console.log(`  THROW ${name}  → ${err.message}`)
+    bad++
+    continue
+  }
+  if (name === 'coach_assign#target-gate' && out.accepted !== false) {
+    console.log(`  FAIL ${name}  → 目标硬闸没有拒绝无关 progress 节点`)
     bad++
     continue
   }

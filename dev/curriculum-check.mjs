@@ -336,6 +336,26 @@ test('broken course is surfaced and never treated as an empty plan', () => {
   assert.equal(readFileSync(f.store.path, 'utf8'), 'revision: broken\n')
 })
 
+test('competency-only phases can use fresh VP evidence as their exit gate', () => {
+  const f = fixture()
+  const evidence = [{ id: 'vp:old:contest-reading', eventId: 'old', source: 'vp', node: '', competency: 'contest-reading', date: '2026-10-08', signal: 'gap', summary: 'VP 读题漏读', fingerprint: 'vp:old:contest-reading' }]
+  f.options.loadStrategyEvidence = () => evidence
+  const store = createCurriculumStore(f.options)
+  const phase = {
+    id: 'reading', title: '比赛读题与筛选', outcome: '在前30分钟完成扫描并记录取舍', competencies: ['contest-reading'], nodes: [],
+    exitCriteria: '两场新 VP 都有扫描顺序、取舍理由和漏读检查', requiredVerified: [], kind: 'training', finding: 'gap',
+    basis: 'VP 已记录读题缺口，需要在真实比赛节奏中修复', goalContribution: '提高区域赛前半小时的可做题识别和取舍质量',
+    priorityReason: '它直接决定队伍是否把时间用在能拿分的题上', estimatedHours: 6, uncertainty: '', diagnosticMethod: '',
+    evidenceRefs: ['vp:old:contest-reading'],
+  }
+  assert.equal(store.execute({ action: 'create', expectedRevision: 0, goal: '区域赛稳定表现', baseline: '已有一场 VP 的读题缺口记录', weeklyHours: 30, phases: [phase], reason: '根据 VP 的读题记录建立能力课程' }).ok, true)
+  assert.deepEqual(store.snapshot().phaseCompetencies, ['contest-reading'])
+  assert.deepEqual(store.snapshot().missingFreshEvidence, ['contest-reading'])
+  evidence.push({ id: 'vp:new:contest-reading', eventId: 'new', source: 'vp', node: '', competency: 'contest-reading', date: '2026-10-09', signal: 'baseline', summary: '新 VP 读题记录', fingerprint: 'vp:new:contest-reading' })
+  assert.deepEqual(store.snapshot().missingFreshEvidence, [])
+  assert.equal(store.execute({ action: 'advance', expectedRevision: 1, reason: '新 VP 已记录扫描顺序和取舍理由，满足本阶段能力验收' }).status, 'complete')
+})
+
 test('course tool output matches its declared schema on success, rejection and absence', () => {
   const f = fixture(); const tool = curriculumTool(f.store)
   for (const result of [f.store.execute({ action: 'read' }), f.create(), f.store.execute({ action: 'advance', expectedRevision: 1, reason: '检查未验收阶段是否能够被强行推进' })]) validateShape(tool.output.schema, result)

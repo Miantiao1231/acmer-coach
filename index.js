@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { readFileSync, writeFileSync, renameSync, statSync } from 'node:fs'
+import { copyFileSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -35,7 +35,7 @@ import { createStrategyStore } from './lib/strategy.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.0.0'
+const VERSION = '2.1.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -71,10 +71,13 @@ const TEACH_FLOOR_MIN = 10
 const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
-const curriculum = createCurriculumStore({ dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule })
 const strategy = createStrategyStore({
   dataDir: DATA_DIR,
   competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+})
+const curriculum = createCurriculumStore({
+  dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule,
+  loadStrategyEvidence: () => strategy.evidence().evidence,
 })
 
 // 探针要的文件，各自代表一条后面的依赖：
@@ -256,6 +259,16 @@ const PROGRESS_HEADER = `
 // 原子写：先写 .tmp 再 rename。半路崩了也不会把真相源撕成半个文件。
 // ⚠️ 千万不要在解析失败时静默返回空进度再写回 —— 那是**拿空数据覆盖真相源**。
 //    loadProgress 遇到非 ENOENT 的错一律抛，就是要让这种情况炸出来。
+function replaceFile(tmp, destination) {
+  try { renameSync(tmp, destination) } catch (err) {
+    if (!['EPERM', 'EEXIST'].includes(err.code)) throw err
+    // Windows sandbox may refuse rename over an existing file; replace from the complete temp copy.
+    try { unlinkSync(destination) } catch (removeErr) { if (removeErr.code !== 'ENOENT') throw err }
+    copyFileSync(tmp, destination)
+    unlinkSync(tmp)
+  }
+}
+
 function saveProgress(p) {
   p.updated = localStamp(new Date()).slice(0, 10)
   // 显式列出要落盘的字段，而不是 `stringify(p)` 一把梭 ——
@@ -276,7 +289,7 @@ function saveProgress(p) {
   }
   const tmp = `${PROGRESS_PATH()}.tmp`
   writeFileSync(tmp, PROGRESS_HEADER + stringify(out, { lineWidth: 0 }), 'utf8')
-  renameSync(tmp, PROGRESS_PATH())
+  replaceFile(tmp, PROGRESS_PATH())
   return p
 }
 
@@ -370,7 +383,7 @@ function saveSchedule(s) {
   // days 的 key 本身就是日期，也裸着 —— PyYAML 会读成 Date，按字符串索引就 KeyError
   body = body.replace(/^(\s*)(\d{4}-\d{2}-\d{2}):(\s*)$/gm, '$1"$2":')
   writeFileSync(tmp, SCHEDULE_HEADER + body, 'utf8')
-  renameSync(tmp, SCHEDULE_PATH())
+  replaceFile(tmp, SCHEDULE_PATH())
   return s
 }
 
@@ -1865,11 +1878,11 @@ function apply(ctx) {
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, imported: { type: 'integer', required: true },
-      total: { type: 'integer', required: true }, revision: { type: 'integer', required: true }, text: { type: 'string', required: true },
+      total: { type: 'integer', required: true }, revision: { type: 'integer', required: true }, invalid: { type: 'array', required: true, items: { type: 'string' } }, text: { type: 'string', required: true },
       } }, render: (_a, v) => strategyText(v) },
     execute: (args) => {
       const v = strategy.vpImport(Array.isArray(args?.events) ? args.events : [])
-      return { ok: v.ok, reject: v.reject, imported: v.imported, total: v.total, revision: v.revision,
+      return { ok: v.ok, reject: v.reject, imported: v.imported, total: v.total, revision: v.revision, invalid: v.invalid ?? [],
         text: v.ok ? `✓ VP 记录已保存：本次 ${v.imported} 场，累计 ${v.total} 场，revision ${v.revision}` : '' }
     },
   }))
@@ -1901,11 +1914,32 @@ function apply(ctx) {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, contest: { type: 'string', required: true },
       deadline: { type: 'string', required: true }, focus: { type: 'array', required: true }, postponed: { type: 'array', required: true },
       evidenceEvents: { type: 'integer', required: true }, postmortems: { type: 'integer', required: true }, text: { type: 'string', required: true },
+      course: { type: 'object', required: true, additionalProperties: false, properties: {
+        exists: { type: 'boolean', required: true }, revision: { type: 'integer', required: true },
+        phaseId: { type: 'string', required: true }, phaseTitle: { type: 'string', required: true },
+        focusNodes: { type: 'array', required: true, items: { type: 'string' } }, pendingNodes: { type: 'array', required: true, items: { type: 'string' } },
+        phaseCompetencies: { type: 'array', required: true, items: { type: 'string' } },
+        focusExpired: { type: 'boolean', required: true }, missingFreshEvidence: { type: 'array', required: true, items: { type: 'string' } },
+      } },
     } }, render: (_a, v) => strategyText(v) },
     execute: () => {
       const v = strategy.focus()
-      return { ...v, text: v.ok ? [`【当前训练重点】${v.contest} · 截止 ${v.deadline}`,
+      let snapshot
+      try { snapshot = curriculum.snapshot() } catch (err) {
+        snapshot = { exists: false, revision: 0, phaseId: '', phaseTitle: '', focusNodes: [], pendingNodes: [], focusExpired: false, missingFreshEvidence: [] }
+        v.ok = false
+        v.reject = v.reject || `课程读取失败：${err.message}`
+      }
+      const course = {
+        exists: Boolean(snapshot.exists), revision: Number(snapshot.revision || 0), phaseId: String(snapshot.phaseId || ''),
+        phaseTitle: String(snapshot.phaseTitle || ''), focusNodes: snapshot.focusNodes ?? [], pendingNodes: snapshot.pendingNodes ?? [],
+        phaseCompetencies: snapshot.phaseCompetencies ?? [],
+        focusExpired: Boolean(snapshot.focusExpired), missingFreshEvidence: snapshot.missingFreshEvidence ?? [],
+      }
+      return { ...v, course, text: v.ok ? [`【当前训练重点】${v.contest} · 截止 ${v.deadline}`,
         ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '需先定义'}\n   证据次数：${f.evidenceCount}`),
+        course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
+        course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
         v.postponed.length ? `暂缓：${v.postponed.join('、')}` : '没有暂缓项。',
       ].join('\n') : '' }
     },
@@ -2681,7 +2715,9 @@ function apply(ctx) {
       '必须存在于地图、必须是当前游标的下一层、前置必须都满足。校验不过会被拒绝并说明原因。' +
       '它一次只收一个节点，所以**给不出候选列表** —— 这正是设计意图。' +
       '有长期课程时先读 coach_curriculum，带 curriculumRevision；主线必须属于当前阶段，' +
-      '补漏或复习用 purpose 与 routeReason 说明关系和回归条件。课程节点可以跨图分支，但前置检查仍生效。',
+      '补漏或复习用 purpose 与 routeReason 说明关系和回归条件。课程节点可以跨图分支，但前置检查仍生效。' +
+      '有比赛目标时，progress 动作还必须落在当前目标能力；跨重点训练只能走课程绑定，' +
+      '补漏/复习必须说明 routeReason。',
     parameters: {
       cursor: {
         type: 'string',
@@ -2740,6 +2776,8 @@ function apply(ctx) {
           pendingRecorded: { type: 'boolean', required: true },
           // 这个节点上原来就押着一条（被这次覆盖）。
           pendingReplaced: { type: 'boolean', required: true },
+          targetAligned: { type: 'boolean', required: true },
+          competencies: { type: 'array', required: true, items: { type: 'string' } },
           blocks: {
             type: 'array',
             required: true,
@@ -2778,6 +2816,7 @@ function apply(ctx) {
             v.boxNote ? `⚠️ ${v.boxNote}` : '',
             `交付物　${v.deliverable}`,
             v.why ? `为什么　${v.why}` : '',
+            v.competencies.length ? `目标对齐　✓ ${v.competencies.join('、')}` : '',
             ``,
             table,
             v.teachMinutes
@@ -2818,7 +2857,7 @@ function apply(ctx) {
         // 需求 #6：拒绝时也把这两个字段摆出来 —— 白名单式的 schema
         // （additionalProperties: false + required:true）要求每个出口同形，
         // 缺一个 verify-shape 那一关就会红。
-        pendingRecorded: false, pendingReplaced: false,
+        pendingRecorded: false, pendingReplaced: false, targetAligned: false, competencies: [],
       })
 
       // ① 游标认不认得。「没设」和「打错」分开提示，别让模型去猜。
@@ -2846,6 +2885,11 @@ function apply(ctx) {
         if (!why) return deny('有长期课程时必须写 why，说明这个动作怎样服务于阶段能力成果。')
         why = `课程「${route.binding.phaseTitle}」· ${route.binding.purpose}：${why}` +
           (route.binding.reason ? `；补充依据：${route.binding.reason}` : '')
+      }
+      const targetRoute = strategy.route(node, { purpose: args?.purpose, courseBound: Boolean(route.binding) })
+      if (!targetRoute.ok) return deny(targetRoute.reject)
+      if (targetRoute.competencyIds.length) {
+        why = `目标能力「${targetRoute.competencyIds.join('、')}」：${why || '当前重点对应的训练动作'}`
       }
 
       // ③ 未建课程时沿用直接后继；有课程时允许当前阶段跨分支，仍检查前置。
@@ -2976,6 +3020,7 @@ function apply(ctx) {
         totalMinutes: net + teach + TAIL_MIN, boxNote,
         deliverable, why, mapStamp: stamp, selfTarget: node === cursor,
         pendingRecorded, pendingReplaced: replacedPending,
+        targetAligned: targetRoute.targetAligned, competencies: targetRoute.competencyIds,
         blocks: [
           // 讲解段排在最前面，`kind: teach` —— 卷面上看得见，
           // 它才不会变成"讲完就忘了排"的那个动作

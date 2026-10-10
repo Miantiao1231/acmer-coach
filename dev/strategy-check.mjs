@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { createStrategyStore } from '../lib/strategy.js'
 
 function fixture() {
-  const dir = mkdtempSync(join(process.cwd(), '.strategy-test-'))
+  const dir = mkdtempSync(join(tmpdir(), 'acmer-coach-strategy-'))
   const store = createStrategyStore({
     dataDir: dir,
     competenciesPath: join(process.cwd(), 'assets', 'knowledge', 'COMPETENCIES.yaml'),
@@ -71,5 +72,87 @@ test('first-use focus has a complete refusal shape and targets reject unknown ca
       weeklyHours: 35, priorities: [{ id: 'invented-card', weight: 100 }],
     })
     assert.equal(rejected.ok, false)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('target route rejects an unrelated progress node but allows a course-bound route', () => {
+  const { dir, store } = fixture()
+  try {
+    store.target('set', {
+      expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
+      weeklyHours: 35, priorities: [{ id: 'dp-modeling', weight: 100 }],
+    })
+    const unrelated = store.route('树状数组', { purpose: 'progress', courseBound: false })
+    assert.equal(unrelated.ok, false)
+    assert.match(unrelated.reject, /dp-modeling|当前重点/)
+    const courseBound = store.route('树状数组', { purpose: 'progress', courseBound: true })
+    assert.equal(courseBound.ok, true)
+    assert.equal(courseBound.courseBound, true)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('VP problem competencies count as evidence before a postmortem exists', () => {
+  const { dir, store } = fixture()
+  try {
+    store.target('set', {
+      expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
+      weeklyHours: 35, priorities: [
+        { id: 'dp-modeling', weight: 80 },
+        { id: 'contest-reading', weight: 70 },
+      ],
+    })
+    store.vpImport([{ eventId: 'vp-2', contest: '训练 VP', date: '2026-10-10', durationMinutes: 300,
+      problems: [{ problemId: 'B', status: 'WA', competencies: ['dp-modeling'] }] }])
+    const focus = store.focus()
+    assert.equal(focus.focus[0].id, 'dp-modeling')
+    assert.equal(focus.focus[0].evidenceCount, 1)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('strategy exposes stable competency evidence for curriculum gates', () => {
+  const { dir, store } = fixture()
+  try {
+    store.vpImport([{ eventId: 'vp-evidence', contest: '训练 VP', date: '2026-10-10', durationMinutes: 300,
+      problems: [{ problemId: 'C', status: 'WA', competencies: ['contest-decision'] }] }])
+    const result = store.evidence()
+    assert.equal(result.ok, true)
+    assert.equal(result.evidence[0].id, 'vp:vp-evidence:C:contest-decision')
+    assert.equal(result.evidence[0].signal, 'gap')
+    assert.equal(result.evidence[0].competency, 'contest-decision')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('invalid VP input is rejected without bumping revision', () => {
+  const { dir, store } = fixture()
+  try {
+    const result = store.vpImport([{ eventId: '', contest: '坏记录', date: '2026-10-10', problems: [] }])
+    assert.equal(result.ok, false)
+    assert.equal(result.revision, 0)
+    assert.equal(result.imported, 0)
+    assert.equal(result.invalid.length, 1)
+    assert.equal(existsSync(join(dir, 'VP_EVENTS.yaml')), false)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('invalid target priorities are rejected instead of silently dropped', () => {
+  const { dir, store } = fixture()
+  try {
+    const result = store.target('set', {
+      expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
+      weeklyHours: 35, priorities: [{ id: 'dp-modeling', weight: 'bad' }],
+    })
+    assert.equal(result.ok, false)
+    assert.match(result.reject, /priorit|weight|能力/)
+    assert.equal(result.revision, 0)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('corrupt stored strategy data returns a structured refusal', () => {
+  const { dir, store } = fixture()
+  try {
+    writeFileSync(join(dir, 'TARGET.yaml'), 'version: 1\nrevision: 4\npriorities: bad\n', 'utf8')
+    const result = store.target('read')
+    assert.equal(result.ok, false)
+    assert.match(result.reject, /TARGET.yaml/)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

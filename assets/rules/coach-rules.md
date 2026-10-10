@@ -30,7 +30,7 @@
   必须填写 `basis`、`goalContribution`、`priorityReason`、`estimatedHours`、
   `evidenceRefs`、`finding`、`kind`、`uncertainty`、`diagnosticMethod`。
   说清观察到了什么、它怎样服务目标、为何排在这里、预计投入多少，不套统一算法清单。
-* `kind=training` 的每个节点都要对应真实证据：补短板用 `finding=gap`，引用 gap；
+* `kind=training` 的每个节点都要对应真实证据：补短板用 `finding=gap`，引用 gap；读题、决策、团队沟通这类没有单一地图节点的阶段改用 `competencies`，引用 VP/复盘产生的能力证据；
   在已证实能力上进阶用 `finding=extension`，引用 baseline。记录指向什么由你解读，
   但**不能写一段理由替代不存在的记录**，也不能把别的节点的失败贴来凑依据。
 * 缺依据先安排 `kind=diagnostic/finding=unknown`，写尚待确认的问题和具体取证方法。
