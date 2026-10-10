@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { copyFileSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -31,11 +31,12 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 import { createStrategyStore } from './lib/strategy.js'
+import { createVpClient } from './lib/vp-client.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.1.0'
+const VERSION = '2.2.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -71,14 +72,30 @@ const TEACH_FLOOR_MIN = 10
 const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
-const strategy = createStrategyStore({
-  dataDir: DATA_DIR,
-  competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
-})
-const curriculum = createCurriculumStore({
-  dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule,
-  loadStrategyEvidence: () => strategy.evidence().evidence,
-})
+let ACTIVE_DATA_DIR = DATA_DIR
+let strategy
+let curriculum
+function createStores(dataDir) {
+  strategy = createStrategyStore({
+    dataDir, competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+  })
+  curriculum = createCurriculumStore({
+    dataDir, loadMap, loadProgress, loadSchedule,
+    loadStrategyEvidence: () => strategy.evidence().evidence,
+  })
+}
+createStores(ACTIVE_DATA_DIR)
+
+function switchCoachWorkspace(accountId = '') {
+  ACTIVE_DATA_DIR = accountId ? join(DATA_DIR, 'vp-accounts', String(accountId)) : DATA_DIR
+  mkdirSync(ACTIVE_DATA_DIR, { recursive: true })
+  createStores(ACTIVE_DATA_DIR)
+  return ACTIVE_DATA_DIR
+}
+
+const vpClient = createVpClient({ dataDir: DATA_DIR })
+const savedVp = vpClient.localStatus()
+if (savedVp.connected) switchCoachWorkspace(savedVp.activeAccountId)
 
 // 探针要的文件，各自代表一条后面的依赖：
 //   MAP.yaml      地图（coach_next 读它算候选）
@@ -170,7 +187,7 @@ function loadMap() {
 //
 // 游标显式存，不靠"已验证的最大深度"推 —— 推出来的东西没法手改，
 // 而且他想复习某节时游标要能停在那儿。
-const PROGRESS_PATH = () => join(DATA_DIR, 'PROGRESS.yaml')
+const PROGRESS_PATH = () => join(ACTIVE_DATA_DIR, 'PROGRESS.yaml')
 
 function emptyProgress() {
   return { version: 1, cursor: '', updated: '', nodes: {}, pending: null }
@@ -309,7 +326,7 @@ function saveProgress(p) {
 //
 // `actual` 是**校准真实做题速度**的唯一来源 —— 计划 60 分钟实际 95 分钟，
 // 攒几周才知道他的速度到底是多少。这条现在一条数据都没有，所以排程只能保守。
-const SCHEDULE_PATH = () => join(DATA_DIR, 'SCHEDULE.yaml')
+const SCHEDULE_PATH = () => join(ACTIVE_DATA_DIR, 'SCHEDULE.yaml')
 
 function emptySchedule() {
   return { version: 1, updated: '', days: {} }
@@ -1410,6 +1427,7 @@ const reachableOf = (entry, rating) =>
   !entry || !rating || Number(entry) <= rating + REACH_BUFFER
 
 const SKILLTREE_HTML = () => join(DATA_DIR, 'skilltree.html')
+const VP_HTML = () => join(import.meta.dirname, 'assets', 'knowledge', 'vp.html')
 
 // ── /coach 路由：把技能树挂在 dsh 自己的 web 服务上 ──────────────────
 //
@@ -1490,6 +1508,38 @@ function registerPages(ctx) {
       res.writeHead(302, { location: '/coach/skilltree.html' })
       res.end()
       return
+    }
+
+    if (pathname === '/coach/vp.html') {
+      try { return send(res, 200, 'text/html; charset=utf-8', readFileSync(VP_HTML())) }
+      catch (err) { return send(res, 404, 'text/plain; charset=utf-8', `VP 页面缺失（${err?.code ?? err?.message}）`) }
+    }
+
+    if (pathname === '/coach/api/vp/status' && req.method === 'GET') {
+      return sendJson(res, 200, { ok: true, ...vpClient.localStatus() })
+    }
+
+    if (pathname === '/coach/api/vp/replay' && req.method === 'GET') {
+      const id = new URL(req.url ?? '/', 'http://dsh.internal').searchParams.get('contestId')
+      if (!id) return sendJson(res, 400, { ok: false, reject: '缺少 contestId' })
+      try { return sendJson(res, 200, { ok: true, ...(await vpClient.replay({ contestId: id })) }) }
+      catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err) }) }
+    }
+
+    if (pathname === '/coach/api/vp/connect' && req.method === 'POST') {
+      let body = ''
+      for await (const chunk of req) { body += chunk; if (body.length > 100_000) { req.destroy(); return } }
+      let payload
+      try { payload = JSON.parse(body || '{}') } catch { return sendJson(res, 400, { ok: false, reject: '请求体不是 JSON' }) }
+      try {
+        let result
+        if (payload.op === 'start') result = await vpClient.start({ baseUrl: payload.baseUrl })
+        else if (payload.op === 'finish') { result = await vpClient.finish({ code: payload.code, baseUrl: payload.baseUrl }); switchCoachWorkspace(result.activeAccountId) }
+        else if (payload.op === 'disconnect') { result = vpClient.disconnect(); switchCoachWorkspace('') }
+        else if (payload.op === 'sync') result = await vpClient.sync({})
+        else return sendJson(res, 400, { ok: false, reject: 'op 只能是 start/finish/disconnect/sync' })
+        return sendJson(res, 200, { ok: true, ...result })
+      } catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err) }) }
     }
 
     if (pathname === '/coach/skilltree.html') {
@@ -1808,6 +1858,44 @@ function wikiPage(src) {
   return { ok: true, text: text.slice(0, 12000), truncated: text.length > 12000, chars: text.length }
 }
 
+const emptyVpAccount = () => ({ id: 0, handle: '', display_name: '' })
+const vpAccount = (value) => value && Number(value.id) > 0
+  ? { id: Number(value.id), handle: String(value.handle || ''), display_name: String(value.display_name || value.handle || '') }
+  : emptyVpAccount()
+
+function vpEventsFromSync(payload, account) {
+  const submissions = Array.isArray(payload?.submissions) ? payload.submissions : []
+  const contests = Array.isArray(payload?.contests) ? payload.contests : []
+  const byContest = new Map()
+  for (const contest of contests) byContest.set(Number(contest.id), contest)
+  const groups = new Map()
+  for (const submission of submissions) {
+    const contestId = Number(submission.contest_id)
+    const problemId = String(submission.problem_id ?? '').trim()
+    if (!contestId || !problemId) continue
+    if (!groups.has(contestId)) groups.set(contestId, new Map())
+    const problems = groups.get(contestId)
+    if (!problems.has(problemId)) problems.set(problemId, [])
+    problems.get(problemId).push(submission)
+  }
+  return [...groups.entries()].map(([contestId, problems]) => {
+    const contest = byContest.get(contestId) || {}
+    const start = String(contest.start_time || [...problems.values()][0]?.[0]?.submitted_at || '')
+    const normalized = [...problems.entries()].map(([problemId, attempts]) => {
+      const solved = attempts.find((item) => ['AC', 'OK', 'ACCEPTED', 'SOLVED'].includes(String(item.verdict || '').toUpperCase()))
+      const at = solved?.submitted_at || attempts.at(-1)?.submitted_at
+      const minutes = start && at ? Math.max(0, Math.round((Date.parse(at) - Date.parse(start)) / 60000)) : 0
+      return { problemId, status: solved ? 'AC' : String(attempts.at(-1)?.verdict || 'UNKNOWN').toUpperCase(), attempts: attempts.length, solveMinutes: minutes, competencies: [] }
+    })
+    return {
+      eventId: `vp:${account.id}:${contestId}`,
+      contest: String(contest.title || contestId), contestId: String(contestId), date: start.slice(0, 10),
+      durationMinutes: Number(contest.duration_min || 0), virtual: true, teamMode: 'team', problems: normalized,
+      note: '由 VP 只读同步生成；具体能力标签在复盘时补充。',
+    }
+  }).filter((event) => /^\d{4}-\d{2}-\d{2}$/.test(event.date) && event.problems.length)
+}
+
 function apply(ctx) {
   // ── 规则层：进 system prompt ──────────────────────────────────────
   //
@@ -1838,6 +1926,93 @@ function apply(ctx) {
   // 课程图回答“有哪些知识点”，策略层回答“为什么现在学这个”。两者分开，
   // 避免把 rating 或游标误当成区域赛目标。
   const strategyText = (v) => [{ type: 'text', text: v.ok ? v.text : `❌ ${v.reject}` }]
+  ctx.tools.register(defineTool({
+    name: 'coach_vp_connect',
+    description: '连接 VP 账号。start 返回登录授权页，finish 交换一次性授权码；账号数据按 VP user id 分目录，disconnect 只删本地 token，不删缓存。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['start', 'finish', 'status', 'disconnect'] },
+      baseUrl: { type: 'string', description: 'VP 地址，默认 https://xiaojing.run' },
+      code: { type: 'string', description: 'VP 授权页显示的一次性 code，action=finish 时填写' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, action: { type: 'string', required: true },
+      connected: { type: 'boolean', required: true }, activeAccountId: { type: 'integer', required: true },
+      account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } }, requestId: { type: 'string', required: true },
+      authorizeUrl: { type: 'string', required: true }, expiresAt: { type: 'string', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: async (args) => {
+      const action = String(args?.action || 'status')
+      const base = args?.baseUrl || 'https://xiaojing.run'
+      try {
+        let result
+        if (action === 'start') result = await vpClient.start({ baseUrl: base })
+        else if (action === 'finish') {
+          result = await vpClient.finish({ code: args?.code, baseUrl: base })
+          switchCoachWorkspace(result.activeAccountId)
+        } else if (action === 'disconnect') {
+          result = vpClient.disconnect()
+          switchCoachWorkspace('')
+        } else result = await vpClient.status()
+        const account = vpAccount(result.account)
+        return { ok: true, reject: '', action, connected: Boolean(result.connected ?? action === 'finish'), activeAccountId: Number(result.activeAccountId || account.id || 0), account,
+          requestId: String(result.requestId || ''), authorizeUrl: String(result.authorizeUrl || ''), expiresAt: String(result.expiresAt || ''),
+          text: action === 'start' ? `打开授权页登录 VP：${result.authorizeUrl}\n授权后把页面显示的 code 交给 coach_vp_connect finish。` :
+            action === 'finish' ? `VP 已连接：${account.handle}（账号 ${account.id}）；本地工作区已切换。` :
+              action === 'disconnect' ? 'VP 已断开；缓存保留，token 已删除。' : (result.connected ? `当前 VP：${account.handle}（账号 ${account.id}）` : '当前没有已连接的 VP 账号。') }
+      } catch (err) {
+        return { ok: false, reject: String(err?.message || err), action, connected: false, activeAccountId: 0, account: emptyVpAccount(), requestId: '', authorizeUrl: '', expiresAt: '', text: '' }
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_vp_sync',
+    description: '从当前 VP 账号增量同步比赛、提交、事件和个人时间线。只读；游标和缓存都放在当前账号目录，切换账号不会读到另一人的数据。同步后自动生成带账号前缀的 VP 训练证据。',
+    parameters: {
+      limit: { type: 'integer', description: '单次最多同步多少条提交，默认 200' },
+      includeProfile: { type: 'boolean', description: '是否同步个人 rating/比赛历史，默认 true' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } },
+      imported: { type: 'integer', required: true }, contests: { type: 'array', required: true }, submissions: { type: 'array', required: true }, events: { type: 'array', required: true },
+      nextCursor: { type: 'object', required: true, additionalProperties: true }, cachedPath: { type: 'string', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: async (args) => {
+      try {
+        const payload = await vpClient.sync({ limit: args?.limit, includeProfile: args?.includeProfile !== false })
+        const account = vpAccount(payload.account)
+        switchCoachWorkspace(account.id)
+        const importedEvents = vpEventsFromSync(payload, account)
+        const imported = importedEvents.length ? strategy.vpImport(importedEvents) : { imported: 0 }
+        return { ok: true, reject: '', account, imported: Number(imported.imported || 0), contests: payload.contests || [], submissions: payload.submissions || [], events: payload.events || [],
+          nextCursor: payload.next_cursor || {}, cachedPath: String(payload.cachedPath || ''), text: `VP 同步完成：${account.handle}；比赛 ${payload.contests?.length || 0} 场，提交 ${payload.submissions?.length || 0} 条，新增训练证据 ${imported.imported || 0} 场。` }
+      } catch (err) {
+        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, contests: [], submissions: [], events: [], nextCursor: {}, cachedPath: '', text: '' }
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_vp_replay',
+    description: '读取当前 VP 账号指定比赛的细粒度回放。返回题目、队伍提交和秒级时间轴；代码不回传，页面可视化从这个数据绘制。',
+    parameters: { contestId: { type: 'integer', required: true }, limit: { type: 'integer', description: '官方 runs 上限，默认 50000' } },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } },
+      contest: { type: 'object', required: true, additionalProperties: true }, problems: { type: 'array', required: true }, result: { type: 'object', required: true, additionalProperties: true },
+      visualization: { type: 'object', required: true, additionalProperties: true }, cachedPath: { type: 'string', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: async (args) => {
+      try {
+        const payload = await vpClient.replay({ contestId: args?.contestId, limit: args?.limit })
+        const account = vpAccount(payload.account)
+        return { ok: true, reject: '', account, contest: payload.contest || {}, problems: payload.problems || [], result: payload.result || {}, visualization: payload.visualization || {}, cachedPath: String(payload.cachedPath || ''),
+          text: `回放已加载：${payload.contest?.title || args?.contestId}；队伍事件 ${payload.visualization?.team_events?.length || 0} 个，官方 runs ${payload.visualization?.official_run_count || 0} 条。` }
+      } catch (err) {
+        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), contest: {}, problems: [], result: {}, visualization: {}, cachedPath: '', text: '' }
+      }
+    },
+  }))
+
   ctx.tools.register(defineTool({
     name: 'coach_target',
     description: '设置或读取比赛目标。目标先于知识点：contest/date/result/teamMode/weeklyHours/priorities 都确定后，教练才有依据选训练重点。',

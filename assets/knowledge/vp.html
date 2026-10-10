@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VP 回放 · 小鲸教练</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e; --blue:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#d29922; }
+    * { box-sizing:border-box } body { margin:0; padding:24px; color:var(--text); background:radial-gradient(circle at 85% 0,#1b3150 0,#0d1117 45%); font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .wrap { max-width:1180px; margin:auto } h1 { margin:0 0 4px; font-size:25px } h2 { font-size:16px; margin:0 0 12px } .muted { color:var(--muted) }
+    .grid { display:grid; grid-template-columns:320px 1fr; gap:16px; margin-top:18px } .card { background:color-mix(in srgb,var(--panel) 92%,transparent); border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:0 10px 35px #0003; }
+    button,input { border:1px solid var(--line); border-radius:7px; padding:8px 10px; color:var(--text); background:#21262d; font:inherit } button { cursor:pointer; background:#1f6feb; border-color:#388bfd } button.secondary { background:#21262d } button:hover { filter:brightness(1.15) } input { width:100%; margin:5px 0 9px; background:#0d1117 }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap } .row button { flex:1 } .status { padding:10px 12px; border-radius:8px; background:#0d1117; margin:10px 0 14px; color:var(--muted) } .status.ok { color:#aff5b4; border:1px solid #238636 }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0 } .stat { padding:10px; border:1px solid var(--line); border-radius:8px; background:#0d1117 } .stat b { display:block; font-size:20px; color:var(--blue) }
+    #timeline { width:100%; min-height:220px; overflow:auto; border:1px solid var(--line); border-radius:8px; background:#0d1117; padding:12px } svg { width:100%; min-width:620px; height:190px } .legend { display:flex; gap:12px; color:var(--muted); font-size:12px; margin-top:6px } .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px }
+    .problem { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #21262d } .pill { border-radius:999px; padding:2px 8px; font-size:12px; background:#30363d } .pill.AC { color:#aff5b4; background:#173b25 } .pill.WA,.pill.TLE,.pill.RE { color:#ffb4ab; background:#4b1d20 }
+    #message { min-height:24px; margin-top:12px; color:var(--muted) } a { color:var(--blue) }
+    @media (max-width:760px) { body{padding:14px} .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body><main class="wrap">
+  <h1>VP 回放</h1><div class="muted">账号数据按 VP user id 隔离；这里的时间轴是比赛墙上秒数。</div>
+  <div class="grid">
+    <section class="card"><h2>连接 VP</h2><div id="account" class="status">正在读取连接状态…</div>
+      <button id="start">打开 VP 登录授权</button>
+      <label class="muted">授权页显示的 code</label><input id="code" autocomplete="off" placeholder="粘贴一次性 code">
+      <button id="finish" class="secondary">完成连接</button><div class="row" style="margin-top:8px"><button id="sync" class="secondary">立即同步</button><button id="disconnect" class="secondary">断开账号</button></div>
+      <div id="authLink" class="muted"></div><div id="message"></div>
+    </section>
+    <section class="card"><h2>比赛回放</h2><div class="row"><input id="contest" type="number" min="1" placeholder="Contest ID"><button id="load">加载回放</button></div>
+      <div id="summary" class="muted" style="margin:12px 0">先连接 VP，再输入 Contest ID。</div><div id="timeline"></div><div id="problems"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+const say = (text, bad=false) => { $('message').textContent = text; $('message').style.color = bad ? '#f85149' : '' }
+async function api(path, options) { const r=await fetch(path, {headers:{'content-type':'application/json'}, ...options}); const d=await r.json(); if(!r.ok||d.ok===false) throw new Error(d.reject||`HTTP ${r.status}`); return d }
+async function status(){ try { const d=await api('./api/vp/status'); const a=d.account; $('account').textContent=d.connected?`${a.display_name||a.handle} · ${a.handle} · 账号 ${a.id}`:'未连接 VP'; $('account').className='status'+(d.connected?' ok':''); } catch(e){say(e.message,true)} }
+$('start').onclick=async()=>{try{const d=await api('./api/vp/connect',{method:'POST',body:JSON.stringify({op:'start'})}); $('authLink').innerHTML=`<a href="${d.authorizeUrl}" target="_blank" rel="noreferrer">打开授权页</a>（登录并允许读取）`; say('授权页已打开，完成后把 code 粘贴到上面。'); window.open(d.authorizeUrl,'_blank','noopener');}catch(e){say(e.message,true)}}
+$('finish').onclick=async()=>{try{await api('./api/vp/connect',{method:'POST',body:JSON.stringify({op:'finish',code:$('code').value})}); say('连接成功，工作区已切换。'); await status()}catch(e){say(e.message,true)}}
+$('sync').onclick=async()=>{try{const d=await api('./api/vp/connect',{method:'POST',body:JSON.stringify({op:'sync'})}); say(`同步完成：${d.submissions?.length||0} 条提交。`); await status()}catch(e){say(e.message,true)}}
+$('disconnect').onclick=async()=>{try{await api('./api/vp/connect',{method:'POST',body:JSON.stringify({op:'disconnect'})}); say('已断开，缓存保留。'); await status()}catch(e){say(e.message,true)}}
+$('load').onclick=async()=>{try{const d=await api(`./api/vp/replay?contestId=${encodeURIComponent($('contest').value)}`); render(d); say('回放加载完成。')}catch(e){say(e.message,true)}}
+function render(d){ const v=d.visualization||{}, ev=v.team_events||[], duration=Math.max(60,v.duration_seconds||1), w=900, pad=42; $('summary').innerHTML=`<b>${d.contest?.title||'Contest '+d.contest?.id}</b><div class="stats"><div class="stat"><b>${d.result?.own?.solved??d.result?.solved??0}</b> solved</div><div class="stat"><b>${ev.length}</b> team events</div><div class="stat"><b>${v.official_run_count||0}</b> official runs</div></div>`; let ticks=Array.from({length:6},(_,i)=>{const x=pad+(w-pad*2)*i/5;return `<line x1="${x}" y1="28" x2="${x}" y2="160" stroke="#21262d"/><text x="${x}" y="178" fill="#8b949e" text-anchor="middle">${Math.round(duration*i/5/60)}m</text>`}).join(''); let marks=ev.map(e=>{const x=pad+(w-pad*2)*Math.min(1,Math.max(0,(e.second||0)/duration));const good=String(e.verdict||'').toUpperCase()==='AC';const color=good?'#3fb950':'#f85149';return `<circle cx="${x}" cy="${good?70:112}" r="7" fill="${color}"/><title>${e.problem||''} · ${e.verdict||''} · ${Math.round((e.second||0)/60)}m</title>`}).join(''); $('timeline').innerHTML=`<svg viewBox="0 0 ${w} 190" role="img" aria-label="比赛提交时间轴"><text x="8" y="74" fill="#8b949e">AC</text><text x="8" y="116" fill="#8b949e">非 AC</text>${ticks}<line x1="${pad}" y1="70" x2="${w-pad}" y2="70" stroke="#3fb950"/><line x1="${pad}" y1="112" x2="${w-pad}" y2="112" stroke="#f85149"/>${marks}</svg><div class="legend"><span><i class="dot" style="background:#3fb950"></i>AC</span><span><i class="dot" style="background:#f85149"></i>WA/TLE/RE</span><span>横轴为比赛分钟</span></div>`; $('problems').innerHTML=(d.problems||[]).map(p=>`<div class="problem"><span>${p.label||p.id} ${p.title||''}</span><span class="pill">${p.id}</span></div>`).join('') }
+status()
+</script></body></html>
