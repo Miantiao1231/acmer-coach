@@ -3025,7 +3025,7 @@ writeFileSync(path.join(tmp32, 'PROGRESS.yaml'), JSON.stringify(h32))
 const d_state = await pre32({ messages: [], step: 1 }, enter())
 const txt32 = textOf32(d_state)
 check('★ 有位置时注入了一条消息（追加在末尾，不碰 system prompt）',
-  d_state.messages.length === 2 && d_state.messages.at(-1)?.source?.kind === 'plugin',
+  d_state.messages.length === 2 && d_state.messages.at(-1)?.source?.kind === 'plugin:acmer-coach',
   `${d_state.messages.length} 条，source=${JSON.stringify(d_state.messages.at(-1)?.source)}`)
 check('★ 注入里带着游标', txt32.includes('游标：A'), (txt32.match(/.*游标.*/) ?? [''])[0])
 check('★ 带着「在学」', txt32.includes('在学') && txt32.includes('B'),

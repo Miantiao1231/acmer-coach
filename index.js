@@ -34,7 +34,7 @@ import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '1.2.0'
+const VERSION = '1.2.1'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -1627,7 +1627,7 @@ function registerStateHook(ctx) {
       const { createUserMessage } = await import('@deepseek-ai/dsh-llm')
       const msg = createUserMessage({
         content: [{ type: 'text', text: lines.join('\n') }],
-        source: { kind: 'plugin', plugin: name },
+        source: { kind: `plugin:${name}` },
       })
       return { ...decision, messages: [...decision.messages, msg] }
     } catch {
