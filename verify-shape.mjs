@@ -177,6 +177,7 @@ const cases = [
   ['coach_vp_import', { events: [{ eventId: 'shape-vp', contest: '测试 VP', date: today, durationMinutes: 300, problems: [{ problemId: 'A', status: 'AC', competencies: ['contest-reading'] }] }] }],
   ['coach_vp_connect', { action: 'status' }],
   ['coach_vp_sync', {}],
+  ['coach_vp_contests', {}],
   ['coach_vp_replay', { contestId: 1 }],
   ['coach_postmortem', { eventId: 'shape-vp', competencies: ['contest-reading'], rootCauses: ['测试复盘'], nextActions: ['测试动作'] }],
   ['coach_focus', {}],

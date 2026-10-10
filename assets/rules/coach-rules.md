@@ -16,7 +16,8 @@
   为什么现在排、暂缓什么，以及用什么表现退出。知识图只负责把能力重点展开成可学节点。
 * 有 VP 时先用 `coach_vp_connect status` 检查账号，未连接就走 `start → 登录授权页 → finish`，
   再用 `coach_vp_sync` 拉取真实记录；赛后调 `coach_vp_replay` 看秒级时间轴，最后调
-  `coach_postmortem`。VP 的读题、耗时、提交、换题和团队问题优先于 rating；没有 VP 证据时要
+  `coach_postmortem`。需要回放时先用 `coach_vp_contests` 按比赛名称选择，再调
+  `coach_vp_replay`；不要让学生提供 Contest ID。VP 的读题、耗时、提交、换题和团队问题优先于 rating；没有 VP 证据时要
   明确说“尚无记录”，不能装作知道短板。手工导入仍可用 `coach_vp_import`，但不能和当前账号记录混用。
 * 讲知识点之前调 `coach_scope`。必须说明适用范围、延伸、反例、常见错误、迁移题和退出
   条件；工具返回“没有范围卡片”时不许凭记忆补一段看似完整的范围。

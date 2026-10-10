@@ -20,7 +20,7 @@
 
 ## 它到底做了什么
 
-29 个工具，三条轴：知识图、比赛能力、训练证据。
+30 个工具，三条轴：知识图、比赛能力、训练证据。
 
 | 轴 | 含义 |
 |---|---|
@@ -103,7 +103,8 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 现在可以直接连接 VP：`coach_vp_connect start` 打开授权页，登录并允许只读访问后，
 把一次性 code 交给 `coach_vp_connect finish`。然后用 `coach_vp_sync` 增量同步比赛、
 提交、事件和个人历史；同步会自动生成带账号前缀的 VP 训练证据，仍由复盘和检测决定
-能力结论。`coach_vp_replay` 读取指定比赛的细粒度回放，`VP 回放`按钮会打开可视化页面，
+能力结论。小鲸先用 `coach_vp_contests` 按比赛名称选场，再调用 `coach_vp_replay`，不需要你记 Contest ID。
+`VP 回放`按钮会打开可视化页面，
 把 AC、WA/TLE/RE 和比赛分钟画在同一条时间轴上。
 
 每个 VP 账号都放在 `~/.dsh/knowledge/vp-accounts/<user_id>/`，token 单独保存，

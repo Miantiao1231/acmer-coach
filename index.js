@@ -1519,6 +1519,11 @@ function registerPages(ctx) {
       return sendJson(res, 200, { ok: true, ...vpClient.localStatus() })
     }
 
+    if (pathname === '/coach/api/vp/contests' && req.method === 'GET') {
+      try { return sendJson(res, 200, { ok: true, ...(await vpClient.contests()) }) }
+      catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err), contests: [] }) }
+    }
+
     if (pathname === '/coach/api/vp/replay' && req.method === 'GET') {
       const id = new URL(req.url ?? '/', 'http://dsh.internal').searchParams.get('contestId')
       if (!id) return sendJson(res, 400, { ok: false, reject: '缺少 contestId' })
@@ -1988,6 +1993,28 @@ function apply(ctx) {
           nextCursor: payload.next_cursor || {}, cachedPath: String(payload.cachedPath || ''), text: `VP 同步完成：${account.handle}；比赛 ${payload.contests?.length || 0} 场，提交 ${payload.submissions?.length || 0} 条，新增训练证据 ${imported.imported || 0} 场。` }
       } catch (err) {
         return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, contests: [], submissions: [], events: [], nextCursor: {}, cachedPath: '', text: '' }
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_vp_contests',
+    description: '列出当前 VP 账号参加过的比赛，按最近开始时间排序。小鲸在调用 coach_vp_replay 前先用它拿到可读的比赛名称，不要求用户记 Contest ID。',
+    parameters: {},
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } },
+      contests: { type: 'array', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: async () => {
+      try {
+        const payload = await vpClient.contests()
+        const account = vpAccount(payload.account)
+        const contests = payload.contests || []
+        return { ok: true, reject: '', account, contests, text: contests.length
+          ? `当前账号有 ${contests.length} 场 VP：\n${contests.slice(0, 20).map((item, i) => `${i + 1}. ${item.title}（${item.start_time || '日期未知'}，id=${item.id}）`).join('\n')}`
+          : '当前账号没有可读取的 VP 比赛。' }
+      } catch (err) {
+        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), contests: [], text: '' }
       }
     },
   }))

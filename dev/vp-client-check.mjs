@@ -16,6 +16,7 @@ const fetchImpl = async (url, options = {}) => {
     return json({ access_token: `token-${account.id}`, user: account })
   }
   if (path.endsWith('/api/coach/me')) return json({ user: account, read_only: true })
+  if (path.endsWith('/api/coach/contests')) return json({ account, contests: [{ id: 7, title: 'VP 7', status: 'ended' }] })
   if (path.endsWith('/api/coach/sync')) return json({
     account: mismatch ? { id: 1, handle: 'A' } : account,
     submissions: [{ id: 9, contest_id: 7, verdict: 'AC' }], events: [], contests: [],
@@ -36,6 +37,7 @@ try {
   assert.equal(JSON.parse(readFileSync(join(root, 'vp-accounts', '1', 'SYNC.json'))).account.id, 1)
   await client.finish({ code: 'B' })
   assert.equal((await client.status()).account.id, 2)
+  assert.equal((await client.contests()).contests[0].id, 7)
   assert.equal((await client.sync()).account.id, 2)
   mismatch = true
   await assert.rejects(() => client.sync(), /account mismatch/)

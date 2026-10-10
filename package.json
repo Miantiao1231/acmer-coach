@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
   "description": "小鲸教练插件：把「位置 + 判断」从小鲸的转述里拿回来。读 MAP/DEPENDS/PROGRESS，给唯一动作、判因、检测。热插拔，删掉即还原。",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"
