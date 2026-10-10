@@ -108,7 +108,10 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 把 AC、WA/TLE/RE 和比赛分钟画在同一条时间轴上。
 
 每个 VP 账号都放在 `~/.dsh/knowledge/vp-accounts/<user_id>/`，token 单独保存，
-同步游标、原始安全投影和回放缓存都按账号分开。切换账号会切换教练工作区；服务端
+同步游标、原始安全投影、回放缓存和 `VP_EVENTS.yaml` 都按账号分开。个人训练数据
+`PROGRESS.yaml`、`CURRICULUM.yaml`、`SCHEDULE.yaml`、`TARGET.yaml` 始终留在
+`~/.dsh/knowledge/`，切换 VP 账号不会换教练。2.3.1 会把旧版本误写进账号目录的个人文件按更新时间迁回；被替换的主目录文件会留下 `.pre-vp-account-<user_id>` 备份，原账号文件不删除。
+服务端
 返回的账号 id 与当前账号不一致时，客户端拒绝写入。同步和回放都不返回提交代码或 judge 输出。
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 

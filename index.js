@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -36,7 +36,7 @@ import { createVpClient } from './lib/vp-client.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.2.0'
+const VERSION = '2.3.1'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -72,30 +72,66 @@ const TEACH_FLOOR_MIN = 10
 const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
-let ACTIVE_DATA_DIR = DATA_DIR
+let ACTIVE_VP_DIR = DATA_DIR
 let strategy
 let curriculum
-function createStores(dataDir) {
+function createStores(vpDir) {
   strategy = createStrategyStore({
-    dataDir, competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+    dataDir: DATA_DIR, vpDir,
+    competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
   })
   curriculum = createCurriculumStore({
-    dataDir, loadMap, loadProgress, loadSchedule,
+    dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule,
     loadStrategyEvidence: () => strategy.evidence().evidence,
   })
 }
-createStores(ACTIVE_DATA_DIR)
+createStores(ACTIVE_VP_DIR)
+
+const PERSONAL_FILES = ['PROGRESS.yaml', 'CURRICULUM.yaml', 'SCHEDULE.yaml', 'TARGET.yaml']
+
+// 2.3.0 曾把个人文件误写进 VP 账号目录。迁移时按 mtime 取较新的一份；
+// 被替换的主目录文件留备份，原账号目录也保留，方便人工核对和恢复。
+function migratePersonalWorkspace(accountId) {
+  if (!accountId) return []
+  const sourceDir = join(DATA_DIR, 'vp-accounts', String(accountId))
+  if (!existsSync(sourceDir)) return []
+  const migrated = []
+  for (const file of PERSONAL_FILES) {
+    const from = join(sourceDir, file)
+    const to = join(DATA_DIR, file)
+    if (!existsSync(from)) continue
+    if (!existsSync(to)) {
+      copyFileSync(from, to)
+      migrated.push(file)
+      continue
+    }
+    const sourceStat = statSync(from)
+    const targetStat = statSync(to)
+    if (sourceStat.mtimeMs <= targetStat.mtimeMs) continue
+    const sourceBody = readFileSync(from)
+    const targetBody = readFileSync(to)
+    if (sourceBody.equals(targetBody)) continue
+    const backup = `${to}.pre-vp-account-${String(accountId)}`
+    if (!existsSync(backup)) copyFileSync(to, backup)
+    copyFileSync(from, to)
+    migrated.push(`${file}（更新）`)
+  }
+  return migrated
+}
 
 function switchCoachWorkspace(accountId = '') {
-  ACTIVE_DATA_DIR = accountId ? join(DATA_DIR, 'vp-accounts', String(accountId)) : DATA_DIR
-  mkdirSync(ACTIVE_DATA_DIR, { recursive: true })
-  createStores(ACTIVE_DATA_DIR)
-  return ACTIVE_DATA_DIR
+  ACTIVE_VP_DIR = accountId ? join(DATA_DIR, 'vp-accounts', String(accountId)) : DATA_DIR
+  mkdirSync(ACTIVE_VP_DIR, { recursive: true })
+  createStores(ACTIVE_VP_DIR)
+  return ACTIVE_VP_DIR
 }
 
 const vpClient = createVpClient({ dataDir: DATA_DIR })
 const savedVp = vpClient.localStatus()
-if (savedVp.connected) switchCoachWorkspace(savedVp.activeAccountId)
+if (savedVp.connected) {
+  migratePersonalWorkspace(savedVp.activeAccountId)
+  switchCoachWorkspace(savedVp.activeAccountId)
+}
 
 // 探针要的文件，各自代表一条后面的依赖：
 //   MAP.yaml      地图（coach_next 读它算候选）
@@ -187,7 +223,7 @@ function loadMap() {
 //
 // 游标显式存，不靠"已验证的最大深度"推 —— 推出来的东西没法手改，
 // 而且他想复习某节时游标要能停在那儿。
-const PROGRESS_PATH = () => join(ACTIVE_DATA_DIR, 'PROGRESS.yaml')
+const PROGRESS_PATH = () => join(DATA_DIR, 'PROGRESS.yaml')
 
 function emptyProgress() {
   return { version: 1, cursor: '', updated: '', nodes: {}, pending: null }
@@ -326,7 +362,7 @@ function saveProgress(p) {
 //
 // `actual` 是**校准真实做题速度**的唯一来源 —— 计划 60 分钟实际 95 分钟，
 // 攒几周才知道他的速度到底是多少。这条现在一条数据都没有，所以排程只能保守。
-const SCHEDULE_PATH = () => join(ACTIVE_DATA_DIR, 'SCHEDULE.yaml')
+const SCHEDULE_PATH = () => join(DATA_DIR, 'SCHEDULE.yaml')
 
 function emptySchedule() {
   return { version: 1, updated: '', days: {} }
@@ -1539,7 +1575,11 @@ function registerPages(ctx) {
       try {
         let result
         if (payload.op === 'start') result = await vpClient.start({ baseUrl: payload.baseUrl })
-        else if (payload.op === 'finish') { result = await vpClient.finish({ code: payload.code, baseUrl: payload.baseUrl }); switchCoachWorkspace(result.activeAccountId) }
+        else if (payload.op === 'finish') {
+          result = await vpClient.finish({ code: payload.code, baseUrl: payload.baseUrl })
+          migratePersonalWorkspace(result.activeAccountId)
+          switchCoachWorkspace(result.activeAccountId)
+        }
         else if (payload.op === 'disconnect') { result = vpClient.disconnect(); switchCoachWorkspace('') }
         else if (payload.op === 'sync') result = await vpClient.sync({})
         else return sendJson(res, 400, { ok: false, reject: 'op 只能是 start/finish/disconnect/sync' })
@@ -1953,6 +1993,7 @@ function apply(ctx) {
         if (action === 'start') result = await vpClient.start({ baseUrl: base })
         else if (action === 'finish') {
           result = await vpClient.finish({ code: args?.code, baseUrl: base })
+          migratePersonalWorkspace(result.activeAccountId)
           switchCoachWorkspace(result.activeAccountId)
         } else if (action === 'disconnect') {
           result = vpClient.disconnect()

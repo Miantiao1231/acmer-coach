@@ -147,6 +147,31 @@ test('invalid target priorities are rejected instead of silently dropped', () =>
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('personal target stays shared while VP events stay account-scoped', () => {
+  const personal = mkdtempSync(join(tmpdir(), 'acmer-coach-personal-'))
+  const accountA = mkdtempSync(join(tmpdir(), 'acmer-coach-vp-a-'))
+  const accountB = mkdtempSync(join(tmpdir(), 'acmer-coach-vp-b-'))
+  const options = {
+    competenciesPath: join(process.cwd(), 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+  }
+  try {
+    const a = createStrategyStore({ ...options, dataDir: personal, vpDir: accountA })
+    const b = createStrategyStore({ ...options, dataDir: personal, vpDir: accountB })
+    const target = { expectedRevision: 0, contest: '西安区域赛', date: '2026-10-17', result: '保铜争银', weeklyHours: 25,
+      priorities: [{ id: 'implementation-stability', weight: 100 }] }
+    assert.equal(a.target('set', target).ok, true)
+    assert.equal(a.vpImport([{ eventId: 'account-a', contest: 'VP A', date: '2026-10-10', durationMinutes: 300,
+      problems: [{ problemId: 'A', status: 'AC' }] }]).ok, true)
+    assert.equal(b.target('read').contest, '西安区域赛')
+    assert.equal(b.vpImport([]).total, 0)
+    assert.equal(existsSync(join(personal, 'TARGET.yaml')), true)
+    assert.equal(existsSync(join(accountA, 'VP_EVENTS.yaml')), true)
+    assert.equal(existsSync(join(accountB, 'VP_EVENTS.yaml')), false)
+  } finally {
+    for (const dir of [personal, accountA, accountB]) rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('corrupt stored strategy data returns a structured refusal', () => {
   const { dir, store } = fixture()
   try {
