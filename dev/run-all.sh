@@ -8,6 +8,7 @@
 #   setup-check             冷启动（离线）
 #   curriculum-check        长期课程、版本、阶段验收与任务关联
 #   curriculum-evidence     编排证据目录、引用与事件身份
+#   strategy-check          比赛目标、VP 证据、复盘与重点选择
 #   parity-check            和线上那份的保真度对比
 #
 # 主验收跑的是**已安装副本**（不是源码）—— 那才是运行时真正加载的东西。
@@ -63,6 +64,7 @@ run "wiki-check"    node dev/wiki-check.mjs
 run "setup-check"   node dev/setup-check.mjs
 run "curriculum"    node --test dev/curriculum-check.mjs
 run "evidence"      node --test dev/curriculum-evidence-check.mjs
+run "strategy"      node --test dev/strategy-check.mjs
 if [ "${COACH_LIVE_INDEX+x}" = x ] || node -e "
   const fs=require('fs'), os=require('os'), path=require('path');
   process.exit(fs.existsSync(path.join(os.homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')) ? 0 : 1);

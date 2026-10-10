@@ -167,6 +167,13 @@ const today = new Date().toLocaleDateString('sv-SE')   // YYYY-MM-DD（本地）
 // 每个工具至少两条路：走得通的 + 被拒的（**被拒的那条最容易形状不齐**）
 const cases = [
   ['coach_ping', {}],
+  ['coach_target', { action: 'read' }],
+  ['coach_target', { action: 'set', expectedRevision: 0, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'contest-reading', weight: 80, reason: '测试目标' }] }],
+  ['coach_vp_import', { events: [{ eventId: 'shape-vp', contest: '测试 VP', date: today, durationMinutes: 300, problems: [{ problemId: 'A', status: 'AC', competencies: ['contest-reading'] }] }] }],
+  ['coach_postmortem', { eventId: 'shape-vp', competencies: ['contest-reading'], rootCauses: ['测试复盘'], nextActions: ['测试动作'] }],
+  ['coach_focus', {}],
+  ['coach_scope', { id: 'contest-reading' }],
+  ['coach_scope', { id: '不存在的能力' }],
   // 无课程的读取 / 无课程的推进拒绝，不建立课程以免改变后续旧工具夹具。
   ['coach_curriculum', { action: 'read' }],
   ['coach_curriculum', { action: 'assess' }],

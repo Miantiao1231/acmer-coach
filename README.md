@@ -20,7 +20,7 @@
 
 ## 它到底做了什么
 
-21 个工具，两条轴：
+26 个工具，三条轴：知识图、比赛能力、训练证据。
 
 | 轴 | 含义 |
 |---|---|
@@ -45,9 +45,32 @@ coach_log       过了 → 记一条，然后夸
 coach_pool → coach_test → coach_grade    章节检测，过了才标「已验证」
   ↓
 coach_schedule → coach_plan              排课
+  ↓
+coach_target → coach_vp_import → coach_postmortem → coach_focus
+  ↓                         比赛目标、VP 复盘、当前重点
+coach_scope                  适用范围、延伸、反例、退出条件
 ```
 
 `coach_wiki` 是知识来源：讲任何知识点之前先查本地 OI Wiki，**别凭记忆讲**。
+
+### 目标驱动训练
+
+知识图只回答“有哪些知识点”，不回答“为什么现在学它”。先用
+`coach_target` 设置比赛、日期、目标结果、团队模式、可用时间和能力优先级，
+再用 `coach_vp_import` 导入 VP，`coach_postmortem` 写复盘，`coach_focus` 计算当前
+训练重点。每次布置都要能说清楚它服务哪个比赛能力、适用范围、迁移题和退出条件。
+
+VP 记录格式是 JSON 数组，每场至少包含 `eventId`、`contest`、`date` 和 `problems`：
+
+```json
+[{"eventId":"vp-西安-01","contest":"区域赛 VP","date":"2026-10-10",
+  "durationMinutes":300,"teamMode":"team","problems":[
+    {"problemId":"A","status":"AC","readMinutes":8,"solveMinutes":22,
+     "attempts":1,"competencies":["contest-reading"]}]}]
+```
+
+`coach_scope` 会返回一个能力或知识点的适用范围、延伸、反例、常见错误、迁移题
+和退出条件。没有人工范围卡片时它会明确拒绝编造，避免把“讲过”误当成“会用”。
 
 ### 长期学习路线
 
@@ -70,14 +93,15 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 路线按剩余 `estimatedHours`、每周预算和目标日期提示容量不足或估算缺失；这只是
 调整范围的提示，不会把周平均当成精确日程，也不阻止执行。
 
-每轮注入长期目标、当前阶段和未完成单元。`coach_assign` 带课程版本，普通训练
+每轮注入比赛目标、能力重点、长期阶段和未完成单元。`coach_assign` 带课程版本，普通训练
 限于当前主线；补漏/复习需声明目的和返回依据。完成记录仍归原进度文件，
 不会因一题 AC 或日历到期自动跳阶段。没有建立课程的用户保持原有工具行为。
 
 本周主线可设置 `focusUntil`，到期先复盘修订。路线不提前占用数月日程，
 `coach_plan` 继续管理近期时间块。旧 v1 路线可读，会标记 `needsReview`；需明确
 修订当前及后续阶段后迁移 v2，插件不会自动重写。优先级与教学方案仍由模型判断，
-程序只检查证据、前置和验收边界。本功能没有新增 VP 自动读取或后台周报。
+程序现在会要求目标和 VP 证据先进入策略层；能力卡片仍由仓库维护，未知卡片不会自动臆造。
+这版仍不包含后台定时同步和自动读取第三方 VP 网站，导出后用 `coach_vp_import` 导入。
 详见 [长期课程机制](docs/长期课程机制.md)。
 
 **「学过」和「已验证」是两级，绝不合并。** 自评 ≠ 掌握 ——

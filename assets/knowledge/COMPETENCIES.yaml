@@ -1,0 +1,92 @@
+version: 1
+competencies:
+  - id: contest-reading
+    title: 比赛读题与筛选
+    contestUse: 在前 30 分钟扫完题面，识别可做题和高风险题，避免漏读与过早开写。
+    nodes: []
+    appliesTo: [所有区域赛场次]
+    extensions: [首轮扫描, 题目分层, 读题时间盒]
+    notFor: [把 A 题默认当成签到题, 读一题写一题]
+    commonFailures: [漏读题面, 被样例带偏, 没有放弃条件]
+    transferProblems: [一场完整 VP]
+    exitEvidence: [两场 VP 都记录首轮扫描顺序, 没有漏读题]
+  - id: contest-decision
+    title: 比赛决策与终局
+    contestUse: 根据成功概率、剩余时间和罚时决定继续、换题或集中火力。
+    nodes: []
+    appliesTo: [区域赛 VP, 最后 60 分钟]
+    extensions: [换题阈值, 终局集中, 代码验算分工]
+    notFor: [多道难题同时无边界死磕]
+    commonFailures: [沉没成本, 最后阶段分散火力, 不复盘换题原因]
+    transferProblems: [5 小时团队 VP]
+    exitEvidence: [两场 VP 有明确换题记录和终局策略]
+  - id: implementation-stability
+    title: 实现稳定性
+    contestUse: 在限时下把已知套路写成一次通过、边界完整的代码。
+    nodes: [数据结构, 二分, 前缀和, 差分, 动态规划基础]
+    appliesTo: [中档签到题, 需要快速转化的常见模型]
+    extensions: [边界清单, 小样例自测, 重写压缩]
+    notFor: [只背模板不理解状态来源]
+    commonFailures: [下标错误, 初始化遗漏, 重复提交同一类低级错误]
+    transferProblems: [两道未见过的同类题]
+    exitEvidence: [两道迁移题限时独立通过, 至少一题隔天复测]
+  - id: dp-modeling
+    title: DP 建模与迁移
+    contestUse: 从题面抽出状态、转移、顺序和复杂度，而不是只认题型名称。
+    nodes: [动态规划基础, 区间 DP, 背包 DP, 树形 DP, 状压 DP, 数位 DP]
+    appliesTo: [子结构可复用, 状态规模可控, 需要枚举决策顺序]
+    extensions: [区间状态, 集合状态, 树上状态, 优化转移]
+    notFor: [状态包含不可压缩的全局历史]
+    commonFailures: [状态定义含糊, 转移漏情况, 复杂度算错]
+    transferProblems: [一道结构相同但题面不同的 DP, 一道隔天迁移题]
+    exitEvidence: [能解释状态为何足够, 两道新题独立完成]
+  - id: graph-modeling
+    title: 图论建模
+    contestUse: 识别图结构并选对最短路、连通性、拓扑序、树或网络流模型。
+    nodes: [图论基础, 最短路, 拓扑排序, DFS（搜索）, 并查集]
+    appliesTo: [关系传播, 依赖顺序, 连通块, 路径代价]
+    extensions: [DAG DP, 树上问题, 生成树, 流与匹配]
+    notFor: [把所有关系题都硬套最短路]
+    commonFailures: [建边方向错, 忘记不连通, 复杂度超限]
+    transferProblems: [两种表面不同的关系建模题]
+    exitEvidence: [限时识别模型并独立写出两题]
+  - id: data-structures
+    title: 数据结构选型与实现
+    contestUse: 根据操作、约束和查询方式选择合适结构并稳定实现。
+    nodes: [树状数组, 线段树, 单调队列, 单调栈, 树链剖分]
+    appliesTo: [动态维护, 区间查询, 单调性优化]
+    extensions: [懒标记, 可持久化, 合并技巧, 复杂度降阶]
+    notFor: [数据结构复杂度超过题目实际需求]
+    commonFailures: [区间边界错, 懒标记下传错, 结构选重]
+    transferProblems: [同结构不同操作题]
+    exitEvidence: [模板能从零写出, 新题能说明为何选它]
+  - id: math-combinatorics
+    title: 数学与组合建模
+    contestUse: 把计数、模运算、概率和构造题压成可计算的结构。
+    nodes: [排列组合, 数论基础, 概率论, 博弈论]
+    appliesTo: [计数, 期望, 模意义运算, 不变量]
+    extensions: [容斥, 生成函数, 矩阵快速幂, 组合恒等式]
+    notFor: [只凭样例猜规律]
+    commonFailures: [重复计数, 模逆不存在, 边界概率遗漏]
+    transferProblems: [两道不同叙事的计数题]
+    exitEvidence: [能写出计数对象和去重方式, 一题隔天复测]
+  - id: code-review
+    title: 代码检查与调试
+    contestUse: 在提交前快速发现边界、溢出、复杂度和实现偏差。
+    nodes: [枚举, 递归 & 分治, 动态规划基础]
+    appliesTo: [所有需要限时提交的题]
+    extensions: [反例构造, 对拍思维, 小样例清单]
+    notFor: [盲目重写整份代码]
+    commonFailures: [没有最小反例, 只看样例, 不验证复杂度]
+    transferProblems: [给出一份错误代码并定位最小反例]
+    exitEvidence: [三次提交前检查都能指出具体风险]
+  - id: team-communication
+    title: 团队沟通与分工
+    contestUse: 让三个人并行推进、及时同步、减少重复劳动和信息丢失。
+    nodes: []
+    appliesTo: [团队 VP, 区域赛现场]
+    extensions: [口头题解格式, 代码交接, 验算角色, 决策记录]
+    notFor: [三个人长期各做各的]
+    commonFailures: [没人汇报, 两人重复做题, 交接时丢约束]
+    transferProblems: [三人 5 小时 VP]
+    exitEvidence: [两场 VP 有分工记录和交接记录]

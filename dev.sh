@@ -35,7 +35,7 @@ done
 # 从副本目录跑 `bash dev.sh` 走的是另一条路（`dsh plugin remove/add`，而那条
 # 路不可靠），和这份的行为不一样。换句话说，**同一个命令，从哪个目录按回车
 # 决定跑哪份脚本** —— 两份 dev.sh 就是两份真相，正是这份文件在防的那种坑。
-SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs docs/长期课程机制.md dev.sh'
+SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js assets/knowledge/COMPETENCIES.yaml assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs docs/长期课程机制.md dev.sh'
 STALE=''
 for f in $SYNC_FILES; do
   for d in "${DSTS[@]}"; do

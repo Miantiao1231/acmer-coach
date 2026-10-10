@@ -30,11 +30,12 @@ import { parse, stringify } from 'yaml'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
+import { createStrategyStore } from './lib/strategy.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '1.2.1'
+const VERSION = '2.0.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -71,6 +72,10 @@ const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
 const curriculum = createCurriculumStore({ dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule })
+const strategy = createStrategyStore({
+  dataDir: DATA_DIR,
+  competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+})
 
 // 探针要的文件，各自代表一条后面的依赖：
 //   MAP.yaml      地图（coach_next 读它算候选）
@@ -1602,12 +1607,15 @@ function registerStateHook(ctx) {
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
-      if (!cursor && !pending && !studying.length && !hasCurriculum) return decision
+      let hasTarget = false
+      try { hasTarget = Boolean(strategy.loadTarget().contest) } catch { hasTarget = true }
+      if (!cursor && !pending && !studying.length && !hasCurriculum && !hasTarget) return decision
 
       const { byId } = loadMap()
       const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
       const node = byId.get(cursor)
       const lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
+      lines.push(strategy.context())
       lines.push(curriculum.context())
       lines.push(cursor
         ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
@@ -1812,6 +1820,116 @@ function apply(ctx) {
   } catch { /* 没这服务 / 没这文件 → 不注，照常加载 */ }
 
   ctx.tools.register(defineTool(curriculumTool(curriculum)))
+
+  // ── 目标驱动策略层：比赛目标 / VP 证据 / 复盘 / 当前重点 ─────────
+  // 课程图回答“有哪些知识点”，策略层回答“为什么现在学这个”。两者分开，
+  // 避免把 rating 或游标误当成区域赛目标。
+  const strategyText = (v) => [{ type: 'text', text: v.ok ? v.text : `❌ ${v.reject}` }]
+  ctx.tools.register(defineTool({
+    name: 'coach_target',
+    description: '设置或读取比赛目标。目标先于知识点：contest/date/result/teamMode/weeklyHours/priorities 都确定后，教练才有依据选训练重点。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['read', 'set', 'clear'] },
+      expectedRevision: { type: 'integer', description: 'read 返回的 revision；首次 set 用 0。' },
+      contest: { type: 'string', description: '比赛名称，例如西安区域赛' },
+      date: { type: 'string', description: '比赛日期 YYYY-MM-DD' },
+      result: { type: 'string', description: '目标结果，例如区域赛金牌' },
+      teamMode: { type: 'string', description: 'solo 或 team' },
+      weeklyHours: { type: 'number', description: '每周可用训练小时' },
+      constraints: { type: 'object', additionalProperties: true, description: '可选时间约束，例如 weekday/saturday/sunday' },
+      priorities: { type: 'array', description: '能力优先级 [{id, weight, reason}]，weight 越大越优先', items: { type: 'object', additionalProperties: false, properties: {
+        id: { type: 'string', required: true }, weight: { type: 'number', required: true }, reason: { type: 'string' },
+      } } },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, revision: { type: 'integer', required: true },
+      contest: { type: 'string', required: true }, date: { type: 'string', required: true }, result: { type: 'string', required: true },
+      teamMode: { type: 'string', required: true }, weeklyHours: { type: 'number', required: true }, priorities: { type: 'array', required: true },
+      updated: { type: 'string', required: true }, version: { type: 'integer', required: true },
+      constraints: { type: 'object', required: true, additionalProperties: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: (args) => {
+      const v = strategy.target(args?.action || 'read', args ?? {})
+      return { ...v, text: v.ok
+        ? `【比赛目标 · revision ${v.revision}】${v.contest} / ${v.date}\n目标：${v.result}\n模式：${v.teamMode}；每周 ${v.weeklyHours} 小时\n能力重点：${v.priorities.map((p) => `${p.id}(${p.weight})`).join('、')}`
+        : '' }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_vp_import',
+    description: '导入 VP 或模拟赛记录。它保存比赛过程证据，让教练根据读题、耗时、提交和题目选择复盘，不再只看 CF rating。重复 eventId 会更新，不会重复堆积。',
+    parameters: {
+      events: { type: 'array', required: true, items: { type: 'object', additionalProperties: true,
+        description: '每场含 eventId/contest/date/problems；problem 含 problemId/status/readMinutes/solveMinutes/attempts/competencies' } },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, imported: { type: 'integer', required: true },
+      total: { type: 'integer', required: true }, revision: { type: 'integer', required: true }, text: { type: 'string', required: true },
+      } }, render: (_a, v) => strategyText(v) },
+    execute: (args) => {
+      const v = strategy.vpImport(Array.isArray(args?.events) ? args.events : [])
+      return { ok: v.ok, reject: v.reject, imported: v.imported, total: v.total, revision: v.revision,
+        text: v.ok ? `✓ VP 记录已保存：本次 ${v.imported} 场，累计 ${v.total} 场，revision ${v.revision}` : '' }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_postmortem',
+    description: '记录一场 VP 的赛后复盘。至少写能力问题、根因或下一步动作之一；复盘会影响 coach_focus 的优先级。',
+    parameters: {
+      eventId: { type: 'string', required: true }, competencies: { type: 'array', items: { type: 'string' } },
+      missedReads: { type: 'array', items: { type: 'string' } }, decisionErrors: { type: 'array', items: { type: 'string' } },
+      teamIssues: { type: 'array', items: { type: 'string' } }, rootCauses: { type: 'array', items: { type: 'string' } },
+      nextActions: { type: 'array', items: { type: 'string' } }, note: { type: 'string' }, date: { type: 'string' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, eventId: { type: 'string', required: true },
+      revision: { type: 'integer', required: true }, postmortems: { type: 'array', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: (args) => {
+      const v = strategy.postmortem(args ?? {})
+      return { ...v, text: v.ok ? `✓ 已记录 ${v.eventId} 的复盘；当前共 ${v.postmortems.length} 条复盘，revision ${v.revision}` : '' }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_focus',
+    description: '根据比赛目标权重和 VP 复盘证据生成当前训练重点。它输出能力、比赛价值、为什么现在学、关联知识点和暂缓项；没有目标时拒绝猜方向。',
+    parameters: {},
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, contest: { type: 'string', required: true },
+      deadline: { type: 'string', required: true }, focus: { type: 'array', required: true }, postponed: { type: 'array', required: true },
+      evidenceEvents: { type: 'integer', required: true }, postmortems: { type: 'integer', required: true }, text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: () => {
+      const v = strategy.focus()
+      return { ...v, text: v.ok ? [`【当前训练重点】${v.contest} · 截止 ${v.deadline}`,
+        ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '需先定义'}\n   证据次数：${f.evidenceCount}`),
+        v.postponed.length ? `暂缓：${v.postponed.join('、')}` : '没有暂缓项。',
+      ].join('\n') : '' }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_scope',
+    description: '查看一个比赛能力或知识点的适用范围、延伸、反例、常见错误、迁移题和退出条件。没有范围卡片时明确拒绝编造。',
+    parameters: { id: { type: 'string', required: true, description: '能力 id 或地图节点 id' } },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, found: { type: 'boolean', required: true },
+      id: { type: 'string', required: true }, title: { type: 'string', required: true }, contestUse: { type: 'string', required: true },
+      nodes: { type: 'array', required: true }, appliesTo: { type: 'array', required: true }, extensions: { type: 'array', required: true }, notFor: { type: 'array', required: true },
+      commonFailures: { type: 'array', required: true }, transferProblems: { type: 'array', required: true }, exitEvidence: { type: 'array', required: true },
+      text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: (args) => {
+      const v = strategy.scope(args?.id)
+      return { ...v, text: v.ok ? [`【范围卡片】${v.title}（${v.id}）`, `比赛价值：${v.contestUse}`,
+        `适用：${v.appliesTo.join('、')}`, `延伸：${v.extensions.join('、')}`, `不要用于：${v.notFor.join('、')}`,
+        `常见错误：${v.commonFailures.join('、')}`, `迁移：${v.transferProblems.join('、')}`, `退出条件：${v.exitEvidence.join('、')}`,
+      ].join('\n') : '' }
+    },
+  }))
 
   ctx.tools.register(defineTool({
     name: 'coach_setup',
