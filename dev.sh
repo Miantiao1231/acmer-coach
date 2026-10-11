@@ -35,7 +35,7 @@ done
 # 从副本目录跑 `bash dev.sh` 走的是另一条路（`dsh plugin remove/add`，而那条
 # 路不可靠），和这份的行为不一样。换句话说，**同一个命令，从哪个目录按回车
 # 决定跑哪份脚本** —— 两份 dev.sh 就是两份真相，正是这份文件在防的那种坑。
-SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/workspace-migration.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js lib/teaching.js assets/knowledge/COMPETENCIES.yaml assets/knowledge/NODE_SCOPES.yaml assets/knowledge/CONTEST_PROFILES.yaml assets/knowledge/vp.html assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/run-all.sh docs/长期课程机制.md docs/比赛与教学依据.md docs/设计方针.md dev.sh'
+SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/workspace-migration.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js lib/teaching.js assets/knowledge/COMPETENCIES.yaml assets/knowledge/NODE_SCOPES.yaml assets/knowledge/CONTEST_PROFILES.yaml assets/knowledge/vp.html assets/knowledge/skilltree.html assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs coach/skilltree_template.html dev/run-all.sh docs/长期课程机制.md docs/比赛与教学依据.md docs/设计方针.md dev.sh'
 STALE=''
 for f in $SYNC_FILES; do
   for d in "${DSTS[@]}"; do
@@ -120,7 +120,7 @@ EVIDENCE_RC=${EVIDENCE_RC:-0}
 
 echo
 echo '── 策略、教学目录、真实工具与账号数据回归 ──'
-node --test "$SRC_BASH/dev/strategy-check.mjs" "$SRC_BASH/dev/catalog-check.mjs" "$SRC_BASH/dev/coaching-contract-check.mjs" "$SRC_BASH/dev/teaching-check.mjs" "$SRC_BASH/dev/workspace-migration-check.mjs" "$SRC_BASH/dev/vp-client-check.mjs" "$SRC_BASH/dev/vp-sync-check.mjs" || CONTRACT_RC=$?
+node --test "$SRC_BASH/dev/strategy-check.mjs" "$SRC_BASH/dev/catalog-check.mjs" "$SRC_BASH/dev/coaching-contract-check.mjs" "$SRC_BASH/dev/teaching-check.mjs" "$SRC_BASH/dev/grading-check.mjs" "$SRC_BASH/dev/training-check.mjs" "$SRC_BASH/dev/workspace-migration-check.mjs" "$SRC_BASH/dev/vp-client-check.mjs" "$SRC_BASH/dev/vp-sync-check.mjs" || CONTRACT_RC=$?
 CONTRACT_RC=${CONTRACT_RC:-0}
 
 LEDGER_AFTER=$(ledger_fp)

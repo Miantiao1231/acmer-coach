@@ -17,6 +17,24 @@ const practice = (extra = {}) => ({ date, problemId: '1234A', solved: false,
   independent: true, minutes: 40, ...extra })
 const progress = (nodeRecord, node = '区间 DP') => ({ nodes: { [node]: nodeRecord } })
 const rowsFor = (record) => collectEvidence(progress(record))
+
+test('competency diagnostics and VP completions become facts without fake knowledge nodes', () => {
+  const schedule = { days: { [date]: { actual: [
+    { node: '', competency: 'contest-reading', kind: 'diagnostic', actualMin: 15, solved: true, independent: true, problemId: 'probe' },
+    { node: '', competency: 'contest-decision', kind: 'vp', actualMin: 300, solved: false, independent: true, problemId: 'probe' },
+  ] } } }
+  const rows = collectEvidence({}, schedule)
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].node, '')
+  assert.equal(rows[0].competency, 'contest-reading')
+  assert.equal(rows[0].minutes, 15)
+  assert.equal(rows[0].signal, 'baseline')
+  assert.equal(rows[1].competency, 'contest-decision')
+  assert.equal(rows[1].signal, 'gap')
+  assert.notEqual(rows[0].eventId, rows[1].eventId)
+  assert.deepEqual(collectEvidence({}, { days: { [date]: { actual: [{ ...schedule.days[date].actual[0], independent: 'yes' }] } } }), [])
+  assert.deepEqual(collectEvidence({ pendingActions: { 'competency:contest-reading': { kind: 'diagnostic', minutes: 15 } } }), [])
+})
 const reverseKeys = (value) => Array.isArray(value) ? value.map(reverseKeys)
   : value && typeof value === 'object'
     ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)]))

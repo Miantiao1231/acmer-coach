@@ -69,6 +69,8 @@ run "strategy"      node --test dev/strategy-check.mjs
 run "catalog"       node --test dev/catalog-check.mjs
 run "coach-contract" node --test dev/coaching-contract-check.mjs
 run "teaching"      node --test dev/teaching-check.mjs
+run "grading"       node --test dev/grading-check.mjs
+run "training"      node --test dev/training-check.mjs
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
 run "migration"     node --test dev/workspace-migration-check.mjs

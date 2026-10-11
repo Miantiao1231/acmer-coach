@@ -2,17 +2,69 @@
 version: 1
 profiles:
   - id: regional-diagnostic
-    title: 区域赛通用能力诊断（有限样本）
+    title: 中国亚洲区域赛能力诊断（南京 2022/2023 样本）
+    scope: 以中国亚洲区域赛原题和命题组题解建立模型诊断，结合本人和团队的 VP 事实取舍。
+    status: provisional
+    sources:
+      - {title: SUA 南京 2022 命题组中文题解（全卷十三题）, url: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf'}
+      - {title: SUA 南京 2023 命题组题解（QOJ 镜像，采样六题）, url: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf'}
+      - {title: QOJ 西安历年比赛目录（对应赛区的原题入口）, url: 'https://qoj.ac/category/87'}
+    competencyIds: [contest-reading, contest-decision, implementation-stability, dp-modeling, graph-modeling, data-structures, math-combinatorics, code-review, team-communication]
+    samples:
+      - {year: 2022, contest: Nanjing, problem: I, model: 从旋转回文条件推出字符频次计数, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=3'}
+      - {year: 2022, contest: Nanjing, problem: G, model: 维护总和及数量的可反悔贪心, competencyIds: [math-combinatorics, implementation-stability], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=5'}
+      - {year: 2022, contest: Nanjing, problem: D, model: 二分阈值与有效操作区间前缀统计, competencyIds: [contest-reading, data-structures], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=7'}
+      - {year: 2022, contest: Nanjing, problem: B, model: 单调队列优化 DP 与前后缀复用, competencyIds: [dp-modeling, data-structures], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=10'}
+      - {year: 2022, contest: Nanjing, problem: A, model: 整体移动转边界与二维前缀和, competencyIds: [contest-reading, data-structures], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=15'}
+      - {year: 2022, contest: Nanjing, problem: M, model: 局部极小与水平边界的分类计数, competencyIds: [math-combinatorics, implementation-stability], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=19'}
+      - {year: 2022, contest: Nanjing, problem: J, model: 等式变二分图边与连通块配对, competencyIds: [graph-modeling], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=22'}
+      - {year: 2022, contest: Nanjing, problem: E, model: 树形 DP 与虚树深度统计, competencyIds: [dp-modeling, graph-modeling], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=25'}
+      - {year: 2022, contest: Nanjing, problem: C, model: 逆序操作与通配位置的贪心构造, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=28'}
+      - {year: 2022, contest: Nanjing, problem: H, model: 树上边贡献与凹性背包合并优化, competencyIds: [dp-modeling, data-structures], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=33'}
+      - {year: 2022, contest: Nanjing, problem: K, model: 堆排列概率与完全二叉树对称计数, competencyIds: [math-combinatorics], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=36'}
+      - {year: 2022, contest: Nanjing, problem: L, model: 链上弦覆盖与二边割的增量维护, competencyIds: [graph-modeling, data-structures], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=45'}
+      - {year: 2022, contest: Nanjing, problem: F, model: 锐角三角剖分的基例与递增构造, competencyIds: [math-combinatorics], solutionReviewed: true, sourceUrl: 'https://sua.ac/wiki/2022-icpc-nanjing/tutorial-sketch-zh.pdf#page=48'}
+      - {year: 2023, contest: Nanjing, problem: I, model: 按重置时间排序并检查约束区间一致性, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=3'}
+      - {year: 2023, contest: Nanjing, problem: F, model: 最后写入者依赖 DAG 与拓扑序交换, competencyIds: [graph-modeling], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=5'}
+      - {year: 2023, contest: Nanjing, problem: C, model: 异或计数同余与区间分解，题名不是算法标签, competencyIds: [math-combinatorics], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=7'}
+      - {year: 2023, contest: Nanjing, problem: G, model: 交换论证结合前缀选择与后缀背包, competencyIds: [dp-modeling, data-structures], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=9'}
+      - {year: 2023, contest: Nanjing, problem: A, model: 双位置可达状态与相对移动约束, competencyIds: [graph-modeling], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=11'}
+      - {year: 2023, contest: Nanjing, problem: L, model: 降序楼层贪心与放松下界的匹配证明, competencyIds: [math-combinatorics, contest-reading], solutionReviewed: true, sourceUrl: 'https://universal-cup-website.qoj.ac/files/ucup/tutorials/tutorials-2-11.pdf#page=13'}
+    selectionGuidance:
+      - 中国亚洲区域赛优先使用对应赛区和年份的真题；先诊断读题、模型选择和实现，不按 CF rating 连续解锁知识点。
+      - 结合本人 VP 已确认的失败原因选择本周重点；一道成功题可作为起点，不证明同模型已经掌握。
+      - I/G 用于条件提炼与贪心证明，D/A 用于变量转化和统计，B 用于从朴素转移推导优化；模型对应题解，训练取舍由教练决定。
+      - 西安目标优先看西安配置及对应原题；NWERC 只作扩展参考，不用欧洲样本代替中国赛区依据。
+    limitations:
+      - 当前采样南京 2022 全卷十三题和 2023 六题，未做跨年份与跨赛区专题频率统计；不能推出中国区域赛频率或本届西安预测。
+      - 这不是完整考纲，模型是教学解释而非唯一解法；验收阈值需按个人和团队事实调整。
+      - 未核验目标届次奖牌榜单，不给出金牌题数或奖牌保证。
+  - id: nwerc-reference
+    title: 区域赛通用能力诊断（NWERC 2024 全卷样本）
     scope: 用公开区域赛的题面与官方解题建立诊断任务，再结合本人 VP 证据取舍。
     status: provisional
     sources:
-      - title: NWERC 2024 官方题面（采样 A、D、E、F、K、L）
+      - title: NWERC 2024 官方题面（A–M 全卷）
         url: https://2024.nwerc.eu/main/problem-set.pdf
-      - title: NWERC 2024 官方解题（A/D/E/F/K/L 对应页）
+      - title: NWERC 2024 官方解题（A–M 对应页）
         url: https://2024.nwerc.eu/main/solutions.pdf
       - title: ICPC NCNA 公布的区域赛规则（通用背景，不提供专题频率）
         url: https://nc.na.icpc.global/rules/
     competencyIds: [contest-reading, contest-decision, implementation-stability, dp-modeling, graph-modeling, data-structures, math-combinatorics, code-review, team-communication]
+    samples:
+      - {year: 2024, contest: NWERC, problem: A, model: 自定义排序规则, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=4'}
+      - {year: 2024, contest: NWERC, problem: B, model: 周期标号游走与状态动态规划，题名不能决定算法, competencyIds: [graph-modeling, dp-modeling], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=24'}
+      - {year: 2024, contest: NWERC, problem: C, model: 网格极端点收缩与几何分类, competencyIds: [math-combinatorics, graph-modeling], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=19'}
+      - {year: 2024, contest: NWERC, problem: D, model: 排序后按最小元素分类计数与背包, competencyIds: [dp-modeling, math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=11'}
+      - {year: 2024, contest: NWERC, problem: E, model: 下标变换与模幂, competencyIds: [math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=8'}
+      - {year: 2024, contest: NWERC, problem: F, model: 单调栈和并查集跳过已满位置, competencyIds: [data-structures], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=13'}
+      - {year: 2024, contest: NWERC, problem: G, model: 双连通分量与排列奇偶性, competencyIds: [graph-modeling, math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=31'}
+      - {year: 2024, contest: NWERC, problem: H, model: 交互函数迭代的等式构造，存在多种解法, competencyIds: [graph-modeling, math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=16'}
+      - {year: 2024, contest: NWERC, problem: I, model: 素数指数参数化与容斥预处理, competencyIds: [math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=28'}
+      - {year: 2024, contest: NWERC, problem: J, model: 独立优化与最近更高障碍限制, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=7'}
+      - {year: 2024, contest: NWERC, problem: K, model: 最短路与按距离排序的概率期望, competencyIds: [graph-modeling, math-combinatorics], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=15'}
+      - {year: 2024, contest: NWERC, problem: L, model: 单调可行性与贪心配对二分, competencyIds: [contest-reading, implementation-stability], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=10'}
+      - {year: 2024, contest: NWERC, problem: M, model: 期望线性性与面积前后缀求和，检查整数溢出, competencyIds: [math-combinatorics, implementation-stability], solutionReviewed: true, sourceUrl: 'https://2024.nwerc.eu/main/solutions.pdf#page=22'}
     selectionGuidance:
       - 先用整场 VP 诊断读题、实现、调试与分工，再用经确认的失败原因选择专题；成功题用作能力基线。
       - 采样 A 检查从精确排序规则到实现的转化；D 检查计数状态；E 检查大次数变换与模幂，题名不决定算法。
@@ -20,9 +72,9 @@ profiles:
       - 赛前优先修复已证实、可在剩余时间完成验收的障碍；未证实的缺口先安排短诊断，不直接扩知识点。
       - 同一题允许多种正确解法；把能解释条件并独立迁移作为验收，不能将某个算法标签当唯一答案。
     limitations:
-      - 当前算法样本只有 NWERC 2024 的六题，不能推出中国区域赛频率、任何场次金牌题数或西安出题预测。
+      - 当前算法样本只有 NWERC 2024 的一届全卷十三题，不能推出中国区域赛频率、任何场次金牌题数或西安出题预测。
       - 读题时间盒、换题条件、验收动作是插件教学设计，需要按个人与团队记录调整，规则来源不证明这些训练阈值。
-      - 未采样其余题或跨年份统计；此配置不是西安考纲，排名与奖牌目标仍需对应比赛榜单。
+      - 未做跨年份统计；此配置不是西安考纲，排名与奖牌目标仍需对应比赛榜单。模型映射是教学解释，官方解题不证明该题在其他赛区高频。
   - id: wf-extension
     title: WF 扩展能力诊断（题面样本）
     scope: 在基础能力稳定后，以 World Finals 原题检查跨模型推理、约束解释和交互实现。
@@ -33,6 +85,10 @@ profiles:
       - title: ICPC 2024 交互题评测说明（输出刷新等要求）
         url: https://docs.icpc.global/wp-content/uploads/2024/08/2024-JudgingNotes.pdf
     competencyIds: [contest-reading, contest-decision, dp-modeling, graph-modeling, data-structures, math-combinatorics, code-review, team-communication]
+    samples:
+      - {year: 2024, contest: World Finals, problem: B, model: 概率对象与事件依赖诊断，题解尚未核验, competencyIds: [math-combinatorics], solutionReviewed: false, sourceUrl: 'https://icpc.global/worldfinals/problems/2024-ICPC-World-Finals/icpc2024.pdf'}
+      - {year: 2024, contest: World Finals, problem: I, model: 树上覆盖目标建模，题解尚未核验, competencyIds: [graph-modeling], solutionReviewed: false, sourceUrl: 'https://icpc.global/worldfinals/problems/2024-ICPC-World-Finals/icpc2024.pdf'}
+      - {year: 2024, contest: World Finals, problem: L, model: 交互信息状态诊断，策略尚未核验, competencyIds: [contest-reading], solutionReviewed: false, sourceUrl: 'https://icpc.global/worldfinals/problems/2024-ICPC-World-Finals/icpc2024.pdf'}
     selectionGuidance:
       - 采样 B 用于检查概率对象、重复元素与事件依赖的精确表达；不能仅凭概率题标签选一个模板。
       - 采样 I 用于检查树上覆盖目标与最坏响应时间的建模，要求先解释判定或优化方案再实现。
@@ -52,6 +108,7 @@ profiles:
       - title: ICPC NCNA 公布的区域赛规则（通用背景，非西安本届规则）
         url: https://nc.na.icpc.global/rules/
     competencyIds: [contest-reading, contest-decision, implementation-stability, code-review, team-communication]
+    samples: []
     selectionGuidance:
       - 使用本人和当前团队 VP 的经确认障碍安排短期动作，专题需求暂参考区域赛通用诊断并明示来源。
       - 先核验目标届次、原始题面、主办方题解和榜单，再记录逐题模型、可替代解法及样本年份。

@@ -135,6 +135,10 @@ for (const [tool, args, label] of CALLS) {
     delete ra.targetAligned; delete ra.competencies
   }
   // A legacy host cannot return the new empty continuation field.
+  if (tool === 'coach_schedule' && Array.isArray(ra?.blockKinds) && Array.isArray(rb?.blockKinds) && rb.blockKinds.length === 3) {
+    const added = ra.blockKinds.slice(3)
+    if (JSON.stringify(added) === JSON.stringify([{ kind: 'diagnostic', minutes: 15, name: '短诊断' }, { kind: 'vp', minutes: 300, name: '完整 VP' }])) ra.blockKinds = ra.blockKinds.slice(0, 3)
+  }
   if (tool === 'coach_status' && rb && !('teachingContext' in rb) && ra?.teachingContext === '') {
     delete ra.teachingContext
   }
@@ -165,6 +169,7 @@ for (const [tool, args, label] of CALLS.filter((c) => c[0] !== 'coach_diagnose')
     : legacyText)
   // Only the changed goal-led advice is excluded; schedule facts still match byte for byte.
   const scheduleAdvice = (text) => text
+    .replace('／diagnostic 15min（短诊断）／vp 300min（完整 VP）', '')
     .replace(/^⚠️ \*\*复习别把新知识挤没了。\*\*.*剩下的时间留给推进。$/m, '<COACH_ADVICE>')
     .replace(/^根据目标、剩余时间和实际表现，选择新课、复习、迁移或 VP。上面的间隔只供判断；不要为了填满课表持续开新知识点。$/m, '<COACH_ADVICE>')
   const same = tool === 'coach_schedule' ? scheduleAdvice(ra) === scheduleAdvice(rb) : ra === rb

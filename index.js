@@ -38,20 +38,20 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.5.0'
+const VERSION = '2.6.0'
 
-// 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
-// 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
+// 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
+// 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
 //
 // ⚠️ **单位统一（需求 #7）**：系统里说「40 分钟」，一律指
 // **他自己动手做题的净时间** —— 止损点就是它。收尾那 20 分钟（遗留 10 +
 // 重写 10）**固定**、不随净时间压缩。
-//   净 40（默认）→ 整块 60；净 30（下限）→ 整块 50
+//   净 40（默认）→ 整块 60；显式小任务可缩短净时间
 // coach_assign 的参数曾经是"总时长"（工具内部减 20 才是自己做），而
 // coach_plan 的 cycle 和规则文件里的 40 都是"自己做" —— 同一个数两个意思，
 // 报时间线就会卡在这儿（传 40，实际只拿到 20 分钟自己做）。
 const NET_DEFAULT_MIN = 40        // 自己做：默认
-const NET_FLOOR_MIN = 30          // 自己做：下限。再短就该换更小的题，不是压扁循环
+const NET_FLOOR_MIN = 1           // 实际时间盒由教练按任务决定
 const TAIL_MIN = 20               // 解决遗留(10) + 重写(10)，不随净时间压缩
 const CYCLE_TOTAL_MIN = NET_DEFAULT_MIN + TAIL_MIN   // 60：题目循环的整块长度（plan 的 cycle 就是它）
 
@@ -84,6 +84,7 @@ function createStores(vpDir) {
   })
   curriculum = createCurriculumStore({
     dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule,
+    loadCompetencies: () => strategy.loadCompetencies(),
     loadStrategyEvidence: () => strategy.evidence().evidence,
   })
 }
@@ -468,12 +469,13 @@ function setScheduleField(date, field, value) {
 // 而排程本身是**教学判断**（先补哪个点、排多密、今天要不要减量），
 // 那正是教练存在的理由，不该退回给训练员。
 //
-// 三种块（方针 §4.1.2）。**时长是常量，调用方不能传** ——
-// 传了就会冒出「排个 37 分钟的循环块」，而 40/10/10 的止损点全靠这个时长守着。
+// 块类型保留已有默认时长，允许教练按任务明确整块时长。
 const SCHED_KINDS = {
   cycle: { min: 60, name: '题目循环' },
   review: { min: 25, name: '复习一题' },
   exam: { min: 90, name: '章节检测' },
+  diagnostic: { min: 15, name: '短诊断' },
+  vp: { min: 300, name: '完整 VP' },
 }
 
 // 网格范围。⚠️ **必须和 skilltree_template.html 里的 HOUR_FROM / HOUR_TO 逐字一致**：
@@ -625,13 +627,18 @@ function planDay(date, blocks, opts = {}) {
       return
     }
     const node = String(b?.node ?? '').trim()
-    if (!byId.has(node)) {
-      const near = suggest(node, [...byId.values()])
-      errs.push(`${no}：地图里没有「${node}」这个知识点，别自己造。` +
-        (near.length ? `相近的有：${near.join(' / ')}` : '先用 coach_next 看他该学什么。'))
+    const competency = String(b?.competency ?? '').trim()
+    const identity = trainingIdentity(node, competency)
+    if (!identity.ok) {
+      errs.push(`${no}：${identity.reject}`)
       return
     }
-    out.push({ a, z: a + spec.min, kind, node, no })
+    const minutes = b?.minutes === undefined ? spec.min : b.minutes
+    if (!Number.isInteger(minutes) || minutes <= 0 || minutes > 960) {
+      errs.push(`${no}：minutes 必须是 1–960 的整数分钟。`)
+      return
+    }
+    out.push({ a, z: a + minutes, kind, node, competency, no })
   })
 
   // 排到网格外面的块，页面画不出来
@@ -672,6 +679,7 @@ function planDay(date, blocks, opts = {}) {
 
   const planned = sorted.map((b) => ({
     from: minHM(b.a), to: minHM(b.z), kind: b.kind, node: b.node,
+    ...(b.competency ? { competency: b.competency } : {}),
   }))
   const w = setScheduleField(d, 'planned', planned)
   if (!w.ok) return w
@@ -681,8 +689,9 @@ function planDay(date, blocks, opts = {}) {
     planned: sorted.map((b) => ({
       from: minHM(b.a), to: minHM(b.z), minutes: b.z - b.a,
       kind: b.kind, kindName: SCHED_KINDS[b.kind].name,
-      node: b.node, nodeName: byId.get(b.node)?.name ?? b.node,
-      domain: byId.get(b.node)?.domain ?? '',
+      node: b.node, nodeName: trainingIdentity(b.node, b.competency).name ?? b.node,
+      domain: trainingIdentity(b.node, b.competency).domain ?? '',
+      ...(b.competency ? { competency: b.competency } : {}),
     })),
     // 只报「这天一共排了多少分钟」这个**事实**（他排完之后自己看表用）。
     planMin,
@@ -757,11 +766,12 @@ function unplanDay(date, opts = {}) {
   if (!w.ok) return w
 
   const { byId } = loadMap()
-  const nameOf = (b) => byId.get(String(b?.node ?? ''))?.name ?? String(b?.node ?? '')
+  const nameOf = (b) => trainingIdentity(String(b?.node ?? ''), String(b?.competency ?? '')).name ?? String(b?.node ?? '')
   const pack = (b) => ({
     from: String(b?.from ?? ''), to: String(b?.to ?? ''),
     kind: String(b?.kind ?? ''), kindName: SCHED_KINDS[b?.kind]?.name ?? String(b?.kind ?? ''),
     node: String(b?.node ?? ''), nodeName: nameOf(b),
+    ...(b?.competency ? { competency: String(b.competency) } : {}),
   })
   return {
     ok: true, reject: '', date: d,
@@ -848,7 +858,8 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
         kind: String(b?.kind ?? ''),
         kindName: SCHED_KINDS[b?.kind]?.name ?? String(b?.kind ?? ''),
         node: String(b?.node ?? ''),
-        nodeName: byId.get(String(b?.node ?? ''))?.name ?? String(b?.node ?? ''),
+        nodeName: trainingIdentity(String(b?.node ?? ''), String(b?.competency ?? '')).name ?? String(b?.node ?? ''),
+        ...(b?.competency ? { competency: String(b.competency) } : {}),
       }
     })
     const planMin = planned.reduce((t, b) => t + b.minutes, 0)
@@ -877,12 +888,13 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
         const e = {
           node: nodeId,
           plannedMin: planned
-            .filter((b) => String(b.node) === nodeId)
+            .filter((b) => a?.competency ? b.competency === a.competency : String(b.node) === nodeId && !b.competency)
             .reduce((t, b) => t + Number(b.minutes ?? 0), 0),
           actualMin: Number(a?.actualMin ?? 0),
           solved: a?.solved === true,
           independent: a?.independent === true,
         }
+        if (a?.competency) e.competency = String(a.competency)
         if (a?.note) e.note = String(a.note)
         return e
       }),
@@ -905,6 +917,13 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
 function resolveCursor(explicit) {
   const s = String(explicit ?? '').trim()
   return s || loadProgress().cursor
+}
+
+function trainingIdentity(node, competency) {
+  if (Boolean(node) === Boolean(competency)) return { ok: false, reject: 'node 与 competency 必须且只能指定一个。' }
+  const entry = competency ? strategy.loadCompetencies().find(item => item.id === competency) : loadMap().byId.get(node)
+  if (!entry) return { ok: false, reject: competency ? `能力目录中没有「${competency}」。` : `地图里没有「${node}」这个知识点，别自己造。先调 coach_next 看候选。` }
+  return { ok: true, key: node || `competency:${competency}`, name: entry.name ?? entry.title ?? node, domain: entry.domain ?? (competency ? '比赛能力' : '') }
 }
 
 // 状态读取。**缺省即未学** —— 只有非未学的节点才会被写进文件。
@@ -2216,6 +2235,11 @@ function apply(ctx) {
       profile: { type: 'object', required: true, additionalProperties: false, properties: {
         id: { type: 'string', required: true }, title: { type: 'string', required: true }, scope: { type: 'string', required: true }, status: { type: 'string', required: true },
         sources: { type: 'array', required: true }, competencyIds: { type: 'array', required: true }, selectionGuidance: { type: 'array', required: true }, limitations: { type: 'array', required: true },
+        samples: { type: 'array', required: true },
+        coverage: { type: 'object', required: true, additionalProperties: false, properties: {
+          sampledProblems: { type: 'integer', required: true }, reviewedSolutions: { type: 'integer', required: true },
+          years: { type: 'array', required: true, items: { type: 'integer' } }, isSyllabus: { type: 'boolean', required: true },
+        } },
       } }, daysRemaining: { type: 'integer', required: true },
       course: { type: 'object', required: true, additionalProperties: false, properties: {
         exists: { type: 'boolean', required: true }, revision: { type: 'integer', required: true },
@@ -2243,7 +2267,7 @@ function apply(ctx) {
         focusExpired: Boolean(snapshot.focusExpired), missingFreshEvidence: snapshot.missingFreshEvidence ?? [],
       }
       return { ...v, course, text: v.ok ? [`【训练取舍依据】长期：${course.goal || '尚未建立'}\n本次：${v.contest} · ${v.deadline} · 剩余${v.daysRemaining}天`,
-        `样本：${v.profile.title || '未选择'}（${v.profile.status}）\n适用边界：${v.profile.limitations.join('；')}`,
+        `样本：${v.profile.title || '未选择'}（${v.profile.status}）\n覆盖：${v.profile.coverage.sampledProblems}题，${v.profile.coverage.reviewedSolutions}题已核对题解，年份 ${v.profile.coverage.years.join('、') || '无'}；不是完整考纲。\n适用边界：${v.profile.limitations.join('；')}`,
         ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 独立起点${f.baselineCount} / 待确认${f.observationCount}`),
         course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
         course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
@@ -3017,15 +3041,15 @@ function apply(ctx) {
   //   ① node 必须在地图里   → 挡住它编知识点
   //   ② node 必须是游标的下一层 → 挡住它跳过前置乱指
   //   ③ 前置必须都满足       → 挡住「学这个之前你得先学那个」这类空头指令
-  //   ④ 时间盒不能短于 30 分钟 → 挡住排出没意义的表
+  //   ④ 时间盒必须是一天内的正整数分钟
   // 校验不过就**拒绝**，并把理由说清楚 —— 拒绝比给个错指令好。
   ctx.tools.register(defineTool({
     name: 'coach_assign',
     description:
       '布置**一个**训练动作。给训练员下指令时**必须**走这个工具，不要在正文里自由发挥 —— ' +
-      '它会把指令固定成「做什么 + 时间盒 + 交付物」，并校验你挑的知识点：' +
-      '必须存在于地图、必须是当前游标的下一层、前置必须都满足。校验不过会被拒绝并说明原因。' +
-      '它一次只收一个节点，所以**给不出候选列表** —— 这正是设计意图。' +
+      '它保存「做什么 + 时间盒 + 交付物」，支持地图节点或已有比赛能力：' +
+      '节点需符合游标或课程主线且前置满足；纯能力训练不要求游标。诊断和 VP 不强加做题收尾。' +
+      '它一次只收一个训练目标；时长由教练按任务决定。' +
       '有长期课程时先读 coach_curriculum，带 curriculumRevision；主线必须属于当前阶段，' +
       '补漏或复习用 purpose 与 routeReason 说明关系和回归条件。课程节点可以跨图分支，但前置检查仍生效。' +
       '比赛目标与重点排序是决策参考，不会限制在排名前三；结合学生表现说明 why。' +
@@ -3035,23 +3059,21 @@ function apply(ctx) {
         type: 'string',
         description: '当前游标。不填就用 PROGRESS.yaml 里的（这是常态）。',
       },
-      node: { type: 'string', required: true, description: '地图知识点 id。无课程时从 coach_next 候选取；有课程时沿用当前主线，仍核查前置' },
+      node: { type: 'string', description: '地图知识点 id；与 competency 二选一。无课程时沿用游标，有课程时核查当前主线与前置。' },
+      competency: { type: 'string', description: '已有比赛能力 id，例如 contest-reading；纯能力训练不要求游标或虚构地图节点。与 node 二选一。' },
+      kind: { type: 'string', enum: ['practice', 'diagnostic', 'vp'], description: '默认 practice（保留做题与收尾）；diagnostic/vp 的 minutes 是整项时长，不强加收尾或讲课。' },
       deliverable: { type: 'string', required: true, description: '做完交什么，如「把代码贴给我」' },
       minutes: {
         type: 'number',
-        description:
-          `**他自己动手做题的净时间**（分钟）—— 止损点就是它，不是整块长度。` +
-          `默认 ${NET_DEFAULT_MIN}，最低 ${NET_FLOOR_MIN}。` +
-          `整块长度 = 净时间 + ${TAIL_MIN}（解决遗留 10 + 重写 10，固定不压缩）：` +
-          `净 ${NET_DEFAULT_MIN} → 整块 ${CYCLE_TOTAL_MIN}，和日程表上的 cycle 块对得上。`,
+        description: '1–960 的整数分钟。地图 practice 是自己动手的净时间（默认40，另加20收尾）；diagnostic/vp或纯能力动作是整项时长。',
       },
       teachMinutes: {
         type: 'number',
         description:
-          '**先讲一遍**的时间（分钟）。开一个他从没碰过的知识点时**必须给**，' +
+          'practice 开全新地图知识点时先讲的时间（分钟）；diagnostic/vp 不要求讲解。' +
           '不给会被拒绝 —— 直接扔题让他自己卡，那是给学过的人的练法。' +
           '讲多久**你自己定**（不参考任何固定值），看你判断他需要多少。' +
-          `最低 ${TEACH_FLOOR_MIN} 分钟，没有上限。已经在学或学过的节点不用给。` +
+          `给了讲解则最低 ${TEACH_FLOOR_MIN} 分钟，整项动作不得超过960分钟。已经在学或学过的节点不用给。` +
           '这是计划时长，不能证明已经讲过或学生理解了。',
       },
       why: { type: 'string', description: '为什么挑它（一句话，进台账，供训练员质疑时举证）' },
@@ -3069,6 +3091,7 @@ function apply(ctx) {
           cursor: { type: 'string', required: true },
           node: { type: 'string', required: true },
           nodeName: { type: 'string', required: true },
+          competency: { type: 'string' },
           domain: { type: 'string', required: true },
           // 需求 #7：minutes 是**净时间**（他自己做多久）；整块 = minutes + tailMinutes
           minutes: { type: 'integer', required: true },
@@ -3111,7 +3134,9 @@ function apply(ctx) {
           return [{
             type: 'text',
             text: `❌ 这条指令布置不了：${v.reject}\n\n` +
-              `**不要**改用候选列表交差 —— 先调 coach_next 重新挑一个就绪的，再调本工具。`,
+              (v.competency
+                ? '不要用候选列表代替指令；按拒绝原因核对能力、课程版本或时长，再调本工具。'
+                : `**不要**改用候选列表交差 —— 先调 coach_next 重新挑一个就绪的，再调本工具。`),
           }]
         }
         const table = v.blocks
@@ -3122,7 +3147,7 @@ function apply(ctx) {
           text: [
             `【今天这一个动作】${v.nodeName}　[${v.domain}]`,
             ``,
-            `做什么　${v.nodeName}（地图节点 ${v.node}）`,
+            `做什么　${v.nodeName}（${v.competency ? `比赛能力 ${v.competency}` : `地图节点 ${v.node}`}）`,
             // 需求 #7：两个数都印出来 ——「同一个 40 两个意思」就是这条要治的病。
             `时间盒　自己做 ${v.minutes} + 收尾 ${v.tailMinutes} = 共 ${v.minutes + v.tailMinutes} 分钟` +
               (v.teachMinutes ? `（另有先讲 ${v.teachMinutes} 分钟，全场合计 ${v.totalMinutes}）` : ''),
@@ -3152,12 +3177,15 @@ function apply(ctx) {
       const { byId, dependents, stamp } = loadMap()
       const cursor = resolveCursor(args?.cursor)
       const node = String(args?.node ?? '').trim()
+      const competency = String(args?.competency ?? '').trim()
+      const identity = trainingIdentity(node, competency)
       const deliverable = String(args?.deliverable ?? '').trim()
+      const kind = String(args?.kind ?? 'practice').trim()
+      const tail = kind === 'practice' && !competency ? TAIL_MIN : 0
       let why = String(args?.why ?? '').trim()
       // 需求 #7：这个数现在是**净时间**（他自己动手做多久），不是整块长度。
       // 整块 = 净 + TAIL_MIN（收尾固定 20），下面 blocks 和 totalMinutes 都照这个算。
-      const net = Number.isFinite(args?.minutes)
-        ? Math.trunc(args.minutes) : NET_DEFAULT_MIN
+      const net = args?.minutes === undefined ? NET_DEFAULT_MIN : args.minutes
 
       // 校验失败一律走这里：回一个带原因的空壳，**不抛异常** ——
       // 抛异常会让对话断在那里，而拒绝是要让模型看见理由并改选的。
@@ -3165,7 +3193,7 @@ function apply(ctx) {
         accepted: false, reject,
         cursor, node, nodeName: byId.get(node)?.name ?? '',
         domain: byId.get(node)?.domain ?? '',
-        minutes: net, teachMinutes: 0, tailMinutes: TAIL_MIN, totalMinutes: 0, boxNote: '',
+        minutes: Number.isInteger(net) ? net : 0, teachMinutes: 0, tailMinutes: tail, totalMinutes: 0, boxNote: '',
         deliverable, why, mapStamp: stamp, blocks: [], selfTarget: false,
         // 需求 #6：拒绝时也把这两个字段摆出来 —— 白名单式的 schema
         // （additionalProperties: false + required:true）要求每个出口同形，
@@ -3174,15 +3202,16 @@ function apply(ctx) {
       })
 
       // ① 游标认不认得。「没设」和「打错」分开提示，别让模型去猜。
-      if (!cursor) {
+      if (!identity.ok) return deny(identity.reject)
+      if (!competency && !cursor) {
         return deny('还没设游标（PROGRESS.yaml 里 cursor 是空的）。' +
           '先确认训练员现在在哪个知识点，用 coach_set_cursor 设上。')
       }
-      if (!byId.has(cursor)) {
+      if (!competency && !byId.has(cursor)) {
         return deny(`地图里没有游标「${cursor}」。`)
       }
       // ② 节点必须真实存在 —— 挡住编造知识点
-      if (!byId.has(node)) {
+      if (!competency && !byId.has(node)) {
         const near = suggest(node, [...byId.values()])
         return deny(
           `地图里没有「${node}」这个知识点，别自己造。` +
@@ -3190,7 +3219,7 @@ function apply(ctx) {
       }
       let route
       try {
-        route = curriculum.assignment({ node, revision: args?.curriculumRevision,
+        route = curriculum.assignment({ node, competency, revision: args?.curriculumRevision,
           purpose: args?.purpose, reason: args?.routeReason })
       } catch (err) { return deny(`课程读取失败：${err.message}；先核查，不凭印象布置。`) }
       if (!route.ok) return deny(route.reject)
@@ -3199,7 +3228,9 @@ function apply(ctx) {
         why = `课程「${route.binding.phaseTitle}」· ${route.binding.purpose}：${why}` +
           (route.binding.reason ? `；补充依据：${route.binding.reason}` : '')
       }
-      const targetRoute = strategy.route(node, { purpose: args?.purpose, courseBound: Boolean(route.binding) })
+      const targetRoute = competency
+        ? { ok: true, targetAligned: strategy.loadTarget().priorities.some(item => item.id === competency), competencyIds: [competency] }
+        : strategy.route(node, { purpose: args?.purpose, courseBound: Boolean(route.binding) })
       if (!targetRoute.ok) return deny(targetRoute.reject)
       if (targetRoute.competencyIds.length) {
         why = `目标能力「${targetRoute.competencyIds.join('、')}」：${why || '目标能力对应的训练动作'}`
@@ -3214,12 +3245,12 @@ function apply(ctx) {
       // 教练就一个动作都给不出来了 —— 它只能眼睁睁看着人卡住。
       //
       // 已经 verified 的不许再指回来：学完了就该往前走。
-      if (node === cursor) {
+      if (!competency && node === cursor) {
         if (nodeStatus(loadProgress(), cursor) === 'verified' && route.binding?.purpose !== 'review') {
           return deny(`「${cursor}」已经验证过了 —— 学完了就往前走，` +
             '别在验证过的地方打转。用 coach_next 看下一层，或者往前沿退。')
         }
-      } else if (!(dependents.get(cursor) ?? []).includes(node) && !route.binding) {
+      } else if (!competency && !(dependents.get(cursor) ?? []).includes(node) && !route.binding) {
         return deny(`「${node}」不是「${cursor}」的下一层。先调 coach_next 看它到底能开哪些。`)
       }
       // ④ 前置必须都满足 —— 挡住「你得先学那个」这类空头指令
@@ -3227,17 +3258,13 @@ function apply(ctx) {
       // 已学集合走**共用实现**：闭包(游标) ∪ 显式标为 学过/已验证 的节点。
       // 原先这里只展开游标自己，训练员标过的几十个节点全被当没看见。
       const assumed = assumedLearned(loadProgress(), byId, [cursor])
-      const missing = (byId.get(node).depends ?? []).filter((d) => !assumed.has(d))
+      const missing = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d))
       if (missing.length) {
         return deny(`「${node}」还缺前置：${missing.join('、')}。它现在还开不了。`)
       }
       // ⑤ 时间盒下限（需求 #7：比的是**净时间**，不是整块长度）
-      if (net < NET_FLOOR_MIN) {
-        return deny(
-          `净时间 ${net} 分钟太短，一个题目循环压不到这个长度。` +
-          '时间不够应该换更小的题，或者改用 review 块（25 分钟），' +
-          `而不是把循环压扁。（下限：自己做 ${NET_FLOOR_MIN} 分钟 = 整块 ${NET_FLOOR_MIN + TAIL_MIN} 分钟）`)
-      }
+      if (!['practice', 'diagnostic', 'vp'].includes(kind)) return deny('kind 只能是 practice/diagnostic/vp。')
+      if (!Number.isInteger(net) || net < NET_FLOOR_MIN || net > 960) return deny('minutes 必须是 1–960 的整数分钟。')
       if (!deliverable) return deny('没写交付物。做完交什么必须说清楚，否则训练员不知道什么时候算完。')
 
       // ⑥ **开新知识点必须先讲**。
@@ -3260,11 +3287,13 @@ function apply(ctx) {
       // 而它存在的理由正是防「直接出题」。判据用 taughtEvidence，
       // 和 coach_test 开卷、coach_status 报「讲于哪」是同一个实现。
       const taughtBefore = taughtEvidence(loadProgress(), node) !== null
-      const isNewNode = nodeStatus(loadProgress(), node) === 'none' &&
+      const isNewNode = !competency && nodeStatus(loadProgress(), node) === 'none' &&
         !(node === cursor && taughtBefore)
       const teach = Number.isFinite(args?.teachMinutes) ? Math.trunc(args.teachMinutes) : 0
+      if (args?.teachMinutes !== undefined && (!Number.isInteger(args.teachMinutes) || args.teachMinutes < 0 || args.teachMinutes > 960)) return deny('teachMinutes 必须是 0–960 的整数分钟。')
+      if (net + tail + teach > 960) return deny('整项动作超过一天可训练的 960 分钟。')
 
-      if (isNewNode && teach <= 0) {
+      if (kind === 'practice' && isNewNode && teach <= 0) {
         return deny(`「${byId.get(node)?.name ?? node}」是**全新知识点**（图上没人碰过），` +
           '而你没给讲解段。\n' +
           '开新知识点要**先拿一道例题讲一遍**再出题 —— 直接扔题让他自己卡，' +
@@ -3273,23 +3302,19 @@ function apply(ctx) {
       }
       if (teach > 0 && teach < TEACH_FLOOR_MIN) {
         return deny(`讲解 ${teach} 分钟太短 —— 讲一道例题至少 ${TEACH_FLOOR_MIN} 分钟，` +
-          '再短就只是念一遍结论，等于没讲。讲多久你定，**没有上限**。')
+          '再短就只是念一遍结论，等于没讲。讲多久你定，整项时长需在一天内。')
       }
 
-      const n = byId.get(node)
+      const n = { name: identity.name, domain: identity.domain }
       const solve = net   // 需求 #7：净时间直接就是「自己做」那一段
 
       // 需求 #7 的两句提醒（只影响这段话，不挡布置）：
       //   · 压到默认以下 → 提醒它压的是**止损点**，不是块
       //   · 净 ≠ 默认 → 提醒它这个整块长度**表上排不出来**（别让两个工具再打架）
-      const squeeze = net < NET_DEFAULT_MIN
-        ? `净 ${net} 分钟低于默认的净 ${NET_DEFAULT_MIN} —— 你压的是止损点，不是块；时间不够请换更小的题。`
+      const shape = kind === 'practice' && net !== NET_DEFAULT_MIN
+        ? `净 ${net} → 整块 ${net + tail} 分钟，排程时带 minutes=${net + tail + teach}。`
         : ''
-      const shape = net !== NET_DEFAULT_MIN
-        ? `净 ${net} → 整块 ${net + TAIL_MIN} 分钟，**表上排不出这个形状**` +
-          `（表上只有 cycle ${CYCLE_TOTAL_MIN} / review 25 / exam 90）。`
-        : ''
-      const boxNote = [squeeze, shape].filter(Boolean).join(' ')
+      const boxNote = kind === 'practice' ? [shape].filter(Boolean).join(' ') : ''
 
       // ── 落盘：押上这个动作（需求 #6）─────────────────────
       // 布置的动作原先**只活在当次调用的返回里**：跨会话再开时教练不知道
@@ -3300,16 +3325,17 @@ function apply(ctx) {
       // 但要在输出里喊出来 —— 静默失败 = 下个会话重复布置。
       const progA = loadProgress()
       const pend = { ...(progA.pendingActions ?? {}) }
-      const replacedPending = Object.prototype.hasOwnProperty.call(pend, node)
+      const replacedPending = Object.prototype.hasOwnProperty.call(pend, identity.key)
       const assignedAt = ymdToday()
-      pend[node] = {
+      pend[identity.key] = {
         at: assignedAt, deliverable,
         // 存**拆开的**几个数，不存一个总数：总数在"整块 / 净时间"两种口径下
         // 含义不同，存总数等于把口径混进账本（那正是 #7 要治的病）。
-        solveMinutes: solve, tailMinutes: TAIL_MIN, teachMinutes: teach,
-        totalMinutes: net + teach + TAIL_MIN, why,
+        solveMinutes: solve, tailMinutes: tail, teachMinutes: teach,
+        totalMinutes: net + teach + tail, why, kind,
+        ...(competency ? { competency } : {}),
       }
-      if (route.binding) pend[node].curriculum = route.binding
+      if (route.binding) pend[identity.key].curriculum = route.binding
       // 布置讲解只保存计划；接触状态与理解证据由各自入口记录。
       progA.pendingActions = pend
       let pendingRecorded = true
@@ -3318,8 +3344,9 @@ function apply(ctx) {
       return {
         accepted: true, reject: '',
         cursor, node, nodeName: n.name ?? node, domain: n.domain ?? '',
-        minutes: net, teachMinutes: teach, tailMinutes: TAIL_MIN,
-        totalMinutes: net + teach + TAIL_MIN, boxNote,
+        ...(competency ? { competency } : {}),
+        minutes: net, teachMinutes: teach, tailMinutes: tail,
+        totalMinutes: net + teach + tail, boxNote,
         deliverable, why, mapStamp: stamp, selfTarget: node === cursor,
         pendingRecorded, pendingReplaced: replacedPending,
         targetAligned: targetRoute.targetAligned, competencies: targetRoute.competencyIds,
@@ -3333,9 +3360,11 @@ function apply(ctx) {
               minutes: teach,
             }]
             : []),
-          { kind: 'solve', label: '自己做（限时，到点必须停）', minutes: solve },
-          { kind: 'resolve', label: '解决遗留（做出来了就复盘思路，没做出来就听讲）', minutes: 10 },
-          { kind: 'rewrite', label: '重写', minutes: 10 },
+          { kind: kind === 'practice' ? 'solve' : kind, label: kind === 'vp' ? '完整 VP（比赛过程与复盘另按交付物记录）' : kind === 'diagnostic' ? '诊断（限时观察当前表现）' : '自己做（限时，到点必须停）', minutes: solve },
+          ...(tail ? [
+            { kind: 'resolve', label: '解决遗留（做出来了就复盘思路，没做出来就听讲）', minutes: 10 },
+            { kind: 'rewrite', label: '重写', minutes: 10 },
+          ] : []),
         ],
       }
     },
@@ -3413,6 +3442,7 @@ function apply(ctx) {
                 nodeName: { type: 'string', required: true },
                 date: { type: 'string', required: true },
                 outcome: { type: 'string', required: true },
+                independent: { type: 'boolean' },
                 score: { type: 'integer', required: true },
                 maxScore: { type: 'integer', required: true },
                 minutes: { type: 'integer', required: true },
@@ -3497,6 +3527,8 @@ function apply(ctx) {
                 node: { type: 'string', required: true },
                 nodeName: { type: 'string', required: true },
                 at: { type: 'string', required: true },
+                competency: { type: 'string' },
+                kind: { type: 'string' },
                 // 押了几天。-1 = 日期不明（跟火候那边同一个约定，别让它算成 0）
                 days: { type: 'integer', required: true },
                 deliverable: { type: 'string', required: true },
@@ -3534,7 +3566,7 @@ function apply(ctx) {
           v.pendingActions.length
             ? '📌 **押着的动作**（布置了、还没落地）：\n' +
               v.pendingActions.map((a) =>
-                `　· ${a.nodeName}${a.nodeName !== a.node ? `（${a.node}）` : ''}　` +
+                `　· ${a.nodeName}${a.node && a.nodeName !== a.node ? `（${a.node}）` : ''}　` +
                 `交付物 ${a.deliverable}　` +
                 `时间盒 自己做 ${a.solveMinutes} + 收尾 ${a.tailMinutes} = ${a.solveMinutes + a.tailMinutes} 分钟` +
                 (a.teachMinutes ? `，另加先讲 ${a.teachMinutes}（共 ${a.totalMinutes}）` : '') +
@@ -3563,6 +3595,7 @@ function apply(ctx) {
           v.checkTotal
             ? `检测记录 ${v.checkTotal} 次，最近：` + v.recentChecks.slice(0, 4).map((c) =>
               `${c.date.slice(5)} ${c.nodeName} ${OUTCOME_TAG[c.outcome] ?? c.outcome}` +
+              (c.outcome === 'passed' ? (c.independent === true ? '［独立］' : c.independent === false ? '［有帮助］' : '［独立性未知］') : '') +
               (c.outcome === 'overTime' ? `（${c.minutes}/${c.limit} 分钟）` : '') +
               (c.verifiedAt ? ` 验证于≈${c.verifiedAt}` : '') +
               (c.selfReported ? `［含 ${c.selfReported} 道自述题］` : '')).join('　·　')
@@ -3609,6 +3642,7 @@ function apply(ctx) {
           allChecks.push({
             node: id, nodeName: name,
             date: String(c?.date ?? ''), outcome: String(c?.outcome ?? ''),
+            ...(typeof c?.independent === 'boolean' ? { independent: c.independent } : {}),
             score: Number(c?.score ?? 0), maxScore: Number(c?.maxScore ?? 0),
             minutes: Number(c?.minutes ?? 0), limit: Number(c?.limit ?? 0),
             verifiedAt: Number(c?.verifiedAt ?? 0),
@@ -3704,7 +3738,9 @@ function apply(ctx) {
           const then = parseYmd(at)
           const days = then ? Math.round((parseYmd(ymdToday()) - then) / 86400000) : -1
           return {
-            node: id, nodeName: byId.get(id)?.name ?? id, at, days,
+            node: a?.competency ? '' : id,
+            nodeName: a?.competency ? strategy.loadCompetencies().find(card => card.id === a.competency)?.title ?? a.competency : byId.get(id)?.name ?? id,
+            ...(a?.competency ? { competency: String(a.competency), kind: String(a.kind ?? '') } : {}), at, days,
             deliverable: String(a?.deliverable ?? ''),
             solveMinutes: Number(a?.solveMinutes ?? 0),
             tailMinutes: Number(a?.tailMinutes ?? 0),
@@ -4956,25 +4992,19 @@ function apply(ctx) {
 
   // ── coach_grade：判卷 ────────────────────────────────────────
   //
-  // 检测闭环的收口。**「掌握」由检测决定，不由数据推断** —— 所以过了要写进
-  // verified：那是 verified 这一级的定义，不是顺手加的装饰。
-  //
-  // 三种结局**不能合并**：
-  //   passed   分够 + 没超时 → 真过了，标 verified，可以推进
-  //   overTime 分够 + 超时   → **不算过**。这是「不熟」的机械形态：
-  //                            方法他有，就是慢。去向是加练，不是推进。
-  //   failed   分不够         → 不过，交 coach_diagnose 判因
+  // 卷面通过与独立验证分开：分数、用时只证明本次过卷；独立性未知不补成 true。
+  // 历史 verified 不撤销，本次未独立验证也不刷新验证段位。
   //
   // 只依赖卷子本身（pending 里存了整份题目信息），不连数据库 ——
   // 判卷不该因为库被搬走或者锁了就失败。
   ctx.tools.register(defineTool({
     name: 'coach_grade',
     description:
-      '给正押着的那张检测卷判卷。他做完回来了，你收三样：每题 AC 没有、花了几分钟。\n' +
+      '给正押着的那张检测卷判卷。收每题 AC 与否、实际分钟数和明确的独立性事实（未知就省略）。\n' +
       '判定：难易加权（易1/中2/难3，满分 6），**通过线 4 分且总用时不超过限时**。\n' +
-      '分够但超时 → 判「不熟」不算过（方法有，就是慢）；分不够 → 不过。\n' +
-      '过了会自动把知识点标成「已验证」—— 那是 verified 的定义。\n' +
-      '判完给出下一步：过了就推进，不过就调 coach_diagnose 判因。',
+      '分够但超时 → overTime；分不够 → failed。卷面通过且所有做出的题明确独立，才产生本次 verified。\n' +
+      '接受过提示/题解/他人帮助，或独立性未知：只记过卷，保留原状态，不冒充独立掌握。\n' +
+      '本次独立验证不证明隔日保持或迁移；下一步由教练结合课程和表现判断。',
     parameters: {
       results: {
         type: 'array',
@@ -4987,6 +5017,7 @@ function apply(ctx) {
             problemId: { type: 'string', required: true, description: '卷子里的题号，原样抄' },
             solved: { type: 'boolean', required: true, description: '这题最后 AC 了吗' },
             minutes: { type: 'number', required: true, description: '这题花了多少分钟（没做出来就填实际耗掉的）' },
+            independent: { type: 'boolean', description: '这题是否未接受提示、题解或他人帮助而独立完成/尝试；未知就省略，不猜。' },
           },
         },
       },
@@ -5008,6 +5039,8 @@ function apply(ctx) {
           minutes: { type: 'integer', required: true },
           limit: { type: 'integer', required: true },
           status: { type: 'string', required: true },
+          verified: { type: 'boolean', required: true, description: '本次卷面通过且所有做出题都有明确独立事实；不代表长期保持或迁移。' },
+          independence: { type: 'string', required: true, description: '本次做出题的独立性：independent / assisted / unknown。' },
           verifiedAt: { type: 'integer', required: true },
           // 这张卷里有几道是「网上找的」（自述题）。>0 时这条 verified 的
           // 成色就要打折 —— 卷面上看得见，记录里也留痕。
@@ -5024,6 +5057,7 @@ function apply(ctx) {
                 cfRating: { type: 'integer', required: true },
                 solved: { type: 'boolean', required: true },
                 minutes: { type: 'integer', required: true },
+                independent: { type: 'boolean', description: '仅在本题明确报告独立性时返回。' },
                 // 网上找的题的 cfRating 是自报估值 —— 不计入 verifiedAt（见上面的
                 // solvedRatings 过滤）。来源得跟着结果走，不然判卷记录里分不出
                 // 这道题是库里查的还是他自己找的。**schema 得声明它** ——
@@ -5038,7 +5072,7 @@ function apply(ctx) {
       render: (_args, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 判不了：${v.reject}` }]
         const head = v.outcome === 'passed'
-          ? `✅ 过了　${v.nodeName}`
+          ? `✅ 卷面通过${v.verified ? ' · 本次独立验证' : ' · 未形成独立验证'}　${v.nodeName}`
           : v.outcome === 'overTime'
             ? `⏱ 分数够，但超时了 —— 这不算过　${v.nodeName}`
             : `❌ 没过　${v.nodeName}`
@@ -5050,29 +5084,29 @@ function apply(ctx) {
           // 直接影响这条 verified 值不值钱，而"过了"这两个字会盖过一切。
           ...(v.selfReported
             ? [`⚠️ 其中 ${v.selfReported} 道是**网上找的**：题号没进过题库、难度是估的、` +
-               '「做出来了」也只有他这句话。它不算进验证段位 —— 这条 verified 的成色比真题卷低，' +
-               '想坐实这个知识点，下次用题库里的题再测一次。']
+               '做题结果是报告的事实，难度估值不计入验证段位；需要时用题库题再核对。']
             : []),
           '',
         ]
         for (const p of v.problems) {
           lines.push(`  ${p.solved ? '✓' : '✗'} ${p.band}　${p.problemId}　${p.title}　` +
-            `${p.minutes} 分钟（权重 ${p.weight}）`)
+            `${p.minutes} 分钟（权重 ${p.weight}；${p.independent === true ? '独立' : p.independent === false ? '有帮助' : '独立性未记录'}）`)
         }
         lines.push('', '── 下一步 ──')
         if (v.outcome === 'passed') {
-          lines.push(`  这一节标成「已验证」了 —— 验证于 ≈${v.verifiedAt} 段位。` +
-            '（等他 rating 涨上去，这个段位的题也会变难，到时候该复检）')
+          lines.push(v.verified
+            ? `  本次达到独立验证条件${v.verifiedAt ? `，题库难度上限≈${v.verifiedAt}` : '，没有可核对的题库难度段位'}；不代表隔日仍会或能迁移。`
+            : v.independence === 'assisted'
+              ? '  卷面过了，但做出题有帮助：保留原状态，不新增掌握证书；需要时再独立检测。'
+              : '  卷面过了，但独立性未记录：保留原状态，不新增掌握证书；不要把未知补成独立。')
           const course = curriculum.execute({ action: 'read' })
           lines.push(course.exists || !course.ok
             ? '  先读 coach_curriculum 检查当前阶段验收；单点过卷不会自动推进阶段。继续当前主线，整体成果达标后再 advance。'
-            : '  用 coach_assign 布置下一节 —— **推进，别回头**。')
+            : '  根据实际理解和独立表现，选择补练、复检、迁移或下一节。')
         } else if (v.outcome === 'overTime') {
-          lines.push('  他不是不会，是慢。别推进，也别当「不会」去补课 —— ' +
-            '换个同难度的题限时加练，把速度压进限时里。')
+          lines.push('  本次超过限时。结合做题过程判断是建模、实现还是速度问题，再决定补讲或限时加练。')
         } else {
-          lines.push('  让他把没做出来的那题代码贴过来，调 coach_diagnose 判因 —— ' +
-            '分清是「不会」还是「不认真」，再决定补课还是重写。')
+          lines.push('  结合没做出题的题面、代码和过程，用 coach_diagnose 判因，再决定补讲、练习或重写。')
         }
         return [{ type: 'text', text: lines.join('\n') }]
       },
@@ -5083,7 +5117,7 @@ function apply(ctx) {
       const deny = (reject) => ({
         ok: false, reject, node: '', nodeName: '', domain: '',
         outcome: '', score: 0, maxScore: 0, passScore: PASS_SCORE,
-        minutes: 0, limit: 0, status: '', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
+        minutes: 0, limit: 0, status: '', verified: false, independence: 'unknown', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
       })
 
       const prog = loadProgress()
@@ -5107,6 +5141,11 @@ function apply(ctx) {
       const keyOf = (id) => normId('nowcoder', String(id ?? '').trim())
       const byIdGiven = new Map()
       for (const r of given) {
+        if (!r || typeof r.problemId !== 'string' || !r.problemId.trim() || typeof r.solved !== 'boolean' ||
+            typeof r.minutes !== 'number' || !Number.isFinite(r.minutes) || r.minutes < 0 || !Number.isSafeInteger(Math.round(r.minutes)) ||
+            (r.independent !== undefined && typeof r.independent !== 'boolean')) {
+          return deny('每条结果必须有题号、布尔 solved 和非负有限分钟数；independent 只能是布尔值或省略。')
+        }
         const key = keyOf(r?.problemId)
         if (byIdGiven.has(key)) return deny(`题号 ${r.problemId} 报了两遍。`)
         byIdGiven.set(key, r)
@@ -5124,6 +5163,7 @@ function apply(ctx) {
         }
         const solved = r.solved === true
         const spent = Math.max(0, Math.round(Number(r.minutes) || 0))
+        if (!Number.isSafeInteger(minutes + spent)) return deny('总分钟数超出安全数值范围，不能记录。')
         if (solved) score += Number(q.weight) || 0
         minutes += spent
         graded.push({
@@ -5135,6 +5175,7 @@ function apply(ctx) {
           // 老卷子可能没有（那批 pending 是在加这个字段之前开的），兜底 0。
           cfRating: Math.round(Number(q.cfRating) || 0),
           solved, minutes: spent,
+          ...(typeof r.independent === 'boolean' ? { independent: r.independent } : {}),
         })
       }
 
@@ -5144,9 +5185,13 @@ function apply(ctx) {
       // 超时和分数不够是**两种病**：前者是不熟，后者是不会。
       const outcome = score < passScore ? 'failed'
         : (limit > 0 && minutes > limit) ? 'overTime' : 'passed'
+      const solvedProblems = graded.filter((g) => g.solved)
+      const independence = solvedProblems.some((g) => g.independent === false) ? 'assisted'
+        : solvedProblems.length && solvedProblems.every((g) => g.independent === true) ? 'independent' : 'unknown'
+      const verified = outcome === 'passed' && independence === 'independent'
 
       const node = String(p.node ?? '')
-      const status = outcome === 'passed' ? 'verified'
+      const status = verified ? 'verified'
         : nodeStatus(prog, node) === 'none' ? 'studying' : nodeStatus(prog, node)
 
       // 「验证于哪个段位」= 他拿下的题里 cfRating 最高的那个。
@@ -5161,7 +5206,7 @@ function apply(ctx) {
       const solvedRatings = graded
         .filter((g) => g.solved && g.source !== 'web')
         .map((g) => g.cfRating).filter((r) => r > 0)
-      const verifiedAt = outcome === 'passed' && solvedRatings.length
+      const verifiedAt = verified && solvedRatings.length
         ? Math.max(...solvedRatings) : 0
 
       // 自述题计数。
@@ -5180,10 +5225,10 @@ function apply(ctx) {
         date: localStamp(new Date()).slice(0, 10),
         outcome, score, maxScore, passScore,
         minutes, limit, verifiedAt, selfReported, problems: graded,
+        ...(independence === 'unknown' ? {} : { independent: independence === 'independent' }),
       })
       nodeRec.checks = checks
-      // 过 → verified（这是那一级的定义）。不过**不降级**已有的 learned/verified，
-      // 但若本来就没学过，标成「在学」—— 他显然正在这上面花时间。
+      // 未达到独立验证条件不降级旧状态；未学节点只记录正在学习。
       const prevStatus = nodeStatus(prog, node)
       nodeRec.status = status
       // ⚠️ 修过：这条路**以前没写 `at`**。
@@ -5202,7 +5247,7 @@ function apply(ctx) {
       return {
         ok: true, reject: '', node, nodeName: byId.get(node)?.name ?? node,
         domain: byId.get(node)?.domain ?? '', outcome, score, maxScore, passScore,
-        minutes, limit, status, verifiedAt, selfReported,
+        minutes, limit, status, verified, independence, verifiedAt, selfReported,
         problems: graded, checks: checks.length,
       }
     },
@@ -5354,6 +5399,7 @@ function apply(ctx) {
         type: 'string',
         description: '撤哪个节点的动作。不填 = 手上只有一条时撤那条；有多条会被拒绝并列出来。',
       },
+      competency: { type: 'string', description: '撤哪个比赛能力动作，与 node 二选一；都不填时手上只有一条可直接撤。' },
       reason: { type: 'string', description: '为什么撤（一句话，回显用）' },
     },
     output: {
@@ -5368,6 +5414,7 @@ function apply(ctx) {
           at: { type: 'string', required: true },
           deliverable: { type: 'string', required: true },
           reason: { type: 'string', required: true },
+          competency: { type: 'string' },
           remaining: { type: 'integer', required: true },
         },
       },
@@ -5393,6 +5440,13 @@ function apply(ctx) {
       const prog = loadProgress()
       const pend = { ...(prog.pendingActions ?? {}) }
       let node = String(args?.node ?? '').trim()
+      let competency = String(args?.competency ?? '').trim()
+      if (node && competency) return deny('node 与 competency 只能指定一个。')
+      if (competency) {
+        const identity = trainingIdentity('', competency)
+        if (!identity.ok) return deny(identity.reject)
+        node = identity.key
+      }
       if (!node) {
         const keys = Object.keys(pend)
         if (!keys.length) {
@@ -5409,6 +5463,7 @@ function apply(ctx) {
           '可能已经落地（coach_log 销的），或者被撤过了。')
       }
       const a = pend[node]
+      competency = String(a?.competency ?? '')
       delete pend[node]
       prog.pendingActions = pend
       try {
@@ -5417,7 +5472,9 @@ function apply(ctx) {
         return deny(`写盘失败：${err.message} —— 动作还押着，别当它撤了。`)
       }
       return {
-        ok: true, reject: '', node, nodeName: byId.get(node)?.name ?? node,
+        ok: true, reject: '', node: competency ? '' : node,
+        nodeName: trainingIdentity(competency ? '' : node, competency).name ?? node,
+        ...(competency ? { competency } : {}),
         at: String(a?.at ?? ''), deliverable: String(a?.deliverable ?? ''),
         reason, remaining: Object.keys(pend).length,
       }
@@ -5497,6 +5554,7 @@ function apply(ctx) {
                       kindName: { type: 'string', required: true },
                       node: { type: 'string', required: true },
                       nodeName: { type: 'string', required: true },
+                      competency: { type: 'string' },
                     },
                   },
                 },
@@ -5511,6 +5569,7 @@ function apply(ctx) {
                       actualMin: { type: 'integer', required: true },
                       solved: { type: 'boolean', required: true },
                       independent: { type: 'boolean', required: true },
+                      competency: { type: 'string' },
                       // 可选（coach_log 带 note 时才写）。不写 required —— 可选键
                       // 在 dsh 那套里就是"不写 required"，写 required:false 会抛。
                       note: { type: 'string' },
@@ -5654,8 +5713,8 @@ function apply(ctx) {
       '**范围只认他说的那一天**：他说「排今天」就只排今天，说「排周三」就只排周三，' +
       '不要顺手把明天后天一起铺了 —— 那是替他做决定，而且是没问过他的决定。\n' +
       '三种块：cycle = 题目循环 60min（40 自己做 + 10 解决遗留 + 10 重写）、' +
-      'review = 复习一题 25min、exam = 章节检测 90min。**时长不能改** —— ' +
-      '40 分钟那个止损点全靠它守着。\n' +
+      'review = 复习一题 25min、exam = 章节检测 90min；diagnostic 默认 15min、vp 默认 300min。' +
+      '这些是默认值；按任务需要用 minutes 明确时长。\n' +
       '工具只拦**物理上做不到的**：压着他标的忙事 / 块叠在一起 / 知识点不在图上 / ' +
       '日子在窗口外。**排多排少是你的判断，工具不给容量上限**，排太满的后果' +
       '让表里的' +
@@ -5666,13 +5725,15 @@ function apply(ctx) {
       date: { type: 'string', required: true, description: '哪天，YYYY-MM-DD，得在今天 ~ 今天+6 之间' },
       blocks: {
         type: 'array', required: true,
-        description: '要排的块，按时间先后给。结束时间由 kind 决定，不用你算',
+        description: '要排的块，按时间先后给。结束时间由 minutes 或 kind 默认时长决定',
         items: {
           type: 'object', additionalProperties: false,
           properties: {
             from: { type: 'string', required: true, description: '开始时间 "HH:MM"，要对齐 5 分钟' },
-            kind: { type: 'string', required: true, enum: ['cycle', 'review', 'exam'] },
-            node: { type: 'string', required: true, description: '知识点 id，必须在地图里' },
+            kind: { type: 'string', required: true, enum: ['cycle', 'review', 'exam', 'diagnostic', 'vp'] },
+            node: { type: 'string', description: '地图知识点 id；与 competency 二选一。' },
+            competency: { type: 'string', description: '已有比赛能力 id；与 node 二选一。' },
+            minutes: { type: 'integer', description: '整块时长 1–960 分钟；不填保留该 kind 的默认时长。' },
           },
         },
       },
@@ -5700,6 +5761,7 @@ function apply(ctx) {
                 node: { type: 'string', required: true },
                 nodeName: { type: 'string', required: true },
                 domain: { type: 'string', required: true },
+                competency: { type: 'string' },
               },
             },
           },
@@ -5729,7 +5791,7 @@ function apply(ctx) {
           (v.replaced ? `（覆盖掉原来那 ${v.replaced} 个块）` : '')]
         for (const b of v.planned) {
           L.push(`  ★ ${b.from}–${b.to}　${b.kindName}　${b.nodeName}` +
-            (b.kind === 'cycle' ? '　（40 自己做 → 10 解决遗留 → 10 重写）' : ''))
+            (b.kind === 'cycle' && b.minutes === CYCLE_TOTAL_MIN ? '　（40 自己做 → 10 解决遗留 → 10 重写）' : ''))
         }
         // 回一条**完整时间轴**，而不是「还剩多少分钟」。
         // 排完他得能一眼看出这块夹在哪两件事之间 —— 那个位置才决定来不来得及。
@@ -5751,6 +5813,8 @@ function apply(ctx) {
     async execute(args) {
       const blocks = (Array.isArray(args?.blocks) ? args.blocks : []).map((b) => ({
         from: String(b?.from ?? ''), kind: String(b?.kind ?? ''), node: String(b?.node ?? ''),
+        ...(b?.competency ? { competency: String(b.competency).trim() } : {}),
+        ...(b?.minutes !== undefined ? { minutes: b.minutes } : {}),
       }))
       const r = planDay(args?.date, blocks, { replace: args?.replace === true })
 
@@ -5824,6 +5888,7 @@ function apply(ctx) {
                 kindName: { type: 'string', required: true },
                 node: { type: 'string', required: true },
                 nodeName: { type: 'string', required: true },
+                competency: { type: 'string' },
               },
             },
           },
@@ -5838,6 +5903,7 @@ function apply(ctx) {
                 kindName: { type: 'string', required: true },
                 node: { type: 'string', required: true },
                 nodeName: { type: 'string', required: true },
+                competency: { type: 'string' },
               },
             },
           },
@@ -5908,7 +5974,7 @@ function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'coach_log',
     description:
-      '记一条**实际用时**：他做完一个块之后，报「做了多久、是不是独立做出来的」。\n' +
+      '记一条节点练习或比赛能力动作的**实际用时**：他做完一个块之后，报「做了多久、是不是独立做出来的」。\n' +
       '**每次他报告完成情况就调一次**（不管是做出来了还是没做出来、超时了还是提前），' +
       '这是系统学会"他真实速度是多少"的唯一来源 —— 不记，排程永远只能靠猜。\n' +
       '计划时长不用你填：那天表上排了多久，工具自己从 SCHEDULE.yaml 里算。\n' +
@@ -5917,7 +5983,8 @@ function apply(ctx) {
       '**同一天同一个知识点做了两道题，就调两次、各带自己的 problemId** —— ' +
       '别合成一条（合成之后「哪道独立做出来的」就没了，而那正是开不开检测卷的依据）。',
     parameters: {
-      node: { type: 'string', required: true, description: '知识点 id，必须在地图里' },
+      node: { type: 'string', description: '知识点 id；与 competency 二选一。' },
+      competency: { type: 'string', description: '已有比赛能力 id；记录能力诊断或完整 VP，与 node 二选一。' },
       // （需求 #2）：题号。**可选** —— 不填就是老行为（一天一节点一条）。
       problemId: {
         type: 'string',
@@ -5949,6 +6016,7 @@ function apply(ctx) {
           date: { type: 'string', required: true },
           node: { type: 'string', required: true },
           nodeName: { type: 'string', required: true },
+          competency: { type: 'string' },
           plannedMin: { type: 'integer', required: true },
           actualMin: { type: 'integer', required: true },
           deviation: { type: 'integer', required: true },
@@ -5992,7 +6060,7 @@ function apply(ctx) {
               ? `\n  （这天这个点${v.problemId ? '这道题' : ''}原来记过一条，覆盖了）`
               : '') +
             (v.recorded
-              ? `\n  台账：这个知识点第 ${v.passCount} 次做完记录。`
+              ? v.competency ? '\n  台账：比赛能力动作已记入实际记录；不证明长期掌握。' : `\n  台账：这个知识点第 ${v.passCount} 次做完记录。`
               : '\n  ⚠️ 掌握证据那条没写上（磁盘/权限问题）—— 时间记录是好的。') +
             (v.actionCleared
               ? '\n  📌 这个节点上押着的动作**销了** —— 这条记录就是它的落地。'
@@ -6009,6 +6077,8 @@ function apply(ctx) {
       const { byId } = loadMap()
       const node = String(args?.node ?? '').trim()
       const d = String(args?.date ?? '').trim() || ymdToday()
+      const competency = String(args?.competency ?? '').trim()
+      const identity = trainingIdentity(node, competency)
       const actualMin = Math.round(Number(args?.actualMin))
       const solved = args?.solved === true
       const independent = args?.independent === true
@@ -6025,7 +6095,8 @@ function apply(ctx) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
         return deny(`日期要 YYYY-MM-DD 格式，收到「${d}」。`)
       }
-      if (!byId.has(node)) {
+      if (!identity.ok) return deny(identity.reject)
+      if (!competency && !byId.has(node)) {
         const near = suggest(node, [...byId.values()])
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先调 coach_status 看他在哪。'))
@@ -6052,7 +6123,7 @@ function apply(ctx) {
         return a === null || z === null ? 0 : Math.max(0, z - a)
       }
       const plannedMin = (Array.isArray(day.planned) ? day.planned : [])
-        .filter((b) => String(b?.node ?? '') === node)
+        .filter((b) => competency ? b?.competency === competency : String(b?.node ?? '') === node && !b?.competency)
         .reduce((t, b) => t + blockMin(b), 0)
 
       // 同一天同一个点：**没给题号时**只留一条 —— 这张表没有开始时间，
@@ -6061,15 +6132,20 @@ function apply(ctx) {
       // （09-21 的 ST 表：P2880 独立 AC、1548B 带提示 AC），压成一条等于
       // 把"他独立做出过这个点的题"从台账里抹掉。
       const idx = list.findIndex((r) =>
-        String(r?.node ?? '') === node && String(r?.problemId ?? '') === problemId)
+        (competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency) && String(r?.problemId ?? '') === problemId)
       // 需求 #8：`plannedMin` 不再写进这条记录（见上面那段注释）
       const entry = { node, actualMin, solved, independent }
+      const pendingAction = loadProgress().pendingActions?.[identity.key]
+      if (competency) {
+        entry.competency = competency
+        entry.kind = pendingAction?.kind ?? 'diagnostic'
+      }
       if (problemId) entry.problemId = problemId
       if (note) entry.note = note
       const replaced = idx >= 0
       if (replaced) list[idx] = entry
       else list.push(entry)
-      const sameDayEntries = list.filter((r) => String(r?.node ?? '') === node).length
+      const sameDayEntries = list.filter((r) => competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency).length
 
       const w = setScheduleField(d, 'actual', list)
       if (!w.ok) return deny(w.reject)
@@ -6090,35 +6166,39 @@ function apply(ctx) {
       let passCount = 0
       try {
         const prog = loadProgress()
-        const rec = { ...(prog.nodes[node] ?? {}) }
-        const passes = Array.isArray(rec.passes) ? rec.passes.slice() : []
-        const e = { date: d, solved, independent, minutes: actualMin }
-        if (problemId) e.problemId = problemId
-        if (note) e.note = note
-        // 去重键和 SCHEDULE 那边**必须一致**（日期 + 节点 + 题号）：
-        // 两边口径分家的话，`coach_status` 的条目数和 `coach_next` 的计划
-        // 会对不上同一件事 —— 这个项目反复在治的就是这个病。
-        const pi = passes.findIndex((p) => String(p?.date ?? '') === d &&
-          String(p?.problemId ?? '') === problemId)
-        if (pi >= 0) passes[pi] = e
-        else passes.push(e)
-        rec.passes = passes
-        prog.nodes[node] = rec
+        if (!competency) {
+          const rec = { ...(prog.nodes[node] ?? {}) }
+          const passes = Array.isArray(rec.passes) ? rec.passes.slice() : []
+          const e = { date: d, solved, independent, minutes: actualMin }
+          if (problemId) e.problemId = problemId
+          if (note) e.note = note
+          // 去重键和 SCHEDULE 那边**必须一致**（日期 + 节点 + 题号）：
+          // 两边口径分家的话，`coach_status` 的条目数和 `coach_next` 的计划
+          // 会对不上同一件事 —— 这个项目反复在治的就是这个病。
+          const pi = passes.findIndex((p) => String(p?.date ?? '') === d &&
+            String(p?.problemId ?? '') === problemId)
+          if (pi >= 0) passes[pi] = e
+          else passes.push(e)
+          rec.passes = passes
+          prog.nodes[node] = rec
+          passCount = passes.length
+        }
         // 押着的动作**落地即销**（需求 #6）：这个节点上布置过、他这会儿记了
         // 一条做完记录 = 就是做了。撤销是 coach_unassign 的活（那条路不写 passes）——
         // 两个出口分开，是为了不让"做完了"和"不做了"在账上长成一个样。
-        if (prog.pendingActions && Object.prototype.hasOwnProperty.call(prog.pendingActions, node)) {
-          delete prog.pendingActions[node]
+        if (prog.pendingActions && Object.prototype.hasOwnProperty.call(prog.pendingActions, identity.key)) {
+          delete prog.pendingActions[identity.key]
           actionCleared = true
         }
         saveProgress(prog)
         recorded = true
-        passCount = passes.length
-      } catch { /* 落盘失败不影响时间那条已经写进去的记录 */ }
+        if (competency) passCount = sameDayEntries
+      } catch { actionCleared = false /* 日程已保存，进度未保存，动作仍在。 */ }
 
       return {
         ok: true, reject: '', date: d, node,
-        nodeName: byId.get(node)?.name ?? node,
+        nodeName: identity.name,
+        ...(competency ? { competency } : {}),
         plannedMin, actualMin, deviation: actualMin - plannedMin, solved, independent,
         replaced, problemId, sameDayEntries,
         totalLogged: list.length, recorded, actionCleared, passCount, updated: w.updated,

@@ -1335,7 +1335,7 @@ const SNAP = 5;
 // 块型短名。**必须和 host 的 SCHED_KINDS[k].name 逐字一致** ——
 // 不一致时页面会拿 id 兜底显示（不会崩），但那块看着就像坏了。
 // host 是真相源，这里只管显示。verify.mjs 有一条盯着这个一致性。
-const KIND_NAME = { cycle: "题目循环", review: "复习一题", exam: "章节检测" };
+const KIND_NAME = { cycle: "题目循环", review: "复习一题", exam: "章节检测", diagnostic: "短诊断", vp: "完整 VP" };
 
 const minToHM = (m) => {
   const t = HOUR_FROM * 60 + m;
@@ -1447,7 +1447,7 @@ function renderSched() {
       const kind = String(b.kind ?? "");
       // 地图改过名、甚至删过节点，而计划是历史数据 ——
       // 查不到名字就退回 id，**不能因为查不到就不画**（那等于计划凭空消失）。
-      const nm = byId(b.node)?.name ?? String(b.node ?? "");
+      const nm = b.competency ? `能力：${b.competency}` : byId(b.node)?.name ?? String(b.node ?? "");
       const size = mins >= 75 ? "s-full" : mins >= 40 ? "s-mid" : "s-mini";
       // 中等高度（40~74 分钟，循环块正好 60）挤不下两行，但**时间要留住** ——
       // busy 那边中档只放事由就够（他自己知道标了什么），
@@ -1457,7 +1457,7 @@ function renderSched() {
         ? `<span class="t">${esc(b.from)}–${esc(b.to)}</span>${esc(nm)}`
         : size === "s-mid" ? `${esc(b.from)} ${esc(nm)}` : "";
       const tip = `${b.from}–${b.to}　${KIND_NAME[kind] ?? kind}　${nm}` +
-        (kind === "cycle" ? "　（40 自己做 → 10 解决遗留 → 10 重写）" : "");
+        (kind === "cycle" && mins === 60 ? "　（40 自己做 → 10 解决遗留 → 10 重写）" : "");
       return `<div class="pbar k-${esc(kind)} ${size}" title="${esc(tip)}" ` +
         `style="top:${pct(a)};height:${pct(mins)}">${body}</div>`;
     }).join("");

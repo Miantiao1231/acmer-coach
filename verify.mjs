@@ -364,8 +364,8 @@ await denyCase('挑了个不是下一层的节点 → 拒绝',
 // 而训练员已经把位运算标成已验证 —— 它不再是个"缺前置"的场景了。
 // **别在会变的真实进度上写死假设。** 等价用例（更严）在第 24 节的合成夹具里。
 // ④ 时间盒太短
-await denyCase('净时间低于 30 分钟 → 拒绝',
-  { cursor: '动态规划基础', node: '区间 DP', deliverable: '贴代码', minutes: 15 }, '太短')
+const shortDiagnostic = await assign.execute({ cursor: '动态规划基础', node: '区间 DP', kind: 'diagnostic', deliverable: '解释模型选择', minutes: 15 })
+check('15 分钟诊断可直接布置，不伪造讲课或要求先学完', shortDiagnostic.accepted && shortDiagnostic.totalMinutes === 15, shortDiagnostic.reject)
 // ⑤ 没交付物
 await denyCase('没写交付物 → 拒绝',
   { cursor: '动态规划基础', node: '区间 DP', deliverable: '' }, '交付物')
@@ -987,9 +987,9 @@ const progPath5 = () => readFileSync(prog5, 'utf8')
 // 卷子还在（第 20 关开的）：P1 易 / P4 中 / P6 难，限时 90，通过线 4
 const g1 = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 15 },
-    { problemId: 'P4', solved: true, minutes: 25 },
-    { problemId: 'P6', solved: true, minutes: 30 },
+    { problemId: 'P1', solved: true, minutes: 15, independent: true },
+    { problemId: 'P4', solved: true, minutes: 25, independent: true },
+    { problemId: 'P6', solved: true, minutes: 30, independent: true },
   ],
 }, undefined)
 check('判卷成功', g1.ok === true, g1.reject)
@@ -997,7 +997,7 @@ check('三题全下 → 6 分', g1.score === 6, String(g1.score))
 check('用时 70 ≤ 90 → 过', g1.outcome === 'passed', g1.outcome)
 const after1 = progPath5()
 check('★ 写过检测记录（checks）', after1.includes('checks'), after1.includes('checks') ? '' : '没写')
-check('★ 过了就把状态标成 verified（这就是 verified 的定义）',
+check('★ 明确独立且过卷才新增 verified',
   after1.includes('status: verified'), after1.includes('status') ? '' : '没写 status')
 // 注意别拿**文件头注释**当数据测：头里就写着 "pending 是正押着的那张检测卷"，
 // 用 includes('pending') 永远为真、永远测不出东西。要盯的是 YAML 顶层键。
@@ -1012,9 +1012,9 @@ const denyG = async (label, args, want) => {
   check(label, ok, ok ? '' : `ok=${r.ok} reject="${r.reject}"`)
 }
 const r3 = [
-  { problemId: 'P1', solved: true, minutes: 10 },
-  { problemId: 'P4', solved: true, minutes: 10 },
-  { problemId: 'P6', solved: true, minutes: 10 },
+  { problemId: 'P1', solved: true, minutes: 10, independent: true },
+  { problemId: 'P4', solved: true, minutes: 10, independent: true },
+  { problemId: 'P6', solved: true, minutes: 10, independent: true },
 ]
 await denyG('手里没押卷就判卷 → 拒绝', { results: r3 }, '没押着')
 
@@ -1032,13 +1032,13 @@ await test.execute({ node: '线段树', problems: [
 ] }, undefined)
 await denyG('结果少给一道 → 拒绝', { results: r3.slice(0, 2) }, '一道都不能少')
 await denyG('报了个不在卷子里的题号 → 拒绝',
-  { results: [...r3.slice(0, 2), { problemId: 'P99999', solved: true, minutes: 5 }] }, '卷子里没有')
+  { results: [...r3.slice(0, 2), { problemId: 'P99999', solved: true, minutes: 5, independent: true }] }, '卷子里没有')
 
 const g2 = await grade.execute({
   results: [
-    { problemId: 'P2', solved: true, minutes: 20 },
-    { problemId: 'P5', solved: true, minutes: 30 },
-    { problemId: 'P7', solved: true, minutes: 50 },   // 合计 100 > 90
+    { problemId: 'P2', solved: true, minutes: 20, independent: true },
+    { problemId: 'P5', solved: true, minutes: 30, independent: true },
+    { problemId: 'P7', solved: true, minutes: 50, independent: true },   // 合计 100 > 90
   ],
 }, undefined)
 check('★ 分数够但超时 → 判「不熟」，不算过', g2.outcome === 'overTime', g2.outcome)
@@ -1053,7 +1053,7 @@ await test.execute({ node: '线段树', problems: [
 ] }, undefined)
 const g3 = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 18 },
+    { problemId: 'P1', solved: true, minutes: 18, independent: true },
     { problemId: 'P4', solved: false, minutes: 30 },
     { problemId: 'P6', solved: false, minutes: 20 },
   ],
@@ -1108,9 +1108,9 @@ check('★ 卷面写明「网上找的 · 核实：…」（他要能复核）',
 
 const gWebR = await grade.execute({
   results: [
-    { problemId: 'ABC300-F', solved: true, minutes: 15 },
-    { problemId: 'P1', solved: true, minutes: 20 },
-    { problemId: 'P4', solved: true, minutes: 30 },
+    { problemId: 'ABC300-F', solved: true, minutes: 15, independent: true },
+    { problemId: 'P1', solved: true, minutes: 20, independent: true },
+    { problemId: 'P4', solved: true, minutes: 30, independent: true },
   ],
 }, undefined)
 check('★ 全下 → 过', gWebR.ok === true && gWebR.outcome === 'passed', `${gWebR.outcome} ${gWebR.reject}`)
@@ -1168,9 +1168,9 @@ check('★ 新核实的 verifiedReused=false（这次真核了，不是沿用）
 // 判掉这张卷，才能开第二张（一次只开一张）
 const gFirst = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 15 },
-    { problemId: 'P4', solved: true, minutes: 25 },
-    { problemId: 'P6', solved: true, minutes: 35 },
+    { problemId: 'P1', solved: true, minutes: 15, independent: true },
+    { problemId: 'P4', solved: true, minutes: 25, independent: true },
+    { problemId: 'P6', solved: true, minutes: 35, independent: true },
   ],
 }, undefined)
 check('夹具：第一张卷判掉了', gFirst.ok === true, gFirst.reject)
@@ -1187,9 +1187,9 @@ check('★ 卷面上写明是沿用台账记录',
   (test.output.render({}, reuse)[0].text.match(/.*沿用台账.*/) ?? ['（没有）'])[0].slice(0, 60))
 const gSecond = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 15 },
-    { problemId: 'P4', solved: true, minutes: 25 },
-    { problemId: 'P6', solved: true, minutes: 35 },
+    { problemId: 'P1', solved: true, minutes: 15, independent: true },
+    { problemId: 'P4', solved: true, minutes: 25, independent: true },
+    { problemId: 'P6', solved: true, minutes: 35, independent: true },
   ],
 }, undefined)
 check('夹具：第二张卷也判掉了（不留 pending 给后面几节）', gSecond.ok === true, gSecond.reject)
@@ -1296,9 +1296,9 @@ check('★ 并且逐道标出是沿用的（三道都要，不能只认一道）
 // "上一张没判"被拒，看着像通过，其实拒的理由跟本关要验的完全无关。
 const gClos = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 15 },
-    { problemId: 'P4', solved: true, minutes: 25 },
-    { problemId: 'P6', solved: true, minutes: 35 },
+    { problemId: 'P1', solved: true, minutes: 15, independent: true },
+    { problemId: 'P4', solved: true, minutes: 25, independent: true },
+    { problemId: 'P6', solved: true, minutes: 35, independent: true },
   ],
 }, undefined)
 check('夹具：闭环那张卷判掉了（不留 pending）', gClos.ok === true, gClos.reject)
@@ -1371,9 +1371,9 @@ const open22 = await test.execute({ node: '线段树', problems: [
 check('夹具：22b 那张卷开出来了', open22.ok === true, open22.reject)
 const g22 = await grade.execute({
   results: [
-    { problemId: 'P1', solved: true, minutes: 12 },
-    { problemId: 'P4', solved: true, minutes: 22 },
-    { problemId: 'P6', solved: true, minutes: 35 },
+    { problemId: 'P1', solved: true, minutes: 12, independent: true },
+    { problemId: 'P4', solved: true, minutes: 22, independent: true },
+    { problemId: 'P6', solved: true, minutes: 35, independent: true },
   ],
 }, undefined)
 check('全下 → 过', g22.outcome === 'passed', g22.outcome)
@@ -1392,7 +1392,7 @@ await test.execute({ node: '线段树', problems: [
 ] }, undefined)
 const g22b = await grade.execute({
   results: [
-    { problemId: 'P2', solved: true, minutes: 10 },
+    { problemId: 'P2', solved: true, minutes: 10, independent: true },
     { problemId: 'P5', solved: false, minutes: 30 },
     { problemId: 'P7', solved: false, minutes: 30 },
   ],
@@ -2664,9 +2664,9 @@ check('★ 并且给出了撤卷的出口（不然模型只能编成绩）',
 // 原先传空串 = 不归一 → 卷子存 `NC15121`、小鲸报 `15121` 就撞不上，
 // 判成「卷子里没有这条结果」。判卷是闭环最后一步，错在这整张卷就没了。
 const g30 = await T30.get('coach_grade').execute({ results: [
-  { problemId: '15121', solved: true, minutes: 15 },   // ← 裸号
-  { problemId: '1015D', solved: true, minutes: 25 },
-  { problemId: '1016E', solved: true, minutes: 35 },
+  { problemId: '15121', solved: true, minutes: 15, independent: true },   // ← 裸号
+  { problemId: '1015D', solved: true, minutes: 25, independent: true },
+  { problemId: '1016E', solved: true, minutes: 35, independent: true },
 ]})
 check('★ 牛客裸号能对上卷子里的 NC15121', g30.ok === true, JSON.stringify(g30.reject))
 check('判完之后卷子清掉了', prog30.load().pending === null,
@@ -2692,9 +2692,9 @@ p30c.pending = { node: 'A', date: '2026-09-16', at: '2026-09-16 11:00:00',
   ] }
 prog30.save(p30c)
 const gw = await T30.get('coach_grade').execute({ results: [
-  { problemId: '1015D', solved: true, minutes: 10 },
-  { problemId: '1016E', solved: true, minutes: 20 },
-  { problemId: 'abc999_c', solved: true, minutes: 30 },
+  { problemId: '1015D', solved: true, minutes: 10, independent: true },
+  { problemId: '1016E', solved: true, minutes: 20, independent: true },
+  { problemId: 'abc999_c', solved: true, minutes: 30, independent: true },
 ]})
 check('★ 判卷报出自述题数', gw.selfReported === 1, `${gw.selfReported}`)
 check('★ 自述题数落进 checks（事后翻记录分得出这张卷的成色）',
@@ -3324,27 +3324,27 @@ check('★ 渲染把两个数都印出来（同一个 40 两个意思，就是�
 check('★ 默认时不啰嗦（boxNote 空）', a35.boxNote === '' && !t35a.includes('止损点'), a35.boxNote)
 
 const a35b = await asg35.execute({ ...base35, minutes: 30 })
-check('★ 净 30 → 整块 50（30+20），并提醒「你压的是止损点，不是块」',
-  a35b.accepted === true && a35b.totalMinutes === 65 && a35b.boxNote.includes('你压的是止损点'),
+check('★ 净 30 → 练习与收尾 50，加讲解共 65，报告可直接排的时长',
+  a35b.accepted === true && a35b.totalMinutes === 65 && a35b.boxNote.includes('minutes=65'),
   a35b.boxNote)
-check('★ 净 ≠ 40 时点出「表上排不出这个形状」（表上只有 60/25/90）',
-  a35b.boxNote.includes('排不出这个形状') && a35b.boxNote.includes('cycle 60 / review 25 / exam 90'),
+check('★ 自定时长可以如实排程，不再宣称只能 60/25/90',
+  !a35b.boxNote.includes('排不出这个形状') && a35b.boxNote.includes('排程'),
   a35b.boxNote)
 const t35b = txt35(asg35, a35b)
-check('★ 提醒印进人话里', t35b.includes('⚠️') && t35b.includes('止损点'),
+check('★ 自定时长印进人话里', t35b.includes('minutes=65'),
   (t35b.match(/.*⚠️.*/) ?? ['（没有）'])[0].trim())
 
 const a35c = await asg35.execute({ ...base35, minutes: 29 })
-check('★ 净 29（低于下限 30）→ 拒，理由指路换更小的题 / review 块',
-  a35c.accepted === false && a35c.reject.includes('太短') && a35c.reject.includes('review'),
+check('★ 净 29 可接受，真实总时长 64 分钟',
+  a35c.accepted === true && a35c.totalMinutes === 64,
   a35c.reject.split('\n')[0])
-check('★ 被拒时形状也齐（新字段漏一个，理由就会被盖成校验错）',
-  a35c.minutes === 29 && a35c.tailMinutes === 20 && a35c.boxNote === '',
+check('★ 自定时长保存净用时与收尾，不丢说明',
+  a35c.minutes === 29 && a35c.tailMinutes === 20 && a35c.boxNote.includes('minutes=64'),
   JSON.stringify({ 净: a35c.minutes, 收尾: a35c.tailMinutes, boxNote: a35c.boxNote }))
 
 const a35d = await asg35.execute({ ...base35, minutes: 60 })
-check('★ 净 60 → 整块 80，同样提醒形状对不上',
-  a35d.accepted === true && a35d.totalMinutes === 95 && a35d.boxNote.includes('排不出这个形状'),
+check('★ 净 60 → 整块 80，加讲解共 95，可以直接排程',
+  a35d.accepted === true && a35d.totalMinutes === 95 && a35d.boxNote.includes('minutes=95'),
   a35d.boxNote)
 
 // 账本（#6 的 pendingActions）里存的必须是**拆开的数**，口径才不会下次再漂

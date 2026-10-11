@@ -2,6 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import YAML from 'yaml'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createStrategyStore } from '../lib/strategy.js'
 
 const knowledge = new URL('../assets/knowledge/', import.meta.url)
 const read = name => YAML.parse(readFileSync(new URL(name, knowledge), 'utf8'))
@@ -23,6 +28,37 @@ function textList(value, label) {
   assert.ok(Array.isArray(value) && value.length > 0, `${label}: nonempty list required`)
   assert.ok(value.every(item => typeof item === 'string' && item.trim()), `${label}: text required`)
 }
+
+test('contest evidence exposes actual reviewed samples, never a complete syllabus', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-samples-'))
+  try {
+    const store = createStrategyStore({ dataDir: dir, competenciesPath: fileURLToPath(new URL('COMPETENCIES.yaml', knowledge)) })
+    const profiles = store.target('profiles').availableProfiles
+    const regional = profiles.find(profile => profile.id === 'regional-diagnostic')
+    assert.equal(regional.coverage.sampledProblems, 19)
+    assert.equal(regional.coverage.reviewedSolutions, 19)
+    assert.deepEqual(regional.coverage.years, [2022, 2023])
+    assert.equal(regional.coverage.isSyllabus, false)
+    assert.deepEqual(regional.samples.filter(sample => sample.year === 2022).map(sample => sample.problem).sort(), [...'ABCDEFGHIJKLM'])
+    assert.equal(new Set(regional.samples.map(sample => `${sample.contest}:${sample.year}:${sample.problem}`)).size, 19)
+    assert.match(regional.title, /中国|亚洲/)
+    for (const sample of regional.samples) {
+      assert.ok(sample.model && sample.solutionReviewed)
+      assert.match(sample.sourceUrl, sample.year === 2022
+        ? /^https:\/\/sua\.ac\/wiki\/2022-icpc-nanjing\/tutorial-sketch-zh\.pdf#page=\d+$/
+        : /^https:\/\/universal-cup-website\.qoj\.ac\/files\/ucup\/tutorials\/tutorials-2-11\.pdf#page=\d+$/)
+      assert.ok(sample.competencyIds.every(id => competencies.some(card => card.id === id)))
+    }
+    const xian = profiles.find(profile => profile.id === 'xian-pending')
+    assert.equal(xian.coverage.sampledProblems, 0)
+    assert.equal(xian.coverage.reviewedSolutions, 0)
+    assert.equal(xian.coverage.isSyllabus, false)
+    assert.equal(store.target('set', { expectedRevision: 0, contest: '区域赛', date: '2026-10-17', result: '稳定', profileId: regional.id, weeklyHours: 25,
+      priorities: [{ id: 'graph-modeling', weight: 10 }] }).ok, true)
+    assert.equal(store.focus().profile.coverage.sampledProblems, 19)
+    assert.equal(profiles.find(profile => profile.id === 'nwerc-reference').coverage.reviewedSolutions, 13)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
 
 test('node teaching cards use exact map nodes and contain sourced transfer boundaries', () => {
   const catalog = read('NODE_SCOPES.yaml')
