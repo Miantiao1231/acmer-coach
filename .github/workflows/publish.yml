@@ -26,4 +26,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: npm install --ignore-scripts --no-package-lock
+      - run: npm test
       - run: npm publish --provenance --access public

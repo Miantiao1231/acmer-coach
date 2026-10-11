@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync, existsSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -32,11 +32,12 @@ import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 import { createStrategyStore } from './lib/strategy.js'
 import { createVpClient } from './lib/vp-client.js'
+import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.3.1'
+const VERSION = '2.4.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -87,36 +88,8 @@ function createStores(vpDir) {
 }
 createStores(ACTIVE_VP_DIR)
 
-const PERSONAL_FILES = ['PROGRESS.yaml', 'CURRICULUM.yaml', 'SCHEDULE.yaml', 'TARGET.yaml']
-
-// 2.3.0 曾把个人文件误写进 VP 账号目录。迁移时按 mtime 取较新的一份；
-// 被替换的主目录文件留备份，原账号目录也保留，方便人工核对和恢复。
 function migratePersonalWorkspace(accountId) {
-  if (!accountId) return []
-  const sourceDir = join(DATA_DIR, 'vp-accounts', String(accountId))
-  if (!existsSync(sourceDir)) return []
-  const migrated = []
-  for (const file of PERSONAL_FILES) {
-    const from = join(sourceDir, file)
-    const to = join(DATA_DIR, file)
-    if (!existsSync(from)) continue
-    if (!existsSync(to)) {
-      copyFileSync(from, to)
-      migrated.push(file)
-      continue
-    }
-    const sourceStat = statSync(from)
-    const targetStat = statSync(to)
-    if (sourceStat.mtimeMs <= targetStat.mtimeMs) continue
-    const sourceBody = readFileSync(from)
-    const targetBody = readFileSync(to)
-    if (sourceBody.equals(targetBody)) continue
-    const backup = `${to}.pre-vp-account-${String(accountId)}`
-    if (!existsSync(backup)) copyFileSync(to, backup)
-    copyFileSync(from, to)
-    migrated.push(`${file}（更新）`)
-  }
-  return migrated
+  return migrateWorkspacePersonalFiles(DATA_DIR, accountId)
 }
 
 function switchCoachWorkspace(accountId = '') {
@@ -1909,6 +1882,15 @@ const vpAccount = (value) => value && Number(value.id) > 0
   : emptyVpAccount()
 
 function vpEventsFromSync(payload, account) {
+  // The platform stores timezone-less timestamps as UTC, not the client machine's local time.
+  const instant = value => {
+    const text = String(value || '').trim()
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(text) ? `${text.replace(' ', 'T')}Z` : text
+    const day = normalized.slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(`${day}T12:00:00Z`)) || new Date(`${day}T12:00:00Z`).toISOString().slice(0, 10) !== day) return ''
+    const stamp = Date.parse(normalized)
+    return Number.isFinite(stamp) ? new Date(stamp).toISOString() : ''
+  }
   const submissions = Array.isArray(payload?.submissions) ? payload.submissions : []
   const contests = Array.isArray(payload?.contests) ? payload.contests : []
   const byContest = new Map()
@@ -1926,15 +1908,18 @@ function vpEventsFromSync(payload, account) {
   return [...groups.entries()].map(([contestId, problems]) => {
     const contest = byContest.get(contestId) || {}
     const start = String(contest.start_time || [...problems.values()][0]?.[0]?.submitted_at || '')
+    const startedAt = instant(start)
     const normalized = [...problems.entries()].map(([problemId, attempts]) => {
+      attempts.sort((a, b) => String(a.submitted_at || '').localeCompare(String(b.submitted_at || '')) || Number(a.id) - Number(b.id))
       const solved = attempts.find((item) => ['AC', 'OK', 'ACCEPTED', 'SOLVED'].includes(String(item.verdict || '').toUpperCase()))
-      const at = solved?.submitted_at || attempts.at(-1)?.submitted_at
-      const minutes = start && at ? Math.max(0, Math.round((Date.parse(at) - Date.parse(start)) / 60000)) : 0
-      return { problemId, status: solved ? 'AC' : String(attempts.at(-1)?.verdict || 'UNKNOWN').toUpperCase(), attempts: attempts.length, solveMinutes: minutes, competencies: [] }
+      const at = instant(solved?.submitted_at || attempts.at(-1)?.submitted_at)
+      const minutes = startedAt && at ? Math.max(0, Math.round((Date.parse(at) - Date.parse(startedAt)) / 60000)) : 0
+      return { problemId, status: solved ? 'AC' : String(attempts.at(-1)?.verdict || 'UNKNOWN').toUpperCase(), attempts: attempts.length,
+        solveMinutes: minutes, competencies: [], ...(at && Number.isFinite(Date.parse(at)) ? { occurredAt: at } : {}) }
     })
     return {
       eventId: `vp:${account.id}:${contestId}`,
-      contest: String(contest.title || contestId), contestId: String(contestId), date: start.slice(0, 10),
+      contest: String(contest.title || contestId), contestId: String(contestId), date: startedAt ? ymd(new Date(startedAt)) : start.slice(0, 10),
       durationMinutes: Number(contest.duration_min || 0), virtual: true, teamMode: 'team', problems: normalized,
       note: '由 VP 只读同步生成；具体能力标签在复盘时补充。',
     }
@@ -2003,7 +1988,7 @@ function apply(ctx) {
         return { ok: true, reject: '', action, connected: Boolean(result.connected ?? action === 'finish'), activeAccountId: Number(result.activeAccountId || account.id || 0), account,
           requestId: String(result.requestId || ''), authorizeUrl: String(result.authorizeUrl || ''), expiresAt: String(result.expiresAt || ''),
           text: action === 'start' ? `打开授权页登录 VP：${result.authorizeUrl}\n授权后把页面显示的 code 交给 coach_vp_connect finish。` :
-            action === 'finish' ? `VP 已连接：${account.handle}（账号 ${account.id}）；本地工作区已切换。` :
+            action === 'finish' ? `VP 已连接：${account.handle}（账号 ${account.id}）；VP 缓存按账号隔离，个人课程和进度沿用。` :
               action === 'disconnect' ? 'VP 已断开；缓存保留，token 已删除。' : (result.connected ? `当前 VP：${account.handle}（账号 ${account.id}）` : '当前没有已连接的 VP 账号。') }
       } catch (err) {
         return { ok: false, reject: String(err?.message || err), action, connected: false, activeAccountId: 0, account: emptyVpAccount(), requestId: '', authorizeUrl: '', expiresAt: '', text: '' }
@@ -2013,7 +1998,7 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_vp_sync',
-    description: '从当前 VP 账号增量同步比赛、提交、事件和个人时间线。只读；游标和缓存都放在当前账号目录，切换账号不会读到另一人的数据。同步后自动生成带账号前缀的 VP 训练证据。',
+    description: '从当前 VP 账号增量读取一页比赛、提交、事件和个人时间线。hasMore 为 true 时继续调用；pageCounts 是本页拉取数，返回数组是累计缓存。VP 平台只读，游标和缓存按账号隔离。同步后写入或更新带账号前缀的 VP 训练记录，导入被拒绝时返回 ok:false。',
     parameters: {
       limit: { type: 'integer', description: '单次最多同步多少条提交，默认 200' },
       includeProfile: { type: 'boolean', description: '是否同步个人 rating/比赛历史，默认 true' },
@@ -2021,7 +2006,13 @@ function apply(ctx) {
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } },
       imported: { type: 'integer', required: true }, contests: { type: 'array', required: true }, submissions: { type: 'array', required: true }, events: { type: 'array', required: true },
-      nextCursor: { type: 'object', required: true, additionalProperties: true }, cachedPath: { type: 'string', required: true }, text: { type: 'string', required: true },
+      hasMore: { type: 'boolean', required: true },
+      pageCounts: { type: 'object', required: true, additionalProperties: false, properties: {
+        contests: { type: 'integer', required: true }, submissions: { type: 'integer', required: true }, events: { type: 'integer', required: true },
+      } },
+      nextCursor: { type: 'object', required: true, additionalProperties: false, properties: {
+        submission_id: { type: 'integer', required: true }, event_id: { type: 'integer', required: true },
+      } }, cachedPath: { type: 'string', required: true }, text: { type: 'string', required: true },
     } }, render: (_a, v) => strategyText(v) },
     execute: async (args) => {
       try {
@@ -2029,11 +2020,17 @@ function apply(ctx) {
         const account = vpAccount(payload.account)
         switchCoachWorkspace(account.id)
         const importedEvents = vpEventsFromSync(payload, account)
-        const imported = importedEvents.length ? strategy.vpImport(importedEvents) : { imported: 0 }
-        return { ok: true, reject: '', account, imported: Number(imported.imported || 0), contests: payload.contests || [], submissions: payload.submissions || [], events: payload.events || [],
-          nextCursor: payload.next_cursor || {}, cachedPath: String(payload.cachedPath || ''), text: `VP 同步完成：${account.handle}；比赛 ${payload.contests?.length || 0} 场，提交 ${payload.submissions?.length || 0} 条，新增训练证据 ${imported.imported || 0} 场。` }
+        const imported = importedEvents.length ? strategy.vpImport(importedEvents, { source: 'sync' }) : { ok: true, reject: '', imported: 0 }
+        const hasMore = payload.hasMore === true
+        const pageCounts = payload.pageCounts
+        return { ok: imported.ok, reject: String(imported.reject || ''), account, imported: Number(imported.imported || 0), contests: payload.contests || [], submissions: payload.submissions || [], events: payload.events || [],
+          hasMore, pageCounts, nextCursor: { submission_id: Number(payload.cursor?.submission_id || 0), event_id: Number(payload.cursor?.event_id || 0) }, cachedPath: String(payload.cachedPath || ''),
+          text: imported.ok
+            ? `VP 本页同步：${account.handle}；本页拉取比赛 ${pageCounts.contests} 场、提交 ${pageCounts.submissions} 条、事件 ${pageCounts.events} 条；缓存累计比赛 ${payload.contests?.length || 0} 场、提交 ${payload.submissions?.length || 0} 条、事件 ${payload.events?.length || 0} 条；写入或更新训练记录 ${imported.imported || 0} 场。${hasMore ? '仍有下一页，请继续调用 coach_vp_sync。' : '分页读取完成。'}`
+            : `VP 缓存已同步，训练记录导入被拒绝：${imported.reject}` }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, contests: [], submissions: [], events: [], nextCursor: {}, cachedPath: '', text: '' }
+        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, contests: [], submissions: [], events: [], hasMore: false,
+          pageCounts: { contests: 0, submissions: 0, events: 0 }, nextCursor: { submission_id: 0, event_id: 0 }, cachedPath: '', text: '' }
       }
     },
   }))
@@ -2083,15 +2080,16 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_target',
-    description: '设置或读取比赛目标。目标先于知识点：contest/date/result/teamMode/weeklyHours/priorities 都确定后，教练才有依据选训练重点。',
+    description: '设置或读取比赛目标；profiles 查看带来源、样本范围和限制的比赛配置，profileId 可选用。样本不是赛场预测，不自动生成奖牌线或知识点清单。目标先于知识点。',
     parameters: {
-      action: { type: 'string', required: true, enum: ['read', 'set', 'clear'] },
+      action: { type: 'string', required: true, enum: ['read', 'profiles', 'set', 'clear'] },
       expectedRevision: { type: 'integer', description: 'read 返回的 revision；首次 set 用 0。' },
       contest: { type: 'string', description: '比赛名称，例如西安区域赛' },
       date: { type: 'string', description: '比赛日期 YYYY-MM-DD' },
       result: { type: 'string', description: '目标结果，例如区域赛金牌' },
       teamMode: { type: 'string', description: 'solo 或 team' },
       weeklyHours: { type: 'number', description: '每周可用训练小时' },
+      profileId: { type: 'string', description: 'profiles 返回的配置 id；空串清除。未选择时明确缺比赛样本依据。' },
       constraints: { type: 'object', additionalProperties: true, description: '可选时间约束，例如 weekday/saturday/sunday' },
       priorities: { type: 'array', description: '能力优先级 [{id, weight, reason}]，weight 越大越优先', items: { type: 'object', additionalProperties: false, properties: {
         id: { type: 'string', required: true }, weight: { type: 'number', required: true }, reason: { type: 'string' },
@@ -2103,11 +2101,13 @@ function apply(ctx) {
       teamMode: { type: 'string', required: true }, weeklyHours: { type: 'number', required: true }, priorities: { type: 'array', required: true },
       updated: { type: 'string', required: true }, version: { type: 'integer', required: true },
       constraints: { type: 'object', required: true, additionalProperties: true }, text: { type: 'string', required: true },
+      profileId: { type: 'string', required: true }, availableProfiles: { type: 'array', required: true },
     } }, render: (_a, v) => strategyText(v) },
     execute: (args) => {
       const v = strategy.target(args?.action || 'read', args ?? {})
       return { ...v, text: v.ok
-        ? `【比赛目标 · revision ${v.revision}】${v.contest} / ${v.date}\n目标：${v.result}\n模式：${v.teamMode}；每周 ${v.weeklyHours} 小时\n能力重点：${v.priorities.map((p) => `${p.id}(${p.weight})`).join('、')}`
+        ? args?.action === 'profiles' ? ['【比赛样本配置】', ...v.availableProfiles.map(p => `${p.id} · ${p.title}（${p.status}）\n范围：${p.scope}\n取舍：${p.selectionGuidance.join('；')}\n限制：${p.limitations.join('；')}\n来源：${p.sources.map(s => `${s.title} ${s.url}`).join('；')}`)].join('\n\n')
+          : `【比赛目标 · revision ${v.revision}】${v.contest} / ${v.date}\n目标：${v.result}\n模式：${v.teamMode}；每周 ${v.weeklyHours} 小时\n样本配置：${v.profileId || '未选，先 profiles 核查'}\n能力重点：${v.priorities.map((p) => `${p.id}(${p.weight})`).join('、')}`
         : '' }
     },
   }))
@@ -2116,8 +2116,21 @@ function apply(ctx) {
     name: 'coach_vp_import',
     description: '导入 VP 或模拟赛记录。它保存比赛过程证据，让教练根据读题、耗时、提交和题目选择复盘，不再只看 CF rating。重复 eventId 会更新，不会重复堆积。',
     parameters: {
-      events: { type: 'array', required: true, items: { type: 'object', additionalProperties: true,
-        description: '每场含 eventId/contest/date/problems；problem 含 problemId/status/readMinutes/solveMinutes/attempts/competencies' } },
+      events: { type: 'array', required: true, items: { type: 'object', additionalProperties: false,
+        description: '每场含 eventId/contest/date/problems。AC 不证明独立性；失败不直接证明能力短板。测量由核对回放后的教练明确记录，同一场同一指标仅计一次。显式导入更新整场记录，请保留已有题目与注解。', properties: {
+          eventId: { type: 'string', required: true }, contest: { type: 'string', required: true }, date: { type: 'string', required: true },
+          durationMinutes: { type: 'integer' }, virtual: { type: 'boolean' }, teamMode: { type: 'string', enum: ['solo', 'team'] }, note: { type: 'string' },
+          problems: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+            problemId: { type: 'string', required: true }, status: { type: 'string', required: true },
+            readMinutes: { type: 'number' }, solveMinutes: { type: 'number', description: 'VP自动数据是从开赛到AC的经过时间，不是该题净用时。' },
+            attempts: { type: 'integer' }, competencies: { type: 'array', items: { type: 'string' } }, note: { type: 'string' },
+            independent: { type: 'boolean' }, occurredAt: { type: 'string' },
+          } } },
+          measurements: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+            competency: { type: 'string', required: true }, metric: { type: 'string', required: true }, value: { type: 'number', required: true },
+            passed: { type: 'boolean', required: true, description: '是否对照明确条件验收通过；不能仅凭AC推断。' }, independent: { type: 'boolean' }, occurredAt: { type: 'string' },
+          } } },
+        } } },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, imported: { type: 'integer', required: true },
@@ -2132,12 +2145,17 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_postmortem',
-    description: '记录一场 VP 的赛后复盘。至少写能力问题、根因或下一步动作之一；复盘会影响 coach_focus 的优先级。',
+    description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id，结论必须引用真实 evidenceRefs。工具核对引用，不替代你核对代码/回放的因果判断；旧文字复盘只保留为观察。',
     parameters: {
       eventId: { type: 'string', required: true }, competencies: { type: 'array', items: { type: 'string' } },
       missedReads: { type: 'array', items: { type: 'string' } }, decisionErrors: { type: 'array', items: { type: 'string' } },
       teamIssues: { type: 'array', items: { type: 'string' } }, rootCauses: { type: 'array', items: { type: 'string' } },
       nextActions: { type: 'array', items: { type: 'string' } }, note: { type: 'string' }, date: { type: 'string' },
+      findings: { type: 'array', description: '每能力最多一项结论；确认前需对照代码或回放。不能把 WA 直接等同于不会。', items: { type: 'object', additionalProperties: false, properties: {
+        competency: { type: 'string', required: true }, status: { type: 'string', required: true, enum: ['hypothesis', 'confirmed', 'resolved'] },
+        cause: { type: 'string', required: true, description: '至少10字，说明观察与推理；不能只重复判题结果。' },
+        evidenceRefs: { type: 'array', required: true, items: { type: 'string' }, description: '本场真实 VP 事实 id，内容变化后旧引用失效。' },
+      } } },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, eventId: { type: 'string', required: true },
@@ -2151,17 +2169,23 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_focus',
-    description: '根据比赛目标权重和 VP 复盘证据生成当前训练重点。它输出能力、比赛价值、为什么现在学、关联知识点和暂缓项；没有目标时拒绝猜方向。',
+    description: '汇总目标、比赛样本、当前课程与近30天 VP 事实。成功不算问题；只有引用事实的 confirmed 结论增加短板计数。返回独立能力起点、待确认观察、已确认问题、验收缺口与来源。排序是取舍参考，不是掌握度；没有目标时拒绝猜方向。',
     parameters: {},
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, contest: { type: 'string', required: true },
       deadline: { type: 'string', required: true }, focus: { type: 'array', required: true }, postponed: { type: 'array', required: true },
       evidenceEvents: { type: 'integer', required: true }, postmortems: { type: 'integer', required: true }, text: { type: 'string', required: true },
+      profile: { type: 'object', required: true, additionalProperties: false, properties: {
+        id: { type: 'string', required: true }, title: { type: 'string', required: true }, scope: { type: 'string', required: true }, status: { type: 'string', required: true },
+        sources: { type: 'array', required: true }, competencyIds: { type: 'array', required: true }, selectionGuidance: { type: 'array', required: true }, limitations: { type: 'array', required: true },
+      } }, daysRemaining: { type: 'integer', required: true },
       course: { type: 'object', required: true, additionalProperties: false, properties: {
         exists: { type: 'boolean', required: true }, revision: { type: 'integer', required: true },
         phaseId: { type: 'string', required: true }, phaseTitle: { type: 'string', required: true },
         focusNodes: { type: 'array', required: true, items: { type: 'string' } }, pendingNodes: { type: 'array', required: true, items: { type: 'string' } },
         phaseCompetencies: { type: 'array', required: true, items: { type: 'string' } },
+        goal: { type: 'string', required: true }, outcome: { type: 'string', required: true },
+        exitCheckResults: { type: 'array', required: true },
         focusExpired: { type: 'boolean', required: true }, missingFreshEvidence: { type: 'array', required: true, items: { type: 'string' } },
       } },
     } }, render: (_a, v) => strategyText(v) },
@@ -2177,13 +2201,17 @@ function apply(ctx) {
         exists: Boolean(snapshot.exists), revision: Number(snapshot.revision || 0), phaseId: String(snapshot.phaseId || ''),
         phaseTitle: String(snapshot.phaseTitle || ''), focusNodes: snapshot.focusNodes ?? [], pendingNodes: snapshot.pendingNodes ?? [],
         phaseCompetencies: snapshot.phaseCompetencies ?? [],
+        goal: String(snapshot.goal || ''), outcome: String(snapshot.outcome || ''), exitCheckResults: snapshot.exitCheckResults ?? [],
         focusExpired: Boolean(snapshot.focusExpired), missingFreshEvidence: snapshot.missingFreshEvidence ?? [],
       }
-      return { ...v, course, text: v.ok ? [`【当前训练重点】${v.contest} · 截止 ${v.deadline}`,
-        ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '需先定义'}\n   证据次数：${f.evidenceCount}`),
+      return { ...v, course, text: v.ok ? [`【训练取舍依据】长期：${course.goal || '尚未建立'}\n本次：${v.contest} · ${v.deadline} · 剩余${v.daysRemaining}天`,
+        `样本：${v.profile.title || '未选择'}（${v.profile.status}）\n适用边界：${v.profile.limitations.join('；')}`,
+        ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 独立起点${f.baselineCount} / 待确认${f.observationCount}`),
         course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
         course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
+        course.exitCheckResults.length ? `验收进展：${course.exitCheckResults.map(check => `${check.target}：${check.passed ? `已满足（${check.matchedEvents}次，跨${check.distinctDays}日）` : check.missing.join('，')}`).join('；')}` : '',
         v.postponed.length ? `暂缓：${v.postponed.join('、')}` : '没有暂缓项。',
+        '教练据此解释取舍并给一个动作；排序不是掌握度，也不是奖牌概率。',
       ].join('\n') : '' }
     },
   }))
@@ -2197,6 +2225,7 @@ function apply(ctx) {
       id: { type: 'string', required: true }, title: { type: 'string', required: true }, contestUse: { type: 'string', required: true },
       nodes: { type: 'array', required: true }, appliesTo: { type: 'array', required: true }, extensions: { type: 'array', required: true }, notFor: { type: 'array', required: true },
       commonFailures: { type: 'array', required: true }, transferProblems: { type: 'array', required: true }, exitEvidence: { type: 'array', required: true },
+      recognition: { type: 'array', required: true }, proofQuestions: { type: 'array', required: true }, sources: { type: 'array', required: true },
       text: { type: 'string', required: true },
     } }, render: (_a, v) => strategyText(v) },
     execute: (args) => {
@@ -2204,6 +2233,8 @@ function apply(ctx) {
       return { ...v, text: v.ok ? [`【范围卡片】${v.title}（${v.id}）`, `比赛价值：${v.contestUse}`,
         `适用：${v.appliesTo.join('、')}`, `延伸：${v.extensions.join('、')}`, `不要用于：${v.notFor.join('、')}`,
         `常见错误：${v.commonFailures.join('、')}`, `迁移：${v.transferProblems.join('、')}`, `退出条件：${v.exitEvidence.join('、')}`,
+        `识别信号：${v.recognition.join('；') || '先核对适用条件'}`, `解释与证明：${v.proofQuestions.join('；') || '先解释为何条件足够'}`,
+        `来源：${v.sources.map(source => `${source.title} ${source.url}`).join('；') || '此卡尚无可核验来源'}`,
       ].join('\n') : '' }
     },
   }))

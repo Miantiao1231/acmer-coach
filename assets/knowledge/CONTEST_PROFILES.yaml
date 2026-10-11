@@ -1,0 +1,61 @@
+# 这是可追溯的选题诊断，不是出题频率榜；provisional 禁止解释成官方考纲。
+version: 1
+profiles:
+  - id: regional-diagnostic
+    title: 区域赛通用能力诊断（有限样本）
+    scope: 用公开区域赛的题面与官方解题建立诊断任务，再结合本人 VP 证据取舍。
+    status: provisional
+    sources:
+      - title: NWERC 2024 官方题面（采样 A、D、E、F、K、L）
+        url: https://2024.nwerc.eu/main/problem-set.pdf
+      - title: NWERC 2024 官方解题（A/D/E/F/K/L 对应页）
+        url: https://2024.nwerc.eu/main/solutions.pdf
+      - title: ICPC NCNA 公布的区域赛规则（通用背景，不提供专题频率）
+        url: https://nc.na.icpc.global/rules/
+    competencyIds: [contest-reading, contest-decision, implementation-stability, dp-modeling, graph-modeling, data-structures, math-combinatorics, code-review, team-communication]
+    selectionGuidance:
+      - 先用整场 VP 诊断读题、实现、调试与分工，再用经确认的失败原因选择专题；成功题用作能力基线。
+      - 采样 A 检查从精确排序规则到实现的转化；D 检查计数状态；E 检查大次数变换与模幂，题名不决定算法。
+      - 采样 L 检查可行性单调性与贪心证明；F 检查单调栈和并查集组合；K 检查路径与概率模型组合。
+      - 赛前优先修复已证实、可在剩余时间完成验收的障碍；未证实的缺口先安排短诊断，不直接扩知识点。
+      - 同一题允许多种正确解法；把能解释条件并独立迁移作为验收，不能将某个算法标签当唯一答案。
+    limitations:
+      - 当前算法样本只有 NWERC 2024 的六题，不能推出中国区域赛频率、任何场次金牌题数或西安出题预测。
+      - 读题时间盒、换题条件、验收动作是插件教学设计，需要按个人与团队记录调整，规则来源不证明这些训练阈值。
+      - 未采样其余题或跨年份统计；此配置不是西安考纲，排名与奖牌目标仍需对应比赛榜单。
+  - id: wf-extension
+    title: WF 扩展能力诊断（题面样本）
+    scope: 在基础能力稳定后，以 World Finals 原题检查跨模型推理、约束解释和交互实现。
+    status: provisional
+    sources:
+      - title: ICPC 2024 World Finals 官方题面（采样 B、I、L）
+        url: https://icpc.global/worldfinals/problems/2024-ICPC-World-Finals/icpc2024.pdf
+      - title: ICPC 2024 交互题评测说明（输出刷新等要求）
+        url: https://docs.icpc.global/wp-content/uploads/2024/08/2024-JudgingNotes.pdf
+    competencyIds: [contest-reading, contest-decision, dp-modeling, graph-modeling, data-structures, math-combinatorics, code-review, team-communication]
+    selectionGuidance:
+      - 采样 B 用于检查概率对象、重复元素与事件依赖的精确表达；不能仅凭概率题标签选一个模板。
+      - 采样 I 用于检查树上覆盖目标与最坏响应时间的建模，要求先解释判定或优化方案再实现。
+      - 采样 L 用于检查未知位置与朝向下的信息状态、安全动作和终止条件；交互程序必须按评测说明刷新输出。
+      - 只有当前基础能力经新题和延迟复测确认后，才将此样本中的扩展任务转为主线；短期比赛可保留为旁线讨论。
+    limitations:
+      - 当前只有 2024 WF 三道题面样本，未核验这些题的完整官方题解；能力映射是教学诊断推断，不是唯一解法。
+      - 不能从样本推出 WF 录取标准、区域赛奖牌线或必备专题全表；不把 CF rating 当作阶段通过证据。
+      - 不用未验证的交互策略宣称可通过；需要对应交互器与完整程序验证。
+  - id: xian-pending
+    title: 西安区域赛（待采样）
+    scope: 为已选西安目标保留真实样本入口；当前只提供通用比赛过程诊断。
+    status: provisional
+    sources:
+      - title: QOJ 西安历年比赛目录（仅核验样本入口，未作专题统计）
+        url: https://qoj.ac/category/87
+      - title: ICPC NCNA 公布的区域赛规则（通用背景，非西安本届规则）
+        url: https://nc.na.icpc.global/rules/
+    competencyIds: [contest-reading, contest-decision, implementation-stability, code-review, team-communication]
+    selectionGuidance:
+      - 使用本人和当前团队 VP 的经确认障碍安排短期动作，专题需求暂参考区域赛通用诊断并明示来源。
+      - 先核验目标届次、原始题面、主办方题解和榜单，再记录逐题模型、可替代解法及样本年份。
+      - 样本补齐后才修订专题取舍；比赛名和账号 rating 都不能单独生成西安专题权重。
+    limitations:
+      - 历年目录不能证明某知识点高频；尚未完成西安原题与官方题解逐题采样，不能预测本届题目。
+      - 此配置不是西安考纲，也未核验目标届次奖牌榜单，不能给出金牌保证或做题数保证。

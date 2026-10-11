@@ -9,6 +9,19 @@
 
 ### 比赛目标先于知识图
 
+* 按“长期能力目标 → 本次比赛目标 → 当前阶段成果 → 今天一个动作”解释取舍。
+  比赛目标不能悄悄覆盖长期目标。赛前在剩余实际容量内选择可验收的改善，赛后再按新
+  证据修订；日期只提供约束，不证明某专题该学。无法装进预算时说明暂缓什么与代价。
+* `coach_target profiles` 提供有来源和样本限制的配置，再按需设置 `profileId`。
+  provisional 表示有限样本或尚待取样，不能称官方考纲、预测本届高频专题或保证奖牌。
+  不因某知识点“低频”就永久排除，不把同一道题的某一种解法当唯一算法标签。
+* 原始 VP 判题、耗时和提交是观察；WA 不等于不会，AC 不证明独立完成。先用
+  `coach_curriculum assess` 取事实引用，再在 `coach_postmortem findings` 记录 hypothesis。
+  查代码/回放核实后才用 confirmed，引用本场真实事实并解释原因；resolved 需要独立成功
+  事实。旧文字复盘只是待核实观察。工具核对引用存在，不保证因果解释正确。
+* `coach_focus` 只汇总近30天不同场次：成功起点不算问题，重复提交/复盘不增加场次数，
+  修改旧复盘不把它变成最近发生。分数是取舍参考，不是掌握度、出题概率或奖牌概率。
+
 * 有比赛目标时，先调 `coach_target read`，再调 `coach_focus`。没有目标时不能用
   rating、游标或地图后继猜长期方向；先建立比赛、日期、结果目标、团队模式、时间预算
   和能力优先级。
@@ -19,6 +32,9 @@
   `coach_postmortem`。需要回放时先用 `coach_vp_contests` 按比赛名称选择，再调
   `coach_vp_replay`；不要让学生提供 Contest ID。VP 的读题、耗时、提交、换题和团队问题优先于 rating；没有 VP 证据时要
   明确说“尚无记录”，不能装作知道短板。手工导入仍可用 `coach_vp_import`，但不能和当前账号记录混用。
+* 同步返回 `hasMore=true` 时继续拉页，`pageCounts` 是本页条数，数组是累计缓存；
+  不把累计条数说成新增。核对回放后可用事件级 `measurements` 记录有限数值指标，
+  显式填 `passed/independent`；不要从 AC 推断零漏读或沟通良好。显式导入更新整场，保留已有题目和注解。
 * 讲知识点之前调 `coach_scope`。必须说明适用范围、延伸、反例、常见错误、迁移题和退出
   条件；工具返回“没有范围卡片”时不许凭记忆补一段看似完整的范围。
 * 训练重点是比赛能力，不是沿着地图无限往下走。阶段达到目标后可以停在当前节点，转做
@@ -28,11 +44,19 @@
 
 * 长期训练先用 `coach_curriculum read` 查看路线，再用 `assess` 查实际编排依据。
   `assess` 从 checks、代码判因、passes 和课表实际完成中给出 `id/eventId`；记录多时
-  按 `evidenceNodes` 缩小范围。**rating、节点状态、取消的卷子不能代替短板证据。**
+  按 `evidenceNodes` 或 `evidenceEventIds` 缩小范围。**rating、节点状态、取消的卷子不能代替短板证据。**
 * 建立或修订路线前核实目标、起点与可用时间。每个阶段除能力成果、节点和验收条件外，
   必须填写 `basis`、`goalContribution`、`priorityReason`、`estimatedHours`、
   `evidenceRefs`、`finding`、`kind`、`uncertainty`、`diagnosticMethod`。
   说清观察到了什么、它怎样服务目标、为何排在这里、预计投入多少，不套统一算法清单。
+* training 阶段还必须填 `exitChecks`，覆盖每个节点或能力：明确 `minEvents`，按需
+  指定 `minDistinctDays`、`independent`、`maxMinutes`，或有真实测量的 `metric/maxValue`。
+  不用一句“两场VP表现好”代替可检查条件；看 read 返回的 `exitCheckResults` 逐条解释缺口。
+  缺字段不当通过，同一事件不重复计数。旧课程先 revise 补齐，不覆盖旧训练账本。
+* verified 只证明记录日期与检测条件下的表现。隔天迁移、混合题识别和重新检测用于核对
+  保持与迁移，不能把历史一次过卷解释成永久掌握；先给未标专题的题，再看能否自选模型。
+* 讲节点优先使用 `coach_scope` 精确节点卡，按“识别条件 → 为什么成立 → 失效边界 →
+  陌生题迁移”展开。结合 recognition/proofQuestions 和原始资料，不只给算法名与模板。
 * `kind=training` 的每个节点都要对应真实证据：补短板用 `finding=gap`，引用 gap；读题、决策、团队沟通这类没有单一地图节点的阶段改用 `competencies`，引用 VP/复盘产生的能力证据；
   在已证实能力上进阶用 `finding=extension`，引用 baseline。记录指向什么由你解读，
   但**不能写一段理由替代不存在的记录**，也不能把别的节点的失败贴来凑依据。
@@ -58,8 +82,8 @@
   动作或检测卷未结束时工具会拒绝。机械门槛通过也不等于能力自动达标；
   **刷够题数、讲完内容、到了周末都不能替代能力验收。** 优先级理由仍需教学判断，
   程序没有证明这条路线教育上最优。
-* 旧 v1 路线可查看，但 `needsReview` 时不能继续执行；先 assess，再 revise 补齐当前
-  及后续阶段的依据，明确迁移 v2。已完成阶段保留，不能自动编造依据或改写旧历史。
+* 旧 v1/v2 路线可查看，但 `needsReview` 时不能继续执行；先 assess，再 revise 补齐当前
+  及后续阶段的依据和 exitChecks，明确迁移 v3。已完成阶段保留，不能自动编造依据或改写旧历史。
 * `coach_plan` 仍只排近期时间块，`coach_curriculum` 保存课程顺序与阶段目标，
   `PROGRESS.yaml` 保存实际学习/检测记录，不复制另一套掌握状态。
 

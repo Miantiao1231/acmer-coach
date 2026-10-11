@@ -2,7 +2,7 @@ version: 1
 competencies:
   - id: contest-reading
     title: 比赛读题与筛选
-    contestUse: 在前 30 分钟扫完题面，识别可做题和高风险题，避免漏读与过早开写。
+    contestUse: 在团队约定的首轮时间盒内扫描题面，识别可做题和高风险题，记录漏读与过早开写。
     nodes: []
     appliesTo: [所有区域赛场次]
     extensions: [首轮扫描, 题目分层, 读题时间盒]
@@ -10,26 +10,37 @@ competencies:
     commonFailures: [漏读题面, 被样例带偏, 没有放弃条件]
     transferProblems: [一场完整 VP]
     exitEvidence: [两场 VP 都记录首轮扫描顺序, 没有漏读题]
+    sources:
+      - title: ICPC NCNA 公布的区域赛规则（通用背景；扫描时间盒是教学设计）
+        url: https://nc.na.icpc.global/rules/
   - id: contest-decision
     title: 比赛决策与终局
     contestUse: 根据成功概率、剩余时间和罚时决定继续、换题或集中火力。
     nodes: []
-    appliesTo: [区域赛 VP, 最后 60 分钟]
+    appliesTo: [区域赛 VP, 团队定义的终局阶段]
     extensions: [换题阈值, 终局集中, 代码验算分工]
     notFor: [多道难题同时无边界死磕]
     commonFailures: [沉没成本, 最后阶段分散火力, 不复盘换题原因]
     transferProblems: [5 小时团队 VP]
     exitEvidence: [两场 VP 有明确换题记录和终局策略]
+    sources:
+      - title: ICPC NCNA 公布的区域赛规则（排名背景；换题与终局方法是教学设计）
+        url: https://nc.na.icpc.global/rules/
   - id: implementation-stability
     title: 实现稳定性
     contestUse: 在限时下把已知套路写成一次通过、边界完整的代码。
-    nodes: [数据结构, 二分, 前缀和, 差分, 动态规划基础]
+    nodes: [二分, 前缀和 & 差分, 动态规划基础]
     appliesTo: [中档签到题, 需要快速转化的常见模型]
     extensions: [边界清单, 小样例自测, 重写压缩]
     notFor: [只背模板不理解状态来源]
     commonFailures: [下标错误, 初始化遗漏, 重复提交同一类低级错误]
     transferProblems: [两道未见过的同类题]
     exitEvidence: [两道迁移题限时独立通过, 至少一题隔天复测]
+    sources:
+      - title: OI Wiki 二分：实现细节与边界
+        url: https://oi-wiki.org/basic/binary/
+      - title: OI Wiki 前缀和与差分：区间边界
+        url: https://oi-wiki.org/basic/prefix-sum/
   - id: dp-modeling
     title: DP 建模与迁移
     contestUse: 从题面抽出状态、转移、顺序和复杂度，而不是只认题型名称。
@@ -40,16 +51,24 @@ competencies:
     commonFailures: [状态定义含糊, 转移漏情况, 复杂度算错]
     transferProblems: [一道结构相同但题面不同的 DP, 一道隔天迁移题]
     exitEvidence: [能解释状态为何足够, 两道新题独立完成]
+    sources:
+      - title: OI Wiki 动态规划基础：状态与转移
+        url: https://oi-wiki.org/dp/basic/
   - id: graph-modeling
     title: 图论建模
     contestUse: 识别图结构并选对最短路、连通性、拓扑序、树或网络流模型。
-    nodes: [图论基础, 最短路, 拓扑排序, DFS（搜索）, 并查集]
+    nodes: [图论相关概念, 最短路, 拓扑排序, DFS（图论）, 并查集, 强连通分量, 最近公共祖先]
     appliesTo: [关系传播, 依赖顺序, 连通块, 路径代价]
     extensions: [DAG DP, 树上问题, 生成树, 流与匹配]
     notFor: [把所有关系题都硬套最短路]
     commonFailures: [建边方向错, 忘记不连通, 复杂度超限]
     transferProblems: [两种表面不同的关系建模题]
     exitEvidence: [限时识别模型并独立写出两题]
+    sources:
+      - title: OI Wiki 最短路：算法适用条件
+        url: https://oi-wiki.org/graph/shortest-path/
+      - title: OI Wiki 强连通分量：互达与缩点应用
+        url: https://oi-wiki.org/graph/scc/
   - id: data-structures
     title: 数据结构选型与实现
     contestUse: 根据操作、约束和查询方式选择合适结构并稳定实现。
@@ -60,6 +79,11 @@ competencies:
     commonFailures: [区间边界错, 懒标记下传错, 结构选重]
     transferProblems: [同结构不同操作题]
     exitEvidence: [模板能从零写出, 新题能说明为何选它]
+    sources:
+      - title: OI Wiki 树状数组：操作与可差分信息
+        url: https://oi-wiki.org/ds/fenwick/
+      - title: OI Wiki 线段树基础：维护信息与延迟标记
+        url: https://oi-wiki.org/ds/seg/
   - id: math-combinatorics
     title: 数学与组合建模
     contestUse: 把计数、模运算、概率和构造题压成可计算的结构。
@@ -70,6 +94,11 @@ competencies:
     commonFailures: [重复计数, 模逆不存在, 边界概率遗漏]
     transferProblems: [两道不同叙事的计数题]
     exitEvidence: [能写出计数对象和去重方式, 一题隔天复测]
+    sources:
+      - title: OI Wiki 排列组合：计数对象与组合公式
+        url: https://oi-wiki.org/math/combinatorics/combination/
+      - title: OI Wiki 模逆元：存在条件与求法
+        url: https://oi-wiki.org/math/number-theory/inverse/
   - id: code-review
     title: 代码检查与调试
     contestUse: 在提交前快速发现边界、溢出、复杂度和实现偏差。
@@ -80,6 +109,9 @@ competencies:
     commonFailures: [没有最小反例, 只看样例, 不验证复杂度]
     transferProblems: [给出一份错误代码并定位最小反例]
     exitEvidence: [三次提交前检查都能指出具体风险]
+    sources:
+      - title: OI Wiki 常见错误（边界、溢出和调试检查）
+        url: https://oi-wiki.org/contest/common-mistakes/
   - id: team-communication
     title: 团队沟通与分工
     contestUse: 让三个人并行推进、及时同步、减少重复劳动和信息丢失。
@@ -90,3 +122,6 @@ competencies:
     commonFailures: [没人汇报, 两人重复做题, 交接时丢约束]
     transferProblems: [三人 5 小时 VP]
     exitEvidence: [两场 VP 有分工记录和交接记录]
+    sources:
+      - title: ICPC NCNA 公布的区域赛规则（团队赛制；交接与验收是教学设计）
+        url: https://nc.na.icpc.global/rules/

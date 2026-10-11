@@ -65,6 +65,11 @@ run "setup-check"   node dev/setup-check.mjs
 run "curriculum"    node --test dev/curriculum-check.mjs
 run "evidence"      node --test dev/curriculum-evidence-check.mjs
 run "strategy"      node --test dev/strategy-check.mjs
+run "catalog"       node --test dev/catalog-check.mjs
+run "coach-contract" node --test dev/coaching-contract-check.mjs
+run "VP-client"     node dev/vp-client-check.mjs
+run "VP-sync"       node --test dev/vp-sync-check.mjs
+run "migration"     node --test dev/workspace-migration-check.mjs
 if [ "${COACH_LIVE_INDEX+x}" = x ] || node -e "
   const fs=require('fs'), os=require('os'), path=require('path');
   process.exit(fs.existsSync(path.join(os.homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')) ? 0 : 1);

@@ -35,7 +35,7 @@ done
 # 从副本目录跑 `bash dev.sh` 走的是另一条路（`dsh plugin remove/add`，而那条
 # 路不可靠），和这份的行为不一样。换句话说，**同一个命令，从哪个目录按回车
 # 决定跑哪份脚本** —— 两份 dev.sh 就是两份真相，正是这份文件在防的那种坑。
-SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js assets/knowledge/COMPETENCIES.yaml assets/knowledge/vp.html assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs docs/长期课程机制.md dev.sh'
+SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/workspace-migration.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js assets/knowledge/COMPETENCIES.yaml assets/knowledge/NODE_SCOPES.yaml assets/knowledge/CONTEST_PROFILES.yaml assets/knowledge/vp.html assets/rules/coach-rules.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs docs/长期课程机制.md docs/比赛与教学依据.md docs/设计方针.md dev.sh'
 STALE=''
 for f in $SYNC_FILES; do
   for d in "${DSTS[@]}"; do
@@ -93,7 +93,7 @@ echo '· 全部副本哈希一致'
 # 病因已修（那几节改跑临时副本），这条是**兜底闸门**：自检跑完比一次指纹，
 # 一变就报错退出。这种事不靠自觉，靠闸门。
 LEDGER_DIR="$DSH_HOME_BASH/knowledge"
-LEDGERS='PROGRESS.yaml SCHEDULE.yaml CURRICULUM.yaml'
+LEDGERS='PROGRESS.yaml SCHEDULE.yaml CURRICULUM.yaml TARGET.yaml VP_EVENTS.yaml'
 ledger_fp() { (cd "$LEDGER_DIR" 2>/dev/null && sha256sum $LEDGERS 2>/dev/null || true); }
 LEDGER_BEFORE=$(ledger_fp)
 
@@ -117,6 +117,11 @@ echo
 echo '── 编排证据验收（目录、引用、事件身份与重复记录）──'
 node --test "$SRC_BASH/dev/curriculum-evidence-check.mjs" || EVIDENCE_RC=$?
 EVIDENCE_RC=${EVIDENCE_RC:-0}
+
+echo
+echo '── 策略、教学目录、真实工具与账号数据回归 ──'
+node --test "$SRC_BASH/dev/strategy-check.mjs" "$SRC_BASH/dev/catalog-check.mjs" "$SRC_BASH/dev/coaching-contract-check.mjs" "$SRC_BASH/dev/workspace-migration-check.mjs" "$SRC_BASH/dev/vp-client-check.mjs" "$SRC_BASH/dev/vp-sync-check.mjs" || CONTRACT_RC=$?
+CONTRACT_RC=${CONTRACT_RC:-0}
 
 LEDGER_AFTER=$(ledger_fp)
 if [ "$LEDGER_BEFORE" != "$LEDGER_AFTER" ]; then
@@ -149,4 +154,4 @@ if [ -n "$DSH_LIVE" ]; then
   echo '  要验「工具挂进教练的清单里」，得先重启 dsh。'
 fi
 
-exit $(( VERIFY_RC + SHAPE_RC + CURRICULUM_RC + EVIDENCE_RC ))
+exit $(( VERIFY_RC + SHAPE_RC + CURRICULUM_RC + EVIDENCE_RC + CONTRACT_RC ))

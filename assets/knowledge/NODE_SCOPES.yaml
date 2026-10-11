@@ -1,0 +1,201 @@
+# 技术边界来自逐页来源；练习与验收是本插件的教学设计，不是比赛考纲。
+version: 1
+nodes:
+  - id: 二分
+    title: 二分：先证明可行性边界
+    contestUse: 把最优值问题转成可判定的阈值问题，先算一次 check 的成本。
+    recognition: [答案有序且 check 的真假只切换一次, 能构造保证包含答案的上下界]
+    proofQuestions: [为什么 check 成立时更宽松的阈值也成立, 循环不变量与终止后的答案分别是什么]
+    appliesTo: [有序查找, 最大值最小化或最小值最大化且判定单调]
+    extensions: [实数二分的误差界, 二分加贪心或图算法判定]
+    notFor: [真假模式为真假真时直接二分, 没有单峰证明就套三分]
+    commonFailures: [全可行或全不可行时越界, 上下界更新不推进, check 的复杂度被漏算]
+    transferProblems: [一道未标注算法的容量分配题, 把判定改成非单调并给出二分失效样例]
+    exitEvidence: [独立写出判定单调性证明, 新题通过并检查边界无解与答案在端点的情况]
+    sources:
+      - title: OI Wiki 二分：二分答案与实现细节
+        url: https://oi-wiki.org/basic/binary/
+  - id: 贪心
+    title: 贪心：选择规则和交换证明
+    contestUse: 在编码前说明局部选择为何保留至少一个最优解。
+    recognition: [能替换最优方案中的一步而不变差, 选择后剩余问题保持相同结构]
+    proofQuestions: [交换以后是否仍可行, 哪个条件保证目标值不变差]
+    appliesTo: [能证明的排序选择, 区间调度或可撤销的选择]
+    extensions: [堆维护后悔选择, 贪心作为二分的 check]
+    notFor: [只有最优子结构却未证明贪心选择性质, 凭样例推导排序规则]
+    commonFailures: [只比较眼前收益, 交换破坏后续可行性, 比较器不满足严格弱序]
+    transferProblems: [把无权区间调度改为带权并解释原贪心为何失效, 一道不同叙事的交换论证题]
+    exitEvidence: [写出可行性与不变差两段证明, 用小规模穷举核验候选规则并独立完成迁移题]
+    sources:
+      - title: OI Wiki 贪心：证明与动态规划的区别
+        url: https://oi-wiki.org/basic/greedy/
+  - id: 前缀和 & 差分
+    title: 前缀和与差分：离线维护的边界
+    contestUse: 先区分查询发生在全部更新之后，还是更新查询交替发生。
+    recognition: [区间信息可由两个前缀消去, 多次区间加后只需一次恢复数组]
+    proofQuestions: [为什么区间和是两个前缀之差, 区间修改为什么只改差分的两个端点]
+    appliesTo: [静态区间和, 离线区间加, 二维矩形统计]
+    extensions: [差分加树状数组支持在线查询, 树上差分加最近公共祖先]
+    notFor: [用两个前缀最小值直接相减求区间最小值, 每次更新后重算全数组却声称在线高效]
+    commonFailures: [闭区间右端漏加一, 空区间和零下标处理错, 累加溢出]
+    transferProblems: [矩形加和单点查询的离线题, 把同题改为更新查询交替并重新选结构]
+    exitEvidence: [解释端点更新和恢复过程, 用单点全区间相邻区间样例验证并做一题新题]
+    sources:
+      - title: OI Wiki 前缀和与差分：一维与二维、在线扩展
+        url: https://oi-wiki.org/basic/prefix-sum/
+  - id: 动态规划基础
+    title: 动态规划：状态足够与计算顺序
+    contestUse: 从可区分的未来决策设计状态，写清合法性、目标值和依赖。
+    recognition: [许多决策路径到达同一个子问题, 状态保留影响未来的全部必要信息]
+    proofQuestions: [相同状态的两段历史为何允许共用后续解, 转移是否覆盖且只覆盖合法决策]
+    appliesTo: [有限状态上的递推, 有可计算依赖顺序或可证明终止的记忆化搜索]
+    extensions: [树形和区间 DP, 状压 DP, 计数与最优化使用不同合并运算]
+    notFor: [将不同剩余资源的历史合为一态, 有环依赖却直接按下标递推]
+    commonFailures: [状态含义在中途变化, 不可达状态初始化为零, 只算状态数没算转移数]
+    transferProblems: [未标注专题的选择序列题, 给出只记当前位置却漏掉剩余资源的反例]
+    exitEvidence: [解释状态充分性与依赖顺序, 两道新题独立完成且至少一题隔天复测]
+    sources:
+      - title: OI Wiki 动态规划基础：状态、转移与性质
+        url: https://oi-wiki.org/dp/basic/
+  - id: 背包 DP
+    title: 背包：使用次数决定转移层
+    contestUse: 从物品使用次数和容量语义确定转移与遍历方向。
+    recognition: [资源容量较小且可作为状态, 可选项按零一或多次使用分类]
+    proofQuestions: [一维压缩后的转移读取的是上一层还是本层, 恰好装满与容量以内最优如何初始化]
+    appliesTo: [零一与完全背包, 可转成资源容量的计数选择]
+    extensions: [多重背包的二进制拆分, 多维资源或价值维度转换]
+    notFor: [容量巨大时照搬 O(nW), 有额外物品依赖却当成独立选择]
+    commonFailures: [零一背包正序导致同一件重复使用, 计数题混淆组合与排列, 恰好装满未标不可达]
+    transferProblems: [同一题分别限制每项一次和不限次数, 一道容量维度换成价值维度的题]
+    exitEvidence: [用单件物品容量两倍构造错误循环反例, 独立完成新题并说明初始化与复杂度]
+    sources:
+      - title: OI Wiki 背包 DP：零一背包与完全背包
+        url: https://oi-wiki.org/dp/knapsack/basic/
+  - id: 状压 DP
+    title: 状压 DP：集合不是完整历史
+    contestUse: 当对象数小，用集合编码已使用对象，再补上影响未来的状态。
+    recognition: [对象数量允许指数状态, 集合与少量附加信息足以确定后续选择]
+    proofQuestions: [为什么相同集合仍可能需要区分终点, 枚举子集的总转移量是 2^n 还是 3^n]
+    appliesTo: [小规模集合选择, 集合加终点的路径 DP]
+    extensions: [子集卷积式枚举, 轮廓状态与插头 DP 的状态设计]
+    notFor: [只看 n 小不核算内存, 旅行路径只记访问集合而漏掉当前终点]
+    commonFailures: [补集超出 n 位, 重复计数, 指数复杂度漏乘状态维度]
+    transferProblems: [一道未标注专题的任务分配题, 同一访问集合不同终点的后续代价反例]
+    exitEvidence: [写出状态与总转移复杂度, 用小 n 全排列对照并完成一题未见过的迁移题]
+    sources:
+      - title: OI Wiki 状压 DP：集合编码与例题状态
+        url: https://oi-wiki.org/dp/state/
+  - id: 最短路
+    title: 最短路：权值条件和状态图
+    contestUse: 先确定点代表什么状态、边代价是什么，再依据权值选算法。
+    recognition: [目标是路径上可相加代价的最小值, 状态图能够完整表达约束]
+    proofQuestions: [Dijkstra 的确定最小距离步骤为何依赖非负边, 负环是否从源点可达且能影响目标]
+    appliesTo: [非负权 Dijkstra, 单位权 BFS, 允许负权时按规模选择 Bellman-Ford 或 DAG 递推]
+    extensions: [分层图表达有限次数操作, 双向距离组合, 最短路上的计数需处理零权环]
+    notFor: [负边图直接使用确定后不再更新的 Dijkstra, 将一般图最长简单路直接变号后套最短路]
+    commonFailures: [错误建边方向, INF 相加溢出, 把第一次入队当作最终距离]
+    transferProblems: [s到a权2、s到b权5、b到a权-4的有向图，展示提前确定a的错误, 一道带一次优惠操作的状态图题]
+    exitEvidence: [解释算法适用条件及负权反例, 独立建立新题状态图并检查不连通与溢出]
+    sources:
+      - title: OI Wiki 最短路：Bellman-Ford、Dijkstra 正确性与比较
+        url: https://oi-wiki.org/graph/shortest-path/
+  - id: 强连通分量
+    title: 强连通分量：互达与缩点
+    contestUse: 把有向图中的互达关系压成 DAG，同时确认组件内信息能否压缩。
+    recognition: [需要识别有向环组成的互达块, 跨组件关系需要拓扑顺序]
+    proofQuestions: [为什么缩点后不能有有向环, 组件内所有点互达为何不等于所有点权都能合法收集]
+    appliesTo: [有向图互达划分, 保持语义的缩点 DP, 2-SAT 的矛盾检测]
+    extensions: [缩点加拓扑 DP, 2-SAT, 凝聚图上的可达性]
+    notFor: [把无向连通块当成 SCC 的完整替代, 简单路径问题中不证明便将组件点权求和]
+    commonFailures: [用已出栈节点更新 low, 未遍历全部连通部分, 缩点后的重边重复计数]
+    transferProblems: [中心和三个叶子的双向星形图构成一个 SCC，但简单路径最多经过三个点，解释缩点求和失效, 一道依赖循环消除后的 DAG 题]
+    exitEvidence: [手算一例分量与凝聚图并解释信息合并条件, 独立完成新题并核对 low 与栈状态]
+    sources:
+      - title: OI Wiki 强连通分量：Tarjan 的栈状态和应用
+        url: https://oi-wiki.org/graph/scc/
+  - id: 并查集
+    title: 并查集：只合并的等价关系
+    contestUse: 用集合代表等价或无向连通关系，先检查是否需要删除与分裂。
+    recognition: [连接只增加且查询是否同集合, 已处理位置可以永久跳过]
+    proofQuestions: [父指针为何只是集合表示而非原图边, 删除一条桥后为什么普通并查集无法分裂]
+    appliesTo: [增量无向连通, Kruskal, 满足单调性的后继跳转]
+    extensions: [带权并查集, 回滚并查集配合离线动态连通]
+    notFor: [直接维护有向可达性, 对路径压缩结构随意撤销单次合并]
+    commonFailures: [合并非根节点, 将父指针当原图路径, 忘记初始化孤立点]
+    transferProblems: [在线只加边后改为允许删边并说明新需求, 一道永久填满后跳过位置的模拟题]
+    exitEvidence: [解释等价关系与维护的不变量, 用重复合并孤点自环自测并独立完成迁移题]
+    sources:
+      - title: OI Wiki 并查集：合并、路径压缩及扩展操作
+        url: https://oi-wiki.org/ds/dsu/
+  - id: 树状数组
+    title: 树状数组：前缀聚合和可消去信息
+    contestUse: 对单点加和区间和先选短小结构，扩展操作必须重新推导。
+    recognition: [频繁单点变化与前缀聚合, 区间答案可以从两个前缀消去]
+    proofQuestions: [lowbit 管辖的区间如何覆盖前缀且互不重复, 为什么两个前缀最小值无法恢复区间最小值]
+    appliesTo: [单点加区间和, 离散化后逆序对, 差分后的区间加单点查]
+    extensions: [两棵树状数组维护区间加区间和, 非负频数下寻找第 k 小]
+    notFor: [把前缀 min 相减查询任意区间, 频数有负值仍直接按前缀单调性找第 k 小]
+    commonFailures: [零下标更新死循环, 离散化顺序或重复值错误, 把赋值操作当作增量]
+    transferProblems: [一道动态排名题, 从点加区间和推导区间加区间和]
+    exitEvidence: [从区间覆盖解释更新和查询, 负增量重复值与边界自测并完成未标注专题新题]
+    sources:
+      - title: OI Wiki 树状数组：区间查询、区间加与第 k 小
+        url: https://oi-wiki.org/ds/fenwick/
+  - id: 线段树
+    title: 线段树：信息合并和标记作用
+    contestUse: 先定义节点信息、合并方式和更新如何作用，最后写树的代码。
+    recognition: [区间可分成左右两半并合并查询结果, 更新可由足够的摘要正确作用于整段]
+    proofQuestions: [合并运算为何满足结合律且顺序是否重要, 赋值与加法标记先后作用的结果是否相同]
+    appliesTo: [动态区间和或最值, 可证明标记作用的区间加与赋值]
+    extensions: [树链剖分, 可持久化, 特定条件下的区间最值操作]
+    notFor: [只有区间和却直接推出区间 chmin 后的新和, 混合标记不定义复合顺序]
+    commonFailures: [下传后父节点未重算, 标记覆盖顺序错, 乘区间长度或数值范围漏算]
+    transferProblems: [区间加与区间赋值交替的查询题, 数组(0和4)与(2和2)同和，逐项与2取min后和为2与4，证明仅有区间和摘要不足]
+    exitEvidence: [写出节点与标记不变量, 与小数组朴素模拟对照并限时完成一题新操作迁移题]
+    sources:
+      - title: OI Wiki 线段树基础：区间操作与延迟标记
+        url: https://oi-wiki.org/ds/seg/
+  - id: 最近公共祖先
+    title: 最近公共祖先：树上的共同祖先
+    contestUse: 将静态树上的距离和路径统计化成深度与共同祖先问题。
+    recognition: [对象构成有根树或分森林处理, 多次询问两点路径的公共部分]
+    proofQuestions: [先对齐深度后为何能同时向上跳, 根距离公式为什么减去两倍 LCA 距离]
+    appliesTo: [静态树 LCA, 带权树路径长度, 树上差分辅助]
+    extensions: [Euler 序加 RMQ, 倍增带路径聚合, 换根查询]
+    notFor: [一般 DAG 中直接假定共同祖先唯一, 动态改边时沿用旧倍增表]
+    commonFailures: [根与虚拟父节点边界错, 重链或倍增深度混用, 对不同树的点返回伪答案]
+    transferProblems: [带权树上多次距离查询, 同一树更换询问根后求 LCA]
+    exitEvidence: [解释跳跃不变量和距离式, 链星形同点祖先点样例验证并独立做迁移题]
+    sources:
+      - title: OI Wiki 最近公共祖先：倍增与树上距离
+        url: https://oi-wiki.org/graph/lca/
+  - id: 前缀函数与 KMP 算法
+    title: KMP：边界链与失配回退
+    contestUse: 用已匹配前缀的信息避免重新比较，理解失败链接才扩展题型。
+    recognition: [单模式精确匹配, 前后缀相等关系可沿 border 链回退]
+    proofQuestions: [失配为什么回到前缀函数指向的位置而不漏解, 指针增加与回退为什么合计线性]
+    appliesTo: [单模式匹配, border 与周期关系, 前缀出现次数统计]
+    extensions: [Z 函数, 多模式时的 AC 自动机, 前缀自动机上的 DP]
+    notFor: [多模式题仅运行一次单模式 KMP, 模糊匹配直接沿用精确相等失配链]
+    commonFailures: [匹配结束不回退导致漏重叠, 前缀函数下标混乱, 拼接分隔符在字符集内]
+    transferProblems: [重叠匹配和所有 border 的题, 题面不写字符串匹配但要求周期检测的题]
+    exitEvidence: [手算失配链和线性复杂度, 重复字符无匹配全匹配自测并独立完成迁移题]
+    sources:
+      - title: OI Wiki 前缀函数与 KMP：失配、应用与复杂度
+        url: https://oi-wiki.org/string/kmp/
+  - id: 快速幂
+    title: 快速幂：把重复作用拆成二进制
+    contestUse: 指数很大时寻找可结合的合成操作，并核算每次合成成本。
+    recognition: [同一变换重复非负整数次数, 合成满足结合律且有单位元]
+    proofQuestions: [指数的二进制拆分如何保证每次选取正确, 矩阵或置换的合成顺序为什么不能随意交换]
+    appliesTo: [整数模幂, 矩阵幂, 置换或函数重复合成]
+    extensions: [倍增跳转, 线性递推矩阵, 大指数下的周期研究]
+    notFor: [未证明周期就取模缩减指数, 未检查逆元存在就把负指数当作普通幂]
+    commonFailures: [指数零漏单位元, 模乘中间值溢出, 指数类型不够大]
+    transferProblems: [一道重复字符索引变换题, 将标量乘法改为矩阵合成并重新核算复杂度]
+    exitEvidence: [解释单位元与合成不变量, 核验指数零一大指数并独立完成非标量迁移题]
+    sources:
+      - title: OI Wiki 快速幂：二进制取幂与推广
+        url: https://oi-wiki.org/math/binary-exponentiation/
+      - title: OI Wiki 模逆元：模意义负指数的存在条件
+        url: https://oi-wiki.org/math/number-theory/inverse/

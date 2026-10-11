@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/rules/coach-rules.md']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/NODE_SCOPES.yaml', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')

@@ -7,6 +7,7 @@ import { createVpClient } from '../lib/vp-client.js'
 const root = mkdtempSync(join(tmpdir(), 'acmer-coach-vp-'))
 let account = { id: 1, handle: 'A', display_name: 'Coach A' }
 let mismatch = false
+let nextPage = false
 const fetchImpl = async (url, options = {}) => {
   const path = new URL(url).pathname
   const body = options.body ? JSON.parse(options.body) : {}
@@ -19,8 +20,8 @@ const fetchImpl = async (url, options = {}) => {
   if (path.endsWith('/api/coach/contests')) return json({ account, contests: [{ id: 7, title: 'VP 7', status: 'ended' }] })
   if (path.endsWith('/api/coach/sync')) return json({
     account: mismatch ? { id: 1, handle: 'A' } : account,
-    submissions: [{ id: 9, contest_id: 7, verdict: 'AC' }], events: [], contests: [],
-    next_cursor: { submission_id: 9, event_id: 0 }, has_more: false,
+    submissions: [{ id: nextPage ? 10 : 9, contest_id: 7, verdict: nextPage ? 'WA' : 'AC' }], events: [], contests: [],
+    next_cursor: { submission_id: nextPage ? 10 : 9, event_id: 0 }, has_more: !nextPage,
   })
   if (path.endsWith('/api/coach/replay/7')) return json({ account, visualization: { team_events: [] } })
   throw new Error(`unexpected ${url}`)
@@ -34,7 +35,16 @@ try {
   await client.finish({ code: 'A' })
   const synced = await client.sync()
   assert.equal(synced.account.id, 1)
+  assert.equal(synced.hasMore, true, 'first page must expose continuation')
+  assert.deepEqual(synced.pageCounts, { submissions: 1, events: 0, contests: 0 })
   assert.equal(JSON.parse(readFileSync(join(root, 'vp-accounts', '1', 'SYNC.json'))).account.id, 1)
+  nextPage = true
+  const secondPage = await client.sync()
+  assert.equal(secondPage.hasMore, false, 'last page must expose completion')
+  assert.deepEqual(secondPage.pageCounts, { submissions: 1, events: 0, contests: 0 }, 'page counts must not include old cached rows')
+  assert.deepEqual(secondPage.submissions.map(item => item.id), [9, 10], 'incremental pages must retain earlier accepted runs')
+  assert.deepEqual(JSON.parse(readFileSync(join(root, 'vp-accounts', '1', 'SYNC.json'))).submissions.map(item => item.id), [9, 10])
+  nextPage = false
   await client.finish({ code: 'B' })
   assert.equal((await client.status()).account.id, 2)
   assert.equal((await client.contests()).contests[0].id, 7)

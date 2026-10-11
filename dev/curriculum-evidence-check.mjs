@@ -37,8 +37,7 @@ test('catalog only contains real record entries, with a stable typed public shap
   const rows = rowsFor({ checks: [check()], diagnoses: [diagnosis()], passes: [practice()] })
   assert.equal(rows.length, 3)
   for (const row of rows) {
-    assert.deepEqual(Object.keys(row).sort(), ['id', 'eventId', 'source', 'node', 'date', 'signal', 'summary', 'fingerprint'].sort())
-    for (const key of Object.keys(row)) assert.equal(typeof row[key], 'string', key)
+    for (const key of ['id', 'eventId', 'source', 'node', 'date', 'signal', 'summary', 'fingerprint']) assert.equal(typeof row[key], 'string', key)
     assert.ok(row.id && row.eventId && row.fingerprint && row.summary)
     assert.equal(row.node, '区间 DP'); assert.equal(row.date, date)
     assert.ok(['check', 'diagnosis', 'practice', 'schedule'].includes(row.source))
@@ -50,6 +49,14 @@ test('failed and over-time checks are gaps; passed checks only establish a basel
   const rows = rowsFor({ checks: [check('failed'), check('overTime', { minutes: 90 }), check('passed')] })
   assert.deepEqual(rows.map((row) => row.signal), ['gap', 'gap', 'baseline'])
   assert.deepEqual(rows.map((row) => row.source), ['check', 'check', 'check'])
+})
+
+test('structured performance fields are explicit facts rather than narrative guesses', () => {
+  const rows = rowsFor({ checks: [check('passed')], passes: [practice({ solved: true, independent: true, minutes: 32 })] })
+  assert.equal(rows[0].minutes, 45)
+  assert.equal(rows[0].independent, undefined)
+  assert.equal(rows[1].minutes, 32)
+  assert.equal(rows[1].independent, true)
 })
 
 test('abandoned checks and narrative diagnoses without code evidence never become gaps', () => {

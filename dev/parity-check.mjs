@@ -73,8 +73,8 @@ const onlyA = namesA.filter((n) => !namesB.includes(n))
 check('开源版没有丢掉任何原有工具', onlyB.length === 0, onlyB.join(',') || '（没丢）')
 // 新增的只能是「搭环境 / 拉数据 / 查知识 / 长期课程」这几类 —— 它们补的正是
 // 开源版缺的那些基础设施（原版靠本地已有的库和 skill，别人没有）。
-const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum'])
-check('新增的都在预期内（搭建 / 检索 / 导入 / 长期课程）',
+const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum', 'coach_target', 'coach_focus', 'coach_scope', 'coach_postmortem', 'coach_vp_import', 'coach_vp_connect', 'coach_vp_sync', 'coach_vp_contests', 'coach_vp_replay'])
+check('新增的都在预期内（搭建 / 检索 / 课程 / 比赛 / VP）',
   onlyA.every((n) => EXPECTED_NEW.has(n)), onlyA.join(',') || '（无新增）')
 // 对照副本可能也已经升级到 20/21 个工具；检查原工具集合，不能拿固定数量拒绝新版。
 const ORIGINAL_TOOLS = ['coach_ping', 'coach_next', 'coach_assign', 'coach_status',
@@ -128,6 +128,12 @@ for (const [tool, args, label] of CALLS) {
   let ra, rb, ea, eb
   try { ra = norm(await ta.execute(args, undefined)) } catch (e) { ea = e.message }
   try { rb = norm(await tb.execute(args, undefined)) } catch (e) { eb = e.message }
+  // Legacy hosts have no goal layer; only its explicit no-target defaults may be absent.
+  if (tool === 'coach_assign' && rb && !('targetAligned' in rb) &&
+      (ra?.targetAligned === true || (ra?.accepted === false && rb.accepted === false && ra.reject === rb.reject && ra.targetAligned === false)) &&
+      Array.isArray(ra.competencies) && !ra.competencies.length) {
+    delete ra.targetAligned; delete ra.competencies
+  }
   const sa = JSON.stringify(ra ?? { ERR: ea }), sb = JSON.stringify(rb ?? { ERR: eb })
   if (sa === sb) { check(`${tool} · ${label}`, true) }
   else {
@@ -136,7 +142,7 @@ for (const [tool, args, label] of CALLS) {
     const dk = [...new Set([...ka, ...kb])].filter((k) => JSON.stringify(ra?.[k]) !== JSON.stringify(rb?.[k]))
     const benign = dk.every((k) => ALLOWED.some(([n]) => k === n))
     if (benign) { check(`${tool} · ${label}`, true, `仅包名/版本不同（${dk.join(',')}）`) }
-    else { diff++; check(`${tool} · ${label}`, false, `差异字段：${dk.join(', ')}`) }
+    else { diff++; check(`${tool} · ${label}`, false, `差异字段：${dk.join(', ')}`); console.log(JSON.stringify({ current: Object.fromEntries(dk.map(k => [k, ra?.[k]])), legacy: Object.fromEntries(dk.map(k => [k, rb?.[k]])) })) }
   }
 }
 

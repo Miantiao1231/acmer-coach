@@ -98,7 +98,7 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 
 本周主线可设置 `focusUntil`，到期先复盘修订。路线不提前占用数月日程，
 `coach_plan` 继续管理近期时间块。旧 v1 路线可读，会标记 `needsReview`；需明确
-修订当前及后续阶段后迁移 v2，插件不会自动重写。优先级与教学方案仍由模型判断，
+修订当前及后续阶段后迁移 v3，插件不会自动重写。优先级与教学方案仍由模型判断，
 程序现在会要求目标和 VP 证据先进入策略层；能力卡片仍由仓库维护，未知卡片不会自动臆造。
 现在可以直接连接 VP：`coach_vp_connect start` 打开授权页，登录并允许只读访问后，
 把一次性 code 交给 `coach_vp_connect finish`。然后用 `coach_vp_sync` 增量同步比赛、
@@ -110,12 +110,39 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 每个 VP 账号都放在 `~/.dsh/knowledge/vp-accounts/<user_id>/`，token 单独保存，
 同步游标、原始安全投影、回放缓存和 `VP_EVENTS.yaml` 都按账号分开。个人训练数据
 `PROGRESS.yaml`、`CURRICULUM.yaml`、`SCHEDULE.yaml`、`TARGET.yaml` 始终留在
-`~/.dsh/knowledge/`，切换 VP 账号不会换教练。2.3.1 会把旧版本误写进账号目录的个人文件按更新时间迁回；被替换的主目录文件会留下 `.pre-vp-account-<user_id>` 备份，原账号文件不删除。
+`~/.dsh/knowledge/`，切换 VP 账号不会换教练。2.4.0 对旧账号目录只补齐缺失的个人文件；主目录已存在时保留它，冲突账号版本另存为 `.from-vp-account-<user_id>`。完成标记防止以后反复迁移覆盖，原账号文件保留；2.3.1 已产生的 `.pre-vp-account-<user_id>` 备份也保留。
 服务端
 返回的账号 id 与当前账号不一致时，客户端拒绝写入。同步和回放都不返回提交代码或 judge 输出。
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 
 详见 [长期课程机制](docs/长期课程机制.md)。
+
+### 2.4：证据、验收与教学依据
+
+`coach_focus` 分开近30天的独立成功、待确认观察、已确认短板，按不同场次计数。
+成功不会增加“问题次数”；WA 不直接证明不会。`coach_postmortem findings` 用
+`hypothesis/confirmed/resolved` 区分判断，必须引用 `coach_curriculum assess` 返回的本场
+原始事实；原始内容变化后旧确认引用失效。旧文字复盘保留为观察，不删除。
+
+新训练阶段必须提供结构化 `exitChecks`，例如
+`[{node: "区间 DP", minEvents: 2, minDistinctDays: 2, independent: true, maxMinutes: 45}]`。
+只有满足条件、本阶段发生的不同成功事件才计数，缺独立性或用时记录不会被猜成通过。
+`read` 返回每项 `exitCheckResults` 和缺口；旧 v1/v2 课程只读保留，先 `revise` 补齐条件
+后升级 v3。通过检测证明的是该次条件下的表现，不能解释成永久掌握。
+
+`coach_target profiles` 提供 `regional-diagnostic`、`wf-extension`、`xian-pending` 三个
+有来源、采样范围和限制的配置，选定后可通过 `profileId` 保存。它们都仍是 provisional，
+不是西安考纲、专题频率或奖牌保证。`coach_scope` 优先使用14张精确节点卡，返回识别条件、
+证明问题、失效反例、迁移练习与原始资料，避免把一个 DP 通用卡当成所有 DP 节点的讲法。
+详见 [比赛与教学依据](docs/比赛与教学依据.md)。
+
+近期安排需解释“长期能力 → 本次比赛 → 当前阶段 → 今天一个动作”的取舍。
+VP 增量同步会累计各分页记录，`hasMore` 告诉教练是否继续拉下一页；不会把累计缓存冒充新增记录，也不会覆盖教练补充的独立性和能力标签。平台无时区的时间按服务端 UTC 约定解释，训练日期按本机日期记录；不更改 VP 服务端。
+
+`coach_curriculum assess` 支持 `evidenceEventIds` 查询旧场次，不受全局最近200条的影响。
+事件级 `measurements` 可记录 `competency/metric/value/passed/independent/occurredAt`；例如
+已核对回放后的零漏读测量。工具要求有限数值与显式验收、独立性，不能从一个 AC 自动推断。
+同场同指标不会凑成“两场通过”；修改旧记录也不会变成新阶段的新表现。
 
 **「学过」和「已验证」是两级，绝不合并。** 自评 ≠ 掌握 ——
 合成一个「会/不会」就等于退回「从数据推断掌握度」，而数据能说「花了很久」，
@@ -150,12 +177,12 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 > ESM 模块在进程里只求值一次，之后永远命中缓存 —— 旧代码继续跑，
 > **不报错、不报警**。唯一例外是只改浏览器端（`lib/client.js`），刷新页面即可。
 
-### 首次使用：前两周它就是在瞎猜
+### 首次使用：先诊断，不把猜测当短板
 
 **说清楚这一点**：装完它对你一无所知。没有检测记录、没有判因台账，
-它给的判断只能靠猜。这不是 bug，是数据不够。
+它应明确哪些未知，先安排能取得证据的小诊断；数据不足不能编造掌握度或弱项。
 
-大概做几次检测之后才开始准。别在前两周就下结论。
+检测和实际训练记录逐步减少不确定性，不承诺“用满两周就一定准”。
 
 **定位不是"推断"，是二分搜索。** 349 个节点，第一次怎么知道你在哪：
 

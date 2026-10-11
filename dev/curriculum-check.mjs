@@ -24,6 +24,7 @@ const phases = [
   { id: 'foundation', title: '稳定基础能力', outcome: '独立建模与实现', nodes: ['B', 'C'], exitCriteria: '独立变式与延迟复测', requiredVerified: ['B', 'C'] },
   { id: 'transfer', title: '组合迁移', outcome: '识别组合题机制', nodes: ['D'], exitCriteria: '无标签混合题独立完成', requiredVerified: ['D'] },
 ].map((phase) => ({ ...phase, kind: 'training', finding: 'gap',
+  exitChecks: phase.nodes.map((node) => ({ node, minEvents: 1 })),
   basis: '已存在对应知识点的未通过检测记录，需要针对性训练',
   goalContribution: '通过独立建模和稳定实现提升区域赛可完成题数',
   priorityReason: '先修复已观测的基础问题，再进入有依赖的组合训练',
@@ -38,13 +39,14 @@ function prove(progress, node) {
 function fixture() {
   const dataDir = mkdtempSync(join(testBase, 'coach-curriculum-'))
   const progress = { nodes: structuredClone(seedNodes), pendingActions: {} }
+  const clock = { at: '2026-10-09T12:00:00+08:00' }
   const options = { dataDir, loadMap: () => ({ byId }), loadProgress: () => progress,
-    now: () => new Date('2026-10-09T12:00:00+08:00') }
+    now: () => new Date(clock.at) }
   const store = createCurriculumStore(options)
   const create = (extra = {}) => store.execute({ action: 'create', expectedRevision: 0,
     goal: '区域赛稳定表现，长期向 WF 发展', baseline: '水平与队伍缺口已核实，尚需独立检测',
     weeklyHours: 30, phases, reason: '根据用户目标与真实训练表现建立课程路线', ...extra })
-  return { dataDir, progress, options, store, create }
+  return { dataDir, progress, options, clock, store, create }
 }
 function validateShape(schema, value) {
   if (schema.type === 'object') {
@@ -61,20 +63,202 @@ function validateShape(schema, value) {
 }
 
 const phaseFor = (nodes, extra = {}) => ({ ...phases[0], nodes, requiredVerified: [...nodes],
+  exitChecks: nodes.map((node) => ({ node, minEvents: 1 })),
   evidenceRefs: seedEvidence.filter((entry) => nodes.includes(entry.node)).map((entry) => entry.id), ...extra })
 const diagnostic = (nodes = ['B']) => phaseFor(nodes, {
   id: 'diagnostic', title: '核实当前能力缺口', kind: 'diagnostic', finding: 'unknown',
   basis: '尚无足够的实际结果证明具体短板，先进行诊断',
   uncertainty: '尚未确认是否独立建模、实现稳定性或熟练度存在缺口',
   diagnosticMethod: '独立完成小规模变式，记录结果并对失败代码进行判因',
-  evidenceRefs: [], requiredVerified: [], estimatedHours: 2,
+  evidenceRefs: [], requiredVerified: [], exitChecks: [], estimatedHours: 2,
 })
 const provisional = (nodes = ['D']) => phaseFor(nodes, {
   id: 'future', kind: 'provisional', finding: 'unknown', basis: '该方向目前仅是与目标相关的远期假设，尚待诊断',
   uncertainty: '尚未取得这些节点的训练结果，进入前须重新核实依据',
-  evidenceRefs: [], requiredVerified: [], estimatedHours: 0,
+  evidenceRefs: [], requiredVerified: [], exitChecks: [], estimatedHours: 0,
 })
 const advance = (f, revision = f.store.snapshot().revision) => f.store.execute({ action: 'advance', expectedRevision: revision, reason: '依据本阶段实际产生的检测与训练记录评估成果' })
+
+test('new training stages reject narrative-only exit criteria', () => {
+  const f = fixture()
+  const phase = phaseFor(['B'])
+  delete phase.exitChecks
+  const result = f.create({ phases: [phase] })
+  assert.equal(result.ok, false)
+  assert.match(result.reject, /exitChecks/)
+  assert.equal(f.store.load(), null)
+})
+
+test('structured exits count distinct fresh events and delayed independent performance', () => {
+  const f = fixture()
+  const phase = phaseFor(['B'], { exitChecks: [{ node: 'B', minEvents: 2, minDistinctDays: 2, independent: true, maxMinutes: 45 }] })
+  assert.equal(f.create({ phases: [phase] }).ok, true)
+  f.progress.nodes.B.status = 'verified'
+  f.progress.nodes.B.passes = [{ date: '2026-10-09', problemId: 'P1', solved: true, independent: true, minutes: 30 }]
+  let state = f.store.execute({ action: 'read' })
+  assert.equal(advance(f).ok, false)
+  assert.equal(state.exitCheckResults[0].matchedEvents, 1)
+  f.progress.nodes.B.passes.push({ date: '2026-10-09', problemId: 'P2', solved: true, independent: true, minutes: 30 })
+  state = f.store.execute({ action: 'read' })
+  assert.equal(state.exitCheckResults[0].matchedEvents, 2)
+  assert.equal(state.exitCheckResults[0].distinctDays, 1)
+  assert.equal(advance(f).ok, false)
+  f.clock.at = '2026-10-10T12:00:00+08:00'
+  f.progress.nodes.B.passes.push({ date: '2026-10-10', problemId: 'P3', solved: true, independent: true, minutes: 60 })
+  assert.equal(advance(f).ok, false)
+  f.progress.nodes.B.passes.push({ date: '2026-10-10', problemId: 'P4', solved: true, independent: true, minutes: 35 })
+  assert.equal(advance(f).status, 'complete')
+})
+
+test('structured exits reject missing facts, repeated events and edits to old successes', () => {
+  const f = fixture()
+  f.progress.nodes.B.passes = [{ date: '2026-10-09', problemId: 'P-old', solved: true, independent: true, minutes: 90 }]
+  const phase = phaseFor(['B'], { exitChecks: [{ node: 'B', minEvents: 2, independent: true, maxMinutes: 45 }] })
+  assert.equal(f.create({ phases: [phase] }).ok, true)
+  f.progress.nodes.B.status = 'verified'
+  f.progress.nodes.B.passes[0].minutes = 30
+  prove(f.progress, 'B') // A passed check without an explicit independence fact cannot satisfy this rule.
+  assert.equal(f.store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 0)
+  const fresh = { date: '2026-10-09', problemId: 'P-new', solved: true, independent: true, minutes: 25 }
+  f.progress.nodes.B.passes.push(fresh, structuredClone(fresh))
+  assert.equal(f.store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 1)
+  assert.equal(advance(f).ok, false)
+  f.progress.nodes.B.passes.push({ ...fresh, problemId: 'P-another' })
+  assert.equal(advance(f).status, 'complete')
+})
+
+test('changing exit requirements resets the entry snapshot rather than reusing current success', () => {
+  const f = fixture(); assert.equal(f.create({ phases: [phaseFor(['B'])] }).ok, true)
+  prove(f.progress, 'B')
+  assert.deepEqual(f.store.execute({ action: 'read' }).missingFreshEvidence, [])
+  const phase = phaseFor(['B'], { exitChecks: [{ node: 'B', minEvents: 2 }] })
+  const result = f.store.execute({ action: 'revise', expectedRevision: 1, phases: [phase], reason: '原单次检测不足以证明稳定性，追加两次新检测条件' })
+  assert.equal(result.ok, true, result.reject)
+  assert.equal(result.exitCheckResults[0].matchedEvents, 0)
+  prove(f.progress, 'B'); assert.equal(advance(f).ok, false)
+  prove(f.progress, 'B'); assert.equal(advance(f).status, 'complete')
+})
+
+test('v2 courses remain unchanged on read and completed v2 phases survive explicit v3 repair', () => {
+  const f = fixture(); assert.equal(f.create().ok, true)
+  prove(f.progress, 'B'); prove(f.progress, 'C')
+  const old = parse(readFileSync(f.store.path, 'utf8'))
+  old.version = 2; old.current = 1; old.focusNodes = []
+  old.phases.forEach((phase) => { delete phase.exitChecks })
+  const bytes = stringify(old); writeFileSync(f.store.path, bytes)
+  const result = f.store.execute({ action: 'read' })
+  assert.equal(result.ok, true); assert.equal(result.needsReview, true)
+  assert.equal(readFileSync(f.store.path, 'utf8'), bytes)
+  assert.equal(f.store.assignment({ node: 'D', revision: 1 }).ok, false)
+  assert.equal(advance(f).ok, false)
+  const completed = f.store.load().phases[0]
+  const repaired = f.store.execute({ action: 'revise', expectedRevision: 1, phases: [completed, phases[1]], reason: '只为未完成阶段补可检查条件，保留已完成阶段原始依据' })
+  assert.equal(repaired.ok, true, repaired.reject)
+  assert.equal(repaired.exitCheckResults[0].matchedEvents, 0)
+  const saved = parse(readFileSync(f.store.path, 'utf8'))
+  assert.equal(saved.version, 3)
+  assert.deepEqual(saved.phases[0], completed)
+  assert.equal(saved.history.at(-1).previous.version, 2)
+})
+
+test('VP metric exits require baseline facts with the exact metric and finite value', () => {
+  const f = fixture()
+  const facts = [{ id: 'vp:old', eventId: 'old', source: 'vp', node: '', competency: 'contest-reading', date: '2026-10-08', signal: 'gap', summary: '已确认的漏读', fingerprint: 'old' }]
+  const store = createCurriculumStore({ ...f.options, loadStrategyEvidence: () => facts })
+  const phase = { ...phaseFor([]), id: 'vp-reading', competencies: ['contest-reading'], evidenceRefs: ['vp:old'],
+    exitChecks: [{ competency: 'contest-reading', minEvents: 2, metric: 'missed-reading', maxValue: 0 }] }
+  assert.equal(store.execute({ action: 'create', expectedRevision: 0, goal: '区域赛稳定读题', phases: [phase], reason: '依据已确认的漏读缺口，设两场零漏读的事实验收' }).ok, true)
+  const fresh = { ...facts[0], eventId: 'new', id: 'vp:new', date: '2026-10-09', signal: 'baseline' }
+  facts.push(fresh, { ...fresh, eventId: 'observation', id: 'vp:observation', signal: 'observation', metric: 'missed-reading', value: 0 })
+  assert.equal(store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 0)
+  facts.push({ ...fresh, id: 'vp:new-measured', metric: 'missed-reading', value: 0 }, { ...fresh, id: 'vp:duplicate', metric: 'missed-reading', value: 0 })
+  assert.equal(store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 1)
+  assert.equal(store.execute({ action: 'advance', expectedRevision: 1, reason: '只有一场合格的新事实，验证不会误判两场条件' }).ok, false)
+  facts.push({ ...fresh, id: 'vp:another', eventId: 'another', metric: 'missed-reading', value: 0 })
+  assert.equal(store.execute({ action: 'advance', expectedRevision: 1, reason: '两场不同的新事件都有零漏读的明确指标事实' }).status, 'complete')
+})
+
+test('malformed or uncovered structured exit rules are rejected before any write', () => {
+  for (const exitChecks of [[], [{ node: 'B', minEvents: 0 }], [{ node: 'C', minEvents: 1 }],
+    [{ node: 'B', competency: 'contest-reading', minEvents: 1 }], [{ node: 'B', minEvents: 1, minDistinctDays: 2 }],
+    [{ node: 'B', minEvents: 1, independent: 'true' }], [{ node: 'B', minEvents: 1, maxMinutes: 0 }],
+    [{ node: 'B', minEvents: 1, metric: 'missed-reading' }], [{ node: 'B', minEvents: 1, maxValue: 0 }],
+    [{ node: 'B', minEvents: 1 }, { node: 'B', minEvents: 2 }]]) {
+    const f = fixture(); const result = f.create({ phases: [phaseFor(['B'], { exitChecks })] })
+    assert.equal(result.ok, false, JSON.stringify(exitChecks))
+    assert.equal(f.store.load(), null)
+  }
+})
+
+test('future-dated events cannot meet training or diagnostic exit gates', () => {
+  for (const phase of [phaseFor(['B']), diagnostic()]) {
+    const f = fixture(); assert.equal(f.create({ phases: [phase] }).ok, true)
+    f.progress.nodes.B.status = 'verified'
+    f.progress.nodes.B.checks.push({ date: '2026-10-10', outcome: 'passed' })
+    assert.deepEqual(f.store.execute({ action: 'read' }).missingFreshEvidence, ['B'])
+    assert.equal(advance(f).ok, false)
+    f.clock.at = '2026-10-10T12:00:00+08:00'
+    assert.deepEqual(f.store.execute({ action: 'read' }).missingFreshEvidence, [])
+  }
+})
+
+test('exact occurrence times reject same-day earlier imports and future or malformed timestamps', () => {
+  const f = fixture(); assert.equal(f.create({ phases: [phaseFor(['B'])] }).ok, true)
+  f.progress.nodes.B.status = 'verified'
+  f.progress.nodes.B.passes = [
+    { date: '2026-10-09', problemId: 'P-earlier', solved: true, independent: true, minutes: 20, occurredAt: '2026-10-09T10:00:00+08:00' },
+    { date: '2026-10-09', problemId: 'P-future', solved: true, independent: true, minutes: 20, occurredAt: '2026-10-09T14:00:00+08:00' },
+    { date: '2026-10-09', problemId: 'P-invalid', solved: true, independent: true, minutes: 20, occurredAt: 'today' },
+  ]
+  assert.equal(f.store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 0)
+  f.clock.at = '2026-10-09T15:00:00+08:00'
+  assert.equal(f.store.execute({ action: 'read' }).exitCheckResults[0].matchedEvents, 1)
+  assert.equal(advance(f).status, 'complete')
+})
+
+test('date-only performance exposes its timing precision instead of claiming exact chronology', () => {
+  const f = fixture(); assert.equal(f.create({ phases: [phaseFor(['B'])] }).ok, true)
+  prove(f.progress, 'B')
+  const result = f.store.execute({ action: 'read' })
+  assert.equal(result.exitCheckResults[0].matchedEvents, 1)
+  assert.ok(result.evidencePrecisionWarnings.some((warning) => warning.includes('同日')))
+  validateShape(curriculumTool(f.store).output.schema, result)
+})
+
+test('assess can retrieve the oldest unlabeled VP facts beyond the 200-item response window', () => {
+  const f = fixture(); f.progress.nodes = {}
+  const facts = Array.from({ length: 201 }, (_, index) => ({ id: `vp:fact-${index}`, eventId: `vp:contest-${index}`, source: 'vp',
+    node: '', competency: '', date: '2026-10-09', signal: 'observation', summary: `第${index}场自动同步事实`, fingerprint: `fact-${index}` }))
+  const store = createCurriculumStore({ ...f.options, loadStrategyEvidence: () => facts })
+  const all = store.execute({ action: 'assess' })
+  assert.equal(all.evidenceCount, 201); assert.equal(all.evidenceTruncated, true)
+  assert.ok(all.evidence.every((entry) => entry.eventId !== 'vp:contest-0'))
+  const tool = curriculumTool(store)
+  const selected = tool.execute({ action: 'assess', evidenceEventIds: ['vp:contest-0'] })
+  assert.equal(selected.ok, true, selected.reject)
+  assert.equal(selected.evidenceCount, 1); assert.equal(selected.evidenceTruncated, false)
+  assert.deepEqual(selected.evidence.map((entry) => entry.id), ['vp:fact-0'])
+  assert.ok(tool.parameters.evidenceEventIds)
+  validateShape(tool.output.schema, selected)
+  assert.equal(store.execute({ action: 'assess', evidenceEventIds: ['vp:contest-0'], evidenceNodes: ['B'] }).evidenceCount, 0)
+  assert.equal(store.execute({ action: 'assess', evidenceEventIds: ['vp:does-not-exist'] }).evidenceCount, 0)
+  assert.equal(store.execute({ action: 'assess' }).evidenceCount, 201)
+})
+
+test('assess rejects malformed event filters without changing the curriculum or exit evidence', () => {
+  const f = fixture(); assert.equal(f.create({ phases: [phaseFor(['B'])] }).ok, true)
+  const before = readFileSync(f.store.path, 'utf8')
+  for (const evidenceEventIds of ['vp:first', null, [1], [''], ['   ']]) {
+    const result = f.store.execute({ action: 'assess', evidenceEventIds })
+    assert.equal(result.ok, false, JSON.stringify(evidenceEventIds))
+    assert.match(result.reject, /evidenceEventIds/)
+  }
+  prove(f.progress, 'B')
+  assert.equal(f.store.execute({ action: 'assess', evidenceEventIds: ['vp:unrelated'] }).evidenceCount, 0)
+  assert.deepEqual(f.store.execute({ action: 'read' }).missingFreshEvidence, [])
+  assert.equal(readFileSync(f.store.path, 'utf8'), before)
+  assert.equal(advance(f).status, 'complete')
+})
 
 test('assess exposes only existing record refs; rating and statuses cannot justify a training stage', () => {
   const f = fixture(); f.progress.nodes = { A: { status: 'learned' }, B: { status: 'studying', rating: 1600 } }
@@ -220,7 +404,7 @@ test('v1 route remains readable without writes; migration preserves completed st
   const result = f.store.execute({ action: 'revise', expectedRevision: 1, phases: [completed, phases[1]], reason: '为旧路线补齐未完成阶段的真实依据，保留已经完成的阶段' })
   assert.equal(result.ok, true, result.reject); assert.equal(result.revision, 2)
   const migrated = parse(readFileSync(f.store.path, 'utf8'))
-  assert.equal(migrated.version, 2); assert.equal(migrated.phases[0].kind, 'legacy')
+  assert.equal(migrated.version, 3); assert.equal(migrated.phases[0].kind, 'legacy')
   assert.equal(migrated.history[1].previous.version, 1)
 })
 
@@ -347,6 +531,7 @@ test('competency-only phases can use fresh VP evidence as their exit gate', () =
     basis: 'VP 已记录读题缺口，需要在真实比赛节奏中修复', goalContribution: '提高区域赛前半小时的可做题识别和取舍质量',
     priorityReason: '它直接决定队伍是否把时间用在能拿分的题上', estimatedHours: 6, uncertainty: '', diagnosticMethod: '',
     evidenceRefs: ['vp:old:contest-reading'],
+    exitChecks: [{ competency: 'contest-reading', minEvents: 1 }],
   }
   assert.equal(store.execute({ action: 'create', expectedRevision: 0, goal: '区域赛稳定表现', baseline: '已有一场 VP 的读题缺口记录', weeklyHours: 30, phases: [phase], reason: '根据 VP 的读题记录建立能力课程' }).ok, true)
   assert.deepEqual(store.snapshot().phaseCompetencies, ['contest-reading'])
@@ -389,6 +574,9 @@ test('plugin integration: cross-branch course assignments, detours, logging and 
   const course = tools.get('coach_curriculum'); const assign = tools.get('coach_assign')
   const created = await course.execute({ action: 'create', expectedRevision: 0, goal: '测试长期路线', phases, reason: '依据训练表现建立可延续的阶段课程' })
   assert.equal(created.ok, true, created.reject)
+  const selectedEvidence = await course.execute({ action: 'assess', evidenceEventIds: ['check:B:0'] })
+  assert.equal(selectedEvidence.evidenceCount, 1)
+  assert.deepEqual(selectedEvidence.evidence.map((entry) => entry.eventId), ['check:B:0'])
   const candidates = await tools.get('coach_next').execute({ cursor: 'B' })
   const nextText = tools.get('coach_next').output.render({}, candidates)[0].text
   assert.match(nextText, /测试长期路线/)
