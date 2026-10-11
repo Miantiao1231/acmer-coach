@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 一条命令跑全套验收。
 #
-# 八套：
+# 验收项：
 #   verify / verify-shape   主验收和全工具形状扫描
 #   w1-check                解绑、夹具闸门、规则注入
 #   wiki-check              OI Wiki 检索
@@ -9,6 +9,7 @@
 #   curriculum-check        长期课程、版本、阶段验收与任务关联
 #   curriculum-evidence     编排证据目录、引用与事件身份
 #   strategy-check          比赛目标、VP 证据、复盘与重点选择
+#   teaching                续课笔记、学生原话与进度保留
 #   parity-check            和线上那份的保真度对比
 #
 # 主验收跑的是**已安装副本**（不是源码）—— 那才是运行时真正加载的东西。
@@ -46,7 +47,7 @@ run() {  # run <名字> <命令...>
     echo "✓ $(echo "$out" | tail -1)"
   else
     echo "✗"
-    echo "$out" | tail -25 | sed 's/^/    /'
+    echo "$out" | sed 's/^/    /'
     RC=1
   fi
 }
@@ -67,6 +68,7 @@ run "evidence"      node --test dev/curriculum-evidence-check.mjs
 run "strategy"      node --test dev/strategy-check.mjs
 run "catalog"       node --test dev/catalog-check.mjs
 run "coach-contract" node --test dev/coaching-contract-check.mjs
+run "teaching"      node --test dev/teaching-check.mjs
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
 run "migration"     node --test dev/workspace-migration-check.mjs

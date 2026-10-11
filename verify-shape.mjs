@@ -17,6 +17,7 @@
 // 退出码非 0 = 有错配。
 
 import { mkdtempSync, writeFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -136,7 +137,7 @@ function validate(schema, value, at, errs) {
       if (!(k in props)) errs.push(`${at}.${k}: schema 未声明（additionalProperties:false → dsh 校验会拒）`)
     }
     for (const [k, s] of Object.entries(props)) {
-      if (!(k in value)) { if (s.required) errs.push(`${at}.${k}: 缺 required 字段`); continue }
+      if (!(k in value)) { if (s.required === true || (Array.isArray(schema.required) && schema.required.includes(k))) errs.push(`${at}.${k}: 缺 required 字段`); continue }
       validate(s, value[k], `${at}.${k}`, errs)
     }
   } else if (t === 'array') {
@@ -152,6 +153,21 @@ function validate(schema, value, at, errs) {
     if (typeof value !== 'string') errs.push(`${at}: 期望 string，实到 ${typeof value}`)
   }
 }
+
+// 嵌套对象的 required 列表描述子字段，不代表这个对象自身必填。
+const optionalObjectSchema = { type: 'object', required: ['summary'], properties: {
+  summary: { type: 'string' },
+  studentEvidence: { type: 'object', required: ['quote'], properties: { quote: { type: 'string' } } },
+} }
+const validOptional = [], missingParent = [], missingChild = [], missingDsl = []
+validate(optionalObjectSchema, { summary: '教练判断' }, 'out', validOptional)
+validate(optionalObjectSchema, {}, 'out', missingParent)
+validate(optionalObjectSchema, { summary: '教练判断', studentEvidence: {} }, 'out', missingChild)
+validate({ type: 'object', properties: { summary: { type: 'string', required: true } } }, {}, 'out', missingDsl)
+assert.deepEqual(validOptional, [])
+assert.deepEqual(missingParent, ['out.summary: 缺 required 字段'])
+assert.deepEqual(missingChild, ['out.studentEvidence.quote: 缺 required 字段'])
+assert.deepEqual(missingDsl, ['out.summary: 缺 required 字段'])
 
 const mod = await import(`${INSTALLED}?sweep=${Date.now()}`)
 const registered = []
@@ -169,10 +185,10 @@ const cases = [
   ['coach_ping', {}],
   ['coach_target', { action: 'read' }],
   ['coach_target', { action: 'set', expectedRevision: 0, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'contest-reading', weight: 80, reason: '测试目标' }] }],
-  // 真正走一遍「目标 → 动作」硬闸：不属于当前能力的 progress 节点必须拒绝，
+  // 目标能力提供关联提示；没有映射的节点仍可由教练解释后安排，
   // 再切回无地图能力的读题卡，保留后续旧夹具的成功路径。
   ['coach_target', { action: 'set', expectedRevision: 1, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'dp-modeling', weight: 80, reason: '测试硬闸' }] }],
-  ['coach_assign#target-gate', { node: 'B', deliverable: '把代码贴给我', why: '测试目标硬闸', minutes: 60, teachMinutes: 25 }],
+  ['coach_assign#target-advisory', { node: 'B', deliverable: '把代码贴给我', why: '测试未映射节点仍可训练', minutes: 60, teachMinutes: 25 }],
   ['coach_target', { action: 'set', expectedRevision: 2, contest: '测试区域赛', date: '2026-10-18', result: '金牌', teamMode: 'team', weeklyHours: 20, priorities: [{ id: 'contest-reading', weight: 80, reason: '测试目标' }] }],
   ['coach_vp_import', { events: [{ eventId: 'shape-vp', contest: '测试 VP', date: today, durationMinutes: 300, problems: [{ problemId: 'A', status: 'AC', competencies: ['contest-reading'] }] }] }],
   ['coach_vp_connect', { action: 'status' }],
@@ -206,6 +222,12 @@ const cases = [
   ['coach_next', { cursor: '并不存在' }],              // 打错字
   ['coach_next', {}],                                  // 游标空 → 读夹具
   ['coach_status', {}],
+  ['coach_note#read', { action: 'read', node: 'B' }],
+  ['coach_note#write', { action: 'write', node: 'B', summary: '已说明状态需要保留哪些历史；还没收到学生回应。', nextStep: '接着核对能否区分两段未来不同的历史。' }],
+  ['coach_note#read-saved', { action: 'read', node: 'B', limit: 5 }],
+  ['coach_note#quote-rejected', { action: 'write', node: 'B', summary: '待核实回应', nextStep: '核对原话', studentQuote: '我理解了这个状态的定义。' }],
+  ['coach_note#invalid-node', { action: 'write', node: 'ZZZ', summary: '测试笔记', nextStep: '继续' }],
+  ['coach_note#empty-summary', { action: 'write', node: 'B', summary: '', nextStep: '继续' }],
   ['coach_set_cursor', { node: 'B' }],
   ['coach_set_cursor', { node: 'ZZZ' }],               // 拒
   ['coach_mark', { node: 'C', status: 'studying' }],
@@ -307,10 +329,18 @@ for (const [name, args, preset] of cases) {
     bad++
     continue
   }
-  if (name === 'coach_assign#target-gate' && out.accepted !== false) {
-    console.log(`  FAIL ${name}  → 目标硬闸没有拒绝无关 progress 节点`)
+  if (name === 'coach_assign#target-advisory' && (out.accepted !== true || out.targetAligned !== false)) {
+    console.log(`  FAIL ${name}  → 未映射节点应允许布置，并明确 targetAligned=false`)
     bad++
     continue
+  }
+  if (name.startsWith('coach_note#')) {
+    const rejected = ['quote-rejected', 'invalid-node', 'empty-summary'].includes(name.split('#')[1])
+    if (out.ok === rejected || (!rejected && name !== 'coach_note#read' && out.notes?.length !== 1)) {
+      console.log(`  FAIL ${name}  → 续课笔记的成功/拒绝或落盘结果不符`)
+      bad++
+      continue
+    }
   }
   const errs = []
   validate(tool.output.schema, out, 'out', errs)

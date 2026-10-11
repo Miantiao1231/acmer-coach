@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
-  "description": "小鲸教练插件：把「位置 + 判断」从小鲸的转述里拿回来。读 MAP/DEPENDS/PROGRESS，给唯一动作、判因、检测。热插拔，删掉即还原。",
-  "version": "2.4.0",
+  "description": "小鲸教练插件：保存训练位置和真实证据，支持教练判断、持续教学与比赛备赛。读 MAP/DEPENDS/PROGRESS，提供训练、判因和检测工具。",
+  "version": "2.5.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"
@@ -23,7 +23,7 @@
     "@deepseek-ai/dsh-tools": "0.2.0-rc.2"
   },
   "scripts": {
-    "test": "node --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs"
+    "test": "node --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs"
   },
   "dsh": {
     "engines": {

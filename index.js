@@ -1,7 +1,7 @@
 // acmer-coach
 // ══════════════════════════════════════════════════════════════════
-// 小鲸教练插件。目标：把「位置 + 判断」从小鲸的转述里拿回来 ——
-// 给它唯一动作、让它读代码判因、按检测推进，而不是报一堆百分比。
+// 小鲸教练插件。目标：保存训练位置与可核查的证据，
+// 让教练据此决定讲法、练习和复习，避免跨会话丢进度。
 //
 // 注册走 bundle 层：package.json 声明 `dsh.bundle.patch`，由
 // cordis.patch.yml 里那行 insert 挂上去。
@@ -31,13 +31,14 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 import { createStrategyStore } from './lib/strategy.js'
+import { createTeachingNotes } from './lib/teaching.js'
 import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.4.0'
+const VERSION = '2.5.0'
 
 // 块结构（方针 §4.1.1）：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 这是**一个题目循环**的固定形状。时间不够该换更小的题，不是把块压扁。
@@ -993,7 +994,7 @@ function nodeFlags(progress, byId) {
 // 判据 = 进度文件里**有没有关于这个节点的记录**。缺省即未学（见 nodeStatus：
 // 只有非未学的节点才会被写进文件），所以"记录存在"本身就说明有东西发生过：
 //   · `rec.at`   —— 教练标过「在学」的那天（见 markStatus：只在状态真变时更新）
-//   · `taught`   —— 布置过讲授段的那天（coach_assign 带 teachMinutes）
+//   · `taught`   —— 旧版讲解计划留下的日期，保留兼容，不证明实际讲过
 //   · `passes`   —— 他打过卡（coach_log）
 //   · `checks`   —— 判过一次卷（coach_grade）
 //
@@ -1008,9 +1009,7 @@ function taughtEvidence(progress, id) {
   if (!rec) return null
   const dates = [
     String(rec.at ?? ''),
-    // 讲授段的落点：在这之前，讲过的节点**不留任何痕迹** ——
-    // coach_status 会一直报「还没有教学记录」，而"游标节点豁免先讲闸门"这条
-    // 也就永远没法按"讲过没"来判断（这个漏洞就是从这儿反推出来的）。
+    // 兼容旧版接触线索；新计划不再写 taught，续课笔记也不算掌握证据。
     ...(Array.isArray(rec.taught) ? rec.taught.map((t) => String(t ?? '')) : []),
     ...(Array.isArray(rec.passes) ? rec.passes.map((p) => String(p?.date ?? '')) : []),
     ...(Array.isArray(rec.checks) ? rec.checks.map((c) => String(c?.date ?? '')) : []),
@@ -1670,7 +1669,7 @@ function registerPages(ctx) {
 // 它要防的是"规则被长对话压掉"，而规则在 AGENTS.md 里 —— 那是 system prompt，
 // 压根不参与压缩。真正会丢的是**位置**，而 pre-step 每轮都重注一遍，
 // 压掉的下一轮就回来了。所以那半条是多余的。
-function registerStateHook(ctx) {
+function registerStateHook(ctx, teaching) {
   ctx.on('agent/pre-step', async ({ messages, step }, next) => {
     const decision = await next()
     try {
@@ -1684,13 +1683,14 @@ function registerStateHook(ctx) {
       const studying = Object.entries(p.nodes ?? {})
         .filter(([, r]) => r?.status === 'studying')
         .map(([id]) => id)
+      const teachingContext = teaching.context(p)
 
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
       let hasTarget = false
       try { hasTarget = Boolean(strategy.loadTarget().contest) } catch { hasTarget = true }
-      if (!cursor && !pending && !studying.length && !hasCurriculum && !hasTarget) return decision
+      if (!cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext) return decision
 
       const { byId } = loadMap()
       const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
@@ -1698,6 +1698,7 @@ function registerStateHook(ctx) {
       const lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
       lines.push(strategy.context())
       lines.push(curriculum.context())
+      if (teachingContext) lines.push(teachingContext)
       lines.push(cursor
         ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
         : '- 游标：**还没设** —— 先问清他现在在哪个知识点，用 coach_set_cursor 设上')
@@ -1951,6 +1952,43 @@ function apply(ctx) {
   } catch { /* 没这服务 / 没这文件 → 不注，照常加载 */ }
 
   ctx.tools.register(defineTool(curriculumTool(curriculum)))
+  const teaching = createTeachingNotes({ loadProgress, saveProgress, loadMap,
+    getSessionQuery: () => ctx.get?.('sessionQuery') })
+  ctx.tools.register(defineTool({
+    name: 'coach_note',
+    description: '读取或保存简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。复用节点进度账本；不改掌握状态或自动决定下一课。' +
+      'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
+    parameters: {
+      action: { type: 'string', enum: ['read', 'write'], description: '默认 read；write 追加一条笔记。' },
+      node: { type: 'string', description: '地图节点 id。写入默认游标；读取默认最近有笔记的未完动作，其次游标，无游标时读最近笔记。显式指定始终优先。' },
+      limit: { type: 'integer', description: '读取最近几条，默认 5，最多 20。' },
+      summary: { type: 'string', description: 'write 必填，实际讲授位置和教练判断，最多 1000 字；区分观察与推测。' },
+      nextStep: { type: 'string', description: 'write 必填，下次续课建议，最多 500 字；后续教练可据新表现调整。' },
+      studentQuote: { type: 'string', description: '可选，当前会话学生实际发过的一段原话，最多 1500 字；不需要手输消息 id。' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
+      node: { type: 'string', required: true }, total: { type: 'integer', required: true },
+      notes: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+        at: { type: 'string', required: true }, summary: { type: 'string', required: true }, nextStep: { type: 'string', required: true },
+        studentEvidence: { type: 'object', additionalProperties: false, properties: {
+          sessionId: { type: 'string', required: true }, seq: { type: 'integer', required: true },
+          messageId: { type: 'string', required: true }, quote: { type: 'string', required: true },
+        } },
+      } } },
+    } }, render: (_args, v) => [{ type: 'text', text: !v.ok ? `❌ ${v.reject}` : v.notes.length
+      ? `续课笔记 · ${v.node}（最近 ${v.notes.length} / 共 ${v.total} 条）\n` + v.notes.map(note =>
+        `${note.at}\n教练记录：${note.summary}\n续课建议：${note.nextStep}\n` +
+        (note.studentEvidence ? `学生原话：「${note.studentEvidence.quote}」（存在已核对，理解程度仍由教练判断）`
+          : '尚无学生回应依据；这条是教练笔记。')).join('\n\n')
+      : `「${v.node || '当前节点'}」尚无续课笔记。` }] },
+    execute: async (args = {}, exec) => {
+      const action = args.action ?? 'read'
+      if (action === 'read') return teaching.read(args)
+      if (action === 'write') return teaching.write(args, exec)
+      return { ok: false, reject: 'action 只能是 read 或 write。', node: '', notes: [], total: 0 }
+    },
+  }))
 
   // ── 目标驱动策略层：比赛目标 / VP 证据 / 复盘 / 当前重点 ─────────
   // 课程图回答“有哪些知识点”，策略层回答“为什么现在学这个”。两者分开，
@@ -2747,7 +2785,7 @@ function apply(ctx) {
               (v.suggestions.length ? `\n相近的有：${v.suggestions.join(' / ')}` : '\n也没找到相近的，确认一下写法。'),
           }]
         }
-        const TIER_TAG = { core: '★核心', normal: '常见', rare: '少见', skip: '不考' }
+        const TIER_TAG = { core: '★核心', normal: '常见', rare: '少见', skip: '默认暂缓' }
         // （需求 #4）：**每个节点都要出 entry**。
         // 原来是 `c.entry ? ' ≈'+c.entry : ''` —— 于是「没数据」和「够不着」
         // 在输出里长得一模一样（都是不显示），很容易把"没数据"读成
@@ -2990,7 +3028,7 @@ function apply(ctx) {
       '它一次只收一个节点，所以**给不出候选列表** —— 这正是设计意图。' +
       '有长期课程时先读 coach_curriculum，带 curriculumRevision；主线必须属于当前阶段，' +
       '补漏或复习用 purpose 与 routeReason 说明关系和回归条件。课程节点可以跨图分支，但前置检查仍生效。' +
-      '有比赛目标时，progress 动作还必须落在当前目标能力；跨重点训练只能走课程绑定，' +
+      '比赛目标与重点排序是决策参考，不会限制在排名前三；结合学生表现说明 why。' +
       '补漏/复习必须说明 routeReason。',
     parameters: {
       cursor: {
@@ -3013,7 +3051,8 @@ function apply(ctx) {
           '**先讲一遍**的时间（分钟）。开一个他从没碰过的知识点时**必须给**，' +
           '不给会被拒绝 —— 直接扔题让他自己卡，那是给学过的人的练法。' +
           '讲多久**你自己定**（不参考任何固定值），看你判断他需要多少。' +
-          `最低 ${TEACH_FLOOR_MIN} 分钟，没有上限。已经在学或学过的节点不用给。`,
+          `最低 ${TEACH_FLOOR_MIN} 分钟，没有上限。已经在学或学过的节点不用给。` +
+          '这是计划时长，不能证明已经讲过或学生理解了。',
       },
       why: { type: 'string', description: '为什么挑它（一句话，进台账，供训练员质疑时举证）' },
       curriculumRevision: { type: 'integer', description: '有效课程 read 返回的 revision；无课程时可不填。' },
@@ -3163,7 +3202,7 @@ function apply(ctx) {
       const targetRoute = strategy.route(node, { purpose: args?.purpose, courseBound: Boolean(route.binding) })
       if (!targetRoute.ok) return deny(targetRoute.reject)
       if (targetRoute.competencyIds.length) {
-        why = `目标能力「${targetRoute.competencyIds.join('、')}」：${why || '当前重点对应的训练动作'}`
+        why = `目标能力「${targetRoute.competencyIds.join('、')}」：${why || '目标能力对应的训练动作'}`
       }
 
       // ③ 未建课程时沿用直接后继；有课程时允许当前阶段跨分支，仍检查前置。
@@ -3271,18 +3310,7 @@ function apply(ctx) {
         totalMinutes: net + teach + TAIL_MIN, why,
       }
       if (route.binding) pend[node].curriculum = route.binding
-      // 讲授段落盘：带 teachMinutes = 这次布置含讲授段，
-      // 在节点上记一条 `taught` 日期 —— 它是「讲过没」唯一的结构化痕迹。
-      // 在这之前讲完**不留任何记录**：coach_status 永远报「还没有教学记录」，
-      // 游标节点那条豁免也就没法按"讲过没"来判断（漏洞就是从这儿反推出来的）。
-      // 记的是"讲授段排上了"这一天，不是"讲得多好" —— 回答"讲过没"够用了。
-      if (teach > 0) {
-        const rec = { ...(progA.nodes[node] ?? {}) }
-        const taught = Array.isArray(rec.taught) ? rec.taught.slice() : []
-        if (!taught.includes(assignedAt)) taught.push(assignedAt)
-        rec.taught = taught
-        progA.nodes[node] = rec
-      }
+      // 布置讲解只保存计划；接触状态与理解证据由各自入口记录。
       progA.pendingActions = pend
       let pendingRecorded = true
       try { saveProgress(progA) } catch { pendingRecorded = false }
@@ -3332,6 +3360,7 @@ function apply(ctx) {
           // 让"讲过没"对教练**可查** —— 判据跟 coach_test 开卷时用的同一个
           // 函数（taughtEvidence），不另写一份。需求 #5 的验收 ③。
           cursorTaught: { type: 'string', required: true },
+          teachingContext: { type: 'string', required: true },
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
@@ -3489,9 +3518,10 @@ function apply(ctx) {
             // 十有八九就是游标这个节点。埋在别处等于没报。（需求 #5 验收 ③）
             (v.cursorName
               ? (v.cursorTaught
-                ? `　讲于 ${v.cursorTaught}`
+                ? `　接触记录 ${v.cursorTaught}（不证明理解）`
                 : `　⚠️ **还没有教学记录** —— 现在开卷会被拒，先讲`)
               : ''),
+          v.teachingContext,
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
           v.pendingNode
@@ -3640,6 +3670,7 @@ function apply(ctx) {
         cursor: p.cursor,
         cursorName: byId.get(p.cursor)?.name ?? '',
         cursorTaught: taughtEvidence(p, p.cursor)?.first ?? '',
+        teachingContext: teaching.context(p),
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
@@ -5052,7 +5083,7 @@ function apply(ctx) {
       const deny = (reject) => ({
         ok: false, reject, node: '', nodeName: '', domain: '',
         outcome: '', score: 0, maxScore: 0, passScore: PASS_SCORE,
-        minutes: 0, limit: 0, status: '', verifiedAt: 0, problems: [], checks: 0,
+        minutes: 0, limit: 0, status: '', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
       })
 
       const prog = loadProgress()
@@ -5593,10 +5624,8 @@ function apply(ctx) {
             L.push(`  ${r.nodeName}　${tag} ${ago}${rec}`)
           }
           L.push('',
-            '⚠️ **复习别把新知识挤没了。** 这套系统的价值在"往前推"，不在"原地保温" —— ' +
-            '一个月的表里全是复习，等于这个月没往前走。他自己会想先复习（复习舒服、' +
-            '做新题难受），**所以那个平衡得你来把**：复习块按上面的火候排，' +
-            '剩下的时间留给推进。')
+            '根据目标、剩余时间和实际表现，选择新课、复习、迁移或 VP。' +
+            '上面的间隔只供判断；不要为了填满课表持续开新知识点。')
         }
         L.push('', '要排就用 coach_plan，**一次只排他说的那一天**。')
         return [{ type: 'text', text: L.join('\n') }]
@@ -6097,8 +6126,8 @@ function apply(ctx) {
     },
   }))
 
-  // 强制力那一层（方针 §五 第四层）：每个 turn 注入当前位置
-  registerStateHook(ctx)
+  // 每个 turn 注入当前位置与续课线索，教学判断仍交给小鲸。
+  registerStateHook(ctx, teaching)
 
   // 技能树页面（可选注入 —— 没有 webServer 的环境跳过，工具照常工作）
   ctx.inject(['webServer'], (sctx) => { registerPages(sctx) })

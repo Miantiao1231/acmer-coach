@@ -9,7 +9,7 @@ function shape(schema, value) {
     assert.ok(value && typeof value === 'object' && !Array.isArray(value))
     if (schema.additionalProperties === false) for (const key of Object.keys(value)) assert.ok(key in schema.properties, `unexpected field ${key}`)
     for (const [key, field] of Object.entries(schema.properties ?? {})) {
-      if (field.required) assert.ok(key in value, `missing field ${key}`)
+      if (field.required === true || (Array.isArray(schema.required) && schema.required.includes(key))) assert.ok(key in value, `missing field ${key}`)
       if (key in value) shape(field, value[key])
     }
   } else if (schema.type === 'array') {

@@ -209,19 +209,50 @@ test('first-use focus has a complete refusal shape and targets reject unknown ca
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-test('target route rejects an unrelated progress node but allows a course-bound route', () => {
+test('target route allows a fourth-ranked target capability without imposing the focus ranking', () => {
   const { dir, store } = fixture()
   try {
+    assert.equal(store.target('set', {
+      expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
+      weeklyHours: 35, priorities: [
+        { id: 'contest-reading', weight: 100 },
+        { id: 'contest-decision', weight: 90 },
+        { id: 'dp-modeling', weight: 80 },
+        { id: 'graph-modeling', weight: 10 },
+      ],
+    }).ok, true)
+    assert.deepEqual(store.focus().postponed, ['graph-modeling'])
+    const route = store.route('最短路', { purpose: 'progress', courseBound: false })
+    assert.equal(route.ok, true)
+    assert.equal(route.targetAligned, true)
+    assert.deepEqual(route.competencyIds, ['graph-modeling'])
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('target route reports alignment without rejecting the coach choice', () => {
+  const { dir, store } = fixture()
+  try {
+    assert.equal(store.route('树状数组').targetAligned, false, 'no target is not an alignment claim')
     store.target('set', {
       expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
       weeklyHours: 35, priorities: [{ id: 'dp-modeling', weight: 100 }],
     })
-    const unrelated = store.route('树状数组', { purpose: 'progress', courseBound: false })
-    assert.equal(unrelated.ok, false)
-    assert.match(unrelated.reject, /dp-modeling|当前重点/)
-    const courseBound = store.route('树状数组', { purpose: 'progress', courseBound: true })
-    assert.equal(courseBound.ok, true)
-    assert.equal(courseBound.courseBound, true)
+    for (const options of [
+      { purpose: 'progress', courseBound: false },
+      { purpose: 'progress', courseBound: true },
+      { purpose: 'remediation', courseBound: false },
+      { purpose: 'review', courseBound: false },
+    ]) {
+      const unrelated = store.route('树状数组', options)
+      assert.equal(unrelated.ok, true)
+      assert.equal(unrelated.reject, '')
+      assert.equal(unrelated.targetAligned, false)
+      assert.deepEqual(unrelated.competencyIds, [])
+      assert.equal(unrelated.courseBound, options.courseBound)
+    }
+    const alignedReview = store.route('动态规划基础', { purpose: 'review', courseBound: true })
+    assert.equal(alignedReview.targetAligned, true)
+    assert.deepEqual(alignedReview.competencyIds, ['dp-modeling'])
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
@@ -313,5 +344,8 @@ test('corrupt stored strategy data returns a structured refusal', () => {
     const result = store.target('read')
     assert.equal(result.ok, false)
     assert.match(result.reject, /TARGET.yaml/)
+    const route = store.route('最短路')
+    assert.equal(route.ok, false)
+    assert.match(route.reject, /TARGET.yaml/)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

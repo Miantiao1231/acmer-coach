@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/NODE_SCOPES.yaml', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/NODE_SCOPES.yaml', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
@@ -898,9 +898,9 @@ check('标「在学」建立教学记录（这是"讲过"的机械痕迹）', ma
 
 // ③ 正面：标过之后同一行要报出「最早的教学痕迹」
 const stYes = await T5('coach_status').execute({}, undefined)
-check('★ 标过之后：报出最早的教学痕迹 + render 看得见「讲于 X」（验收 ③ 正面）',
+check('★ 标过之后：报出最早接触记录，并说明不证明理解（验收 ③ 正面）',
   /^\d{4}-\d{2}-\d{2}$/.test(stYes.cursorTaught) &&
-  T5('coach_status').output.render({}, stYes)[0].text.includes(`讲于 ${stYes.cursorTaught}`),
+  T5('coach_status').output.render({}, stYes)[0].text.includes(`接触记录 ${stYes.cursorTaught}（不证明理解）`),
   `cursorTaught=${JSON.stringify(stYes.cursorTaught)}`)
 // 游标还原 —— 下面几关的夹具是照着"游标本来就是空的"搭的
 if (cursorWas) await T5('coach_set_cursor').execute({ node: cursorWas }, undefined)
@@ -2362,7 +2362,7 @@ function shapeDiff(tool, out) {
         if (schema.additionalProperties === false && !(k in props)) extra.push(child(k))
       }
       for (const [k, s] of Object.entries(props)) {
-        if (s?.required && !(k in value)) missing.push(child(k))
+        if ((s?.required === true || (Array.isArray(schema.required) && schema.required.includes(k))) && !(k in value)) missing.push(child(k))
         else if (k in value) {
           const d = walk(s, value[k], child(k))
           extra.push(...d.extra); missing.push(...d.missing)
@@ -2378,6 +2378,19 @@ function shapeDiff(tool, out) {
   }
   return walk(tool.output.schema, out ?? {}, '')
 }
+const optionalObjectSchema = { type: 'object', required: ['summary'], properties: {
+  summary: { type: 'string' },
+  studentEvidence: { type: 'object', required: ['quote'], properties: { quote: { type: 'string' } } },
+} }
+const schemaTool = { output: { schema: optionalObjectSchema } }
+check('★ 形状尺：可选对象缺省合法，子字段 required 不代表父对象必填',
+  shapeDiff(schemaTool, { summary: '教练判断' }).missing.length === 0)
+check('★ 形状尺：父对象 required 列表中的字段缺省仍拒绝',
+  shapeDiff(schemaTool, {}).missing.join(',') === 'summary')
+check('★ 形状尺：提供可选对象后，仍核对子字段 required',
+  shapeDiff(schemaTool, { summary: '教练判断', studentEvidence: {} }).missing.join(',') === 'studentEvidence.quote')
+check('★ 形状尺：原 DSL 的 required=true 仍核对',
+  shapeDiff({ output: { schema: { type: 'object', properties: { summary: { type: 'string', required: true } } } } }, {}).missing.join(',') === 'summary')
 const t1 = await planT.execute({ date: D[3], blocks: [{ from: '10:00', kind: 'review', node: 'A' }] })
 check('工具层：排得进去', t1.ok === true && t1.count === 1, t1.reject)
 const sd1 = shapeDiff(planT, t1)
@@ -3120,9 +3133,9 @@ check('studying 的用 at 算天数（3 天前标的）', rB33?.days === 3, `${r
 const txt33 = T33.get('coach_schedule').output.render({}, sch33)[0].text
 check('★ 渲染里摆得出来，且标明"该不该动是你判"',
   txt33.includes('火候') && txt33.includes('该不该动是你判'), (txt33.match(/.*火候.*/) ?? [''])[0])
-check('★ 排课提醒里带着「复习别把新知识挤没」',
-  txt33.includes('复习别把新知识挤没了') && txt33.includes('留给推进'),
-  (txt33.match(/.*复习别把.*/) ?? ['（没有）'])[0].slice(0, 50))
+check('★ 排课建议依据目标与表现，不强制持续开新课',
+  txt33.includes('根据目标') && txt33.includes('实际表现') && txt33.includes('迁移或 VP') && !txt33.includes('剩下的时间留给推进'),
+  (txt33.match(/.*根据目标.*/) ?? ['（没有）'])[0].slice(0, 70))
 
 // 没有火候（全是未学/没有记录）时不该硬塞一段
 const tmp33b = mkdtempSync(path.join(os.tmpdir(), 'coach-ready-b-'))
@@ -3495,7 +3508,7 @@ mod38.apply(mockCtx(reg38))
 const T38 = (n) => reg38.find((t) => t.name === n)
 const asg38 = T38('coach_assign')
 const prog38 = () => readFileSync(path.join(tmp38, 'PROGRESS.yaml'), 'utf8')
-// 夹具里的游标是空的 —— 先设上。（`coach_status` 报「讲于哪」读的是
+// 夹具里的游标是空的 —— 先设上。（`coach_status` 报接触日期读的是
 // PROGRESS.yaml 里的游标，不是 assign 那条路径传进来的 cursor 参数。）
 await T38('coach_set_cursor').execute({ node: '记忆化搜索' })
 
@@ -3504,22 +3517,28 @@ const g38a = await asg38.execute({ cursor: '记忆化搜索', node: '记忆化�
 check('★ 游标节点 + 没讲过 + 不给 teachMinutes → 拒（这就是那个洞）',
   g38a.accepted === false && g38a.reject.includes('全新知识点'), g38a.reject.split('\n')[0])
 
-// ② 带讲授段 → 放行，而且**留下教学痕迹**
+// ② 带讲授计划 → 放行，但计划不能伪装成已发生的教学。
 const g38b = await asg38.execute({
   cursor: '记忆化搜索', node: '记忆化搜索', deliverable: '贴代码', minutes: 40, teachMinutes: 20 })
 check('★ 带 teachMinutes → 放行', g38b.accepted === true, g38b.reject)
-check('★ 讲授段落盘：节点上记下 `taught`',
-  prog38().includes('taught:'), (prog38().match(/.*taught.*/) ?? ['（没有）'])[0].trim())
+check('★ 讲授计划不写 taught：计划不等于实际接触',
+  !prog38().includes('taught:'), prog38())
 const st38 = await T38('coach_status').execute({})
-check('★ coach_status 报得出「讲于」那天（以前永远是"还没有教学记录"）',
-  st38.cursorTaught !== '', `cursorTaught=${st38.cursorTaught || '（空）'}`)
-check('★ 记讲授**不动 status**（讲了 ≠ 学会了 —— 自评/检测才是那两级）',
+check('★ 只有计划时 cursorTaught 仍为空，计划时长另存在待办里',
+  st38.cursorTaught === '' && st38.pendingActions.find((a) => a.node === '记忆化搜索')?.teachMinutes === 20,
+  `cursorTaught=${st38.cursorTaught || '（空）'}`)
+check('★ 讲授计划不动 status（还没发生的课不能变成学习记录）',
   st38.studyingCount === 0 && st38.learnedCount === 0 && st38.verifiedCount === 0,
   JSON.stringify({ 在学: st38.studyingCount, 学过: st38.learnedCount, 已验证: st38.verifiedCount }))
 
-// ③ 讲过了 → 同一个游标节点再布置，不用重讲（豁免还在，只是有了条件）
+// ③ 计划不能解锁继续练；教练记录实际进入学习后才适用游标例外。
 const g38c = await asg38.execute({ cursor: '记忆化搜索', node: '记忆化搜索', deliverable: '贴代码', minutes: 40 })
-check('★ 讲过之后：游标节点再布置**不用**重讲（豁免仍然生效）', g38c.accepted === true, g38c.reject)
+check('★ 只有计划：不给 teachMinutes 仍拒绝',
+  g38c.accepted === false && g38c.reject.includes('全新知识点'), g38c.reject)
+const marked38 = await T38('coach_mark').execute({ node: '记忆化搜索', status: 'studying' })
+check('★ 实际开始学习由教练显式记录', marked38.ok === true, marked38.reject)
+const g38real = await asg38.execute({ cursor: '记忆化搜索', node: '记忆化搜索', deliverable: '贴代码', minutes: 40 })
+check('★ 实际接触之后：游标节点再布置不用重讲', g38real.accepted === true, g38real.reject)
 
 // ④ 不误伤：非游标的新节点照样要讲
 const g38d = await asg38.execute({ cursor: '记忆化搜索', node: '区间 DP', deliverable: '贴代码', minutes: 40 })

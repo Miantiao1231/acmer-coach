@@ -73,7 +73,7 @@ const onlyA = namesA.filter((n) => !namesB.includes(n))
 check('开源版没有丢掉任何原有工具', onlyB.length === 0, onlyB.join(',') || '（没丢）')
 // 新增的只能是「搭环境 / 拉数据 / 查知识 / 长期课程」这几类 —— 它们补的正是
 // 开源版缺的那些基础设施（原版靠本地已有的库和 skill，别人没有）。
-const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum', 'coach_target', 'coach_focus', 'coach_scope', 'coach_postmortem', 'coach_vp_import', 'coach_vp_connect', 'coach_vp_sync', 'coach_vp_contests', 'coach_vp_replay'])
+const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum', 'coach_note', 'coach_target', 'coach_focus', 'coach_scope', 'coach_postmortem', 'coach_vp_import', 'coach_vp_connect', 'coach_vp_sync', 'coach_vp_contests', 'coach_vp_replay'])
 check('新增的都在预期内（搭建 / 检索 / 课程 / 比赛 / VP）',
   onlyA.every((n) => EXPECTED_NEW.has(n)), onlyA.join(',') || '（无新增）')
 // 对照副本可能也已经升级到 20/21 个工具；检查原工具集合，不能拿固定数量拒绝新版。
@@ -130,9 +130,13 @@ for (const [tool, args, label] of CALLS) {
   try { rb = norm(await tb.execute(args, undefined)) } catch (e) { eb = e.message }
   // Legacy hosts have no goal layer; only its explicit no-target defaults may be absent.
   if (tool === 'coach_assign' && rb && !('targetAligned' in rb) &&
-      (ra?.targetAligned === true || (ra?.accepted === false && rb.accepted === false && ra.reject === rb.reject && ra.targetAligned === false)) &&
+      ra?.targetAligned === false &&
       Array.isArray(ra.competencies) && !ra.competencies.length) {
     delete ra.targetAligned; delete ra.competencies
+  }
+  // A legacy host cannot return the new empty continuation field.
+  if (tool === 'coach_status' && rb && !('teachingContext' in rb) && ra?.teachingContext === '') {
+    delete ra.teachingContext
   }
   const sa = JSON.stringify(ra ?? { ERR: ea }), sb = JSON.stringify(rb ?? { ERR: eb })
   if (sa === sb) { check(`${tool} · ${label}`, true) }
@@ -154,8 +158,16 @@ for (const [tool, args, label] of CALLS.filter((c) => c[0] !== 'coach_diagnose')
   try { va = await ta.execute(args, undefined) } catch { continue }
   try { vb = await tb.execute(args, undefined) } catch { continue }
   const ra = strip(ta.output.render(args, va)[0]?.text ?? '')
-  const rb = strip(tb.output.render(args, vb)[0]?.text ?? '')
-  const same = ra === rb
+  const legacyText = tb.output.render(args, vb)[0]?.text ?? ''
+  // The old lecture label overstated its evidence; only this intentional label changes.
+  const rb = strip(tool === 'coach_status'
+    ? legacyText.replace(/　讲于 (\d{4}-\d{2}-\d{2})/g, '　接触记录 $1（不证明理解）')
+    : legacyText)
+  // Only the changed goal-led advice is excluded; schedule facts still match byte for byte.
+  const scheduleAdvice = (text) => text
+    .replace(/^⚠️ \*\*复习别把新知识挤没了。\*\*.*剩下的时间留给推进。$/m, '<COACH_ADVICE>')
+    .replace(/^根据目标、剩余时间和实际表现，选择新课、复习、迁移或 VP。上面的间隔只供判断；不要为了填满课表持续开新知识点。$/m, '<COACH_ADVICE>')
+  const same = tool === 'coach_schedule' ? scheduleAdvice(ra) === scheduleAdvice(rb) : ra === rb
   check(`渲染 · ${tool} · ${label}`, same, same ? '' : '文本不一致')
 }
 

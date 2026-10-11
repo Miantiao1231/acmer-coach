@@ -53,7 +53,7 @@ function validateShape(schema, value) {
     assert.equal(typeof value, 'object'); assert.notEqual(value, null)
     if (schema.additionalProperties === false) for (const key of Object.keys(value)) assert.ok(key in schema.properties, `unexpected ${key}`)
     for (const [key, child] of Object.entries(schema.properties)) {
-      if (child.required) assert.ok(key in value, `missing ${key}`)
+      if (child.required === true || (Array.isArray(schema.required) && schema.required.includes(key))) assert.ok(key in value, `missing ${key}`)
       if (key in value) validateShape(child, value[key])
     }
   } else if (schema.type === 'array') {
