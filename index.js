@@ -38,7 +38,7 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.6.0'
+const VERSION = '2.6.1'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。

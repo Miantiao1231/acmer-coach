@@ -19,7 +19,15 @@ function sources(value, label) {
     assert.ok(typeof source.title === 'string' && source.title.trim(), `${label}: source title required`)
     const url = new URL(source.url)
     assert.equal(url.protocol, 'https:', `${label}: public HTTPS source required`)
-    assert.ok(!url.username && !url.password && !url.search, `${label}: no account credentials or query data`)
+    assert.ok(!url.username && !url.password, `${label}: no account credentials`)
+    if (url.search) {
+      assert.equal(url.hostname, 'contest.ucup.ac', `${label}: only public official attachments may use query parameters`)
+      assert.equal(url.pathname, '/download.php')
+      assert.deepEqual([...url.searchParams.keys()].sort(), ['id', 'r', 'type'])
+      assert.equal(url.searchParams.get('type'), 'attachments')
+      assert.match(url.searchParams.get('id'), /^\d+$/)
+      assert.match(url.searchParams.get('r'), /^\d+$/)
+    }
     assert.ok(url.pathname !== '/', `${label}: link to evidence, not a homepage`)
   }
 }
@@ -35,27 +43,54 @@ test('contest evidence exposes actual reviewed samples, never a complete syllabu
     const store = createStrategyStore({ dataDir: dir, competenciesPath: fileURLToPath(new URL('COMPETENCIES.yaml', knowledge)) })
     const profiles = store.target('profiles').availableProfiles
     const regional = profiles.find(profile => profile.id === 'regional-diagnostic')
-    assert.equal(regional.coverage.sampledProblems, 19)
-    assert.equal(regional.coverage.reviewedSolutions, 19)
-    assert.deepEqual(regional.coverage.years, [2022, 2023])
+    assert.equal(regional.coverage.sampledProblems, 70)
+    assert.equal(regional.coverage.reviewedSolutions, 70)
+    assert.deepEqual(regional.coverage.years, [2022, 2023, 2024, 2025])
     assert.equal(regional.coverage.isSyllabus, false)
     assert.deepEqual(regional.samples.filter(sample => sample.year === 2022).map(sample => sample.problem).sort(), [...'ABCDEFGHIJKLM'])
-    assert.equal(new Set(regional.samples.map(sample => `${sample.contest}:${sample.year}:${sample.problem}`)).size, 19)
+    assert.equal(new Set(regional.samples.map(sample => `${sample.contest}:${sample.year}:${sample.problem}`)).size, 70)
+    const additions = [
+      ["Xi'an", 2025, 'ABCDEFGHIJKLM', 'contest.ucup.ac', '/download.php'],
+      ['Hangzhou', 2024, 'ABCDEFGHIJKLM', 'contest.ucup.ac', '/download.php'],
+      ['Shanghai', 2025, 'ABCDEFGHIJKLM', 'ucup.ac', '/tutorials/tutorials-4-12-zh.pdf'],
+      ['Hong Kong', 2025, 'ABCDEFGHIJKL', 'ucup.ac', '/tutorials/tutorials-4-14-en.pdf'],
+    ]
+    for (const [city, year, letters, host, pathname] of additions) {
+      const samples = regional.samples.filter(sample => sample.contest === city && sample.year === year)
+      assert.deepEqual(samples.map(sample => sample.problem).sort(), [...letters], `${city}: reviewed full paper`)
+      for (const sample of samples) {
+        const url = new URL(sample.sourceUrl)
+        assert.equal(url.hostname, host)
+        assert.equal(url.pathname, pathname)
+        assert.match(url.hash, /^#page=[1-9]\d*$/)
+        if (city === "Xi'an" || city === 'Hangzhou') {
+          assert.equal(url.searchParams.get('type'), 'attachments')
+          assert.equal(url.searchParams.get('id'), city === "Xi'an" ? '2562' : '1893')
+          assert.equal(url.searchParams.get('r'), '1')
+        }
+      }
+    }
     assert.match(regional.title, /中国|亚洲/)
     for (const sample of regional.samples) {
       assert.ok(sample.model && sample.solutionReviewed)
-      assert.match(sample.sourceUrl, sample.year === 2022
+      if (sample.contest === 'Nanjing') assert.match(sample.sourceUrl, sample.year === 2022
         ? /^https:\/\/sua\.ac\/wiki\/2022-icpc-nanjing\/tutorial-sketch-zh\.pdf#page=\d+$/
         : /^https:\/\/universal-cup-website\.qoj\.ac\/files\/ucup\/tutorials\/tutorials-2-11\.pdf#page=\d+$/)
       assert.ok(sample.competencyIds.every(id => competencies.some(card => card.id === id)))
     }
     const xian = profiles.find(profile => profile.id === 'xian-pending')
-    assert.equal(xian.coverage.sampledProblems, 0)
-    assert.equal(xian.coverage.reviewedSolutions, 0)
+    assert.equal(xian.coverage.sampledProblems, 13)
+    assert.equal(xian.coverage.reviewedSolutions, 13)
+    assert.deepEqual(xian.coverage.years, [2025])
+    assert.deepEqual(xian.samples, regional.samples.filter(sample => sample.contest === "Xi'an"))
     assert.equal(xian.coverage.isSyllabus, false)
     assert.equal(store.target('set', { expectedRevision: 0, contest: '区域赛', date: '2026-10-17', result: '稳定', profileId: regional.id, weeklyHours: 25,
       priorities: [{ id: 'graph-modeling', weight: 10 }] }).ok, true)
-    assert.equal(store.focus().profile.coverage.sampledProblems, 19)
+    assert.equal(store.focus().profile.coverage.sampledProblems, 70)
+    assert.equal(store.target('set', { expectedRevision: 1, contest: '西安区域赛', date: '2026-10-17', result: '稳定', profileId: 'xian-pending', weeklyHours: 25,
+      priorities: [{ id: 'graph-modeling', weight: 10 }] }).ok, true)
+    assert.equal(store.focus().profile.coverage.reviewedSolutions, 13)
+    assert.equal(store.focus().profile.id, 'xian-pending')
     assert.equal(profiles.find(profile => profile.id === 'nwerc-reference').coverage.reviewedSolutions, 13)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

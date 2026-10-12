@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
   "description": "小鲸教练插件：保存训练位置和真实证据，支持教练判断、持续教学与比赛备赛。读 MAP/DEPENDS/PROGRESS，提供训练、判因和检测工具。",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"
