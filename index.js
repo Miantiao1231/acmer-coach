@@ -38,7 +38,7 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.6.1'
+const VERSION = '2.6.2'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -1947,15 +1947,15 @@ function vpEventsFromSync(payload, account) {
 }
 
 function apply(ctx) {
-  // ── 规则层：进 system prompt ──────────────────────────────────────
+  // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
   // 为什么走 `systemPrompt.section` 而不是把规则塞进消息流：
   // 规则是**行为约束**，每轮都得在场。消息流会被长对话把尾巴挤掉，
   // 而且那本来就不是它该待的层。人设走的就是这条路
   // （`deployment:persona-prefix` / `-suffix`），教练规则和人设同级。
   //
-  // order 取 400：人设是 0、通用策略（PLAN_POLICY/TEAM_POLICY）是 500/600、
-  // 工具段 1000+。教练规则是**领域策略**，排在人设之后、通用策略之前。
+  // 默认小鲸人设 -100，宿主自定义人设 0；当前用户偏好与宿主风格优先。
+  // 教练规则 400，排在人设之后、通用策略（500/600）与工具段（1000+）之前。
   //
   // ⚠️ 规则文本必须**静态**：这个 section 每轮都参与组装，
   //    现算内容会打穿 prompt cache（那正是现有代码刻意不碰 system prompt
@@ -1966,7 +1966,13 @@ function apply(ctx) {
   try {
     const sp = ctx.get?.('systemPrompt')
     if (sp && typeof sp.section === 'function') {
-      sp.section({ name: 'coach:rules', order: 400, text: readFileSync(join(RULES_DIR, 'coach-rules.md'), 'utf8') })
+      for (const section of [
+        { name: 'coach:persona', order: -100, path: join(import.meta.dirname, 'assets', 'persona', 'xiaojing-coach.md') },
+        { name: 'coach:rules', order: 400, path: join(RULES_DIR, 'coach-rules.md') },
+      ]) {
+        try { sp.section({ name: section.name, order: section.order, text: readFileSync(section.path, 'utf8') }) }
+        catch { /* 单个文件或 section 不可用，继续注册其他段与工具 */ }
+      }
     }
   } catch { /* 没这服务 / 没这文件 → 不注，照常加载 */ }
 

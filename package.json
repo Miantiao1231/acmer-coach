@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
   "description": "小鲸教练插件：保存训练位置和真实证据，支持教练判断、持续教学与比赛备赛。读 MAP/DEPENDS/PROGRESS，提供训练、判因和检测工具。",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"
@@ -23,11 +23,11 @@
     "@deepseek-ai/dsh-tools": "0.2.0-rc.2"
   },
   "scripts": {
-    "test": "node --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs"
+    "test": "node --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/persona-check.mjs"
   },
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.1-rc.1"
+      "dsh": ">=0.2.0-rc.2"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"

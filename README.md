@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/acmer-coach)](https://www.npmjs.com/package/acmer-coach)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A524-brightgreen)](https://nodejs.org)
-[![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.1.1--rc.1-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.0--rc.2-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
 
 一个给 ACMer 用的算法训练教练插件，跑在 [dsh](https://github.com/deepseek-ai/deepseek-harness) 上。
 
@@ -120,6 +120,16 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 
 详见 [长期课程机制](docs/长期课程机制.md)。
+
+### 2.6.2：小鲸人设与原生预设随包
+
+现在插件内置 `assets/persona/xiaojing-coach.md`，默认提供小鲸鱼娘的外观、性格、训练员称呼、语气词、颜文字和小动作。新用户安装后无需另建本机 `personas` 文件。互动、讲题、复盘和赛时都保留可爱风格，公式及代码内部保持干净。
+
+在支持原生预设的 dsh（已验 `0.2.0-rc.2`）中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；插件的 31 个工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
+
+人设通过 dsh 已有 `systemPrompt.section()` 静态加载，位于宿主人设之前；当前用户偏好和宿主自定义风格优先。训练选题、长期计划、来源及验收继续遵循 `coach:rules`，不把旧人设里的 rating 门槛或固定工具步骤带回来，也不携带个人账号与训练记录。插件不会自行改写已有本机人设文件；如个人预设仍包含旧教学规则，需单独更新它的 `persona.config.prefix`，避免覆盖新版教练规则。
+
+没有提示词服务、人设文件缺失或人设注册失败时，教练规则和工具继续独立加载。更新后重启 dsh 并创建新会话；已有会话可能保留旧预设的一代配置。随包与注入验证不等于实际模型口吻评测。
 
 ### 2.6.1：中国区多赛站资料
 
@@ -303,16 +313,18 @@ dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次�
 | `dev.sh` | 开发回路：同步 + 验收，一条命令 |
 | `build-node-meta.mjs` | 算每个节点的 `entry`（跑题池，离线） |
 | `assets/rules/` | **教练规则** —— 由插件注入 system prompt |
+| `assets/persona/` | **小鲸人设** —— 默认随包，静态注入 system prompt |
 | `assets/knowledge/` | 地图与元数据 |
 | `assets/oiwiki/` | OI Wiki 本地检索库 |
 | `assets/pool/` | 随包发的题池（41,518 道，三平台）—— 见该目录下的 LICENSE（有风险说明） |
 | `assets/extension/` | **可选**扩展：洛谷记录导出（浏览器扩展）+ Obsidian 笔记桥（dsh 插件） |
 | `coach/` | 地图工具链（Python）+ 指标脚本 |
 
-### 三层
+### 人设与三层教练能力
 
 | 层 | 内容 | 怎么生效 |
 |---|---|---|
+| **人设** | `assets/persona/xiaojing-coach.md` | 默认静态加载，宿主自定义风格和当前用户偏好可覆盖；改后重启dsh |
 | **规则** | `assets/rules/coach-rules.md` | 插件用 `systemPrompt.section()` 注进 system prompt（和人设同一条路）。**改它要重启 dsh** |
 | **知识** | 地图 4 份 + OI Wiki 检索库 | `coach_setup init` 铺到数据目录；OI Wiki 直接从包里读 |
 | **工具** | 31 个 | 装完就在 |
