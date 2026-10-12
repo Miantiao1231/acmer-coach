@@ -34,11 +34,12 @@ import { createStrategyStore } from './lib/strategy.js'
 import { createTeachingNotes } from './lib/teaching.js'
 import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
+import { upgradeSkilltreeHtml } from './lib/pages.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.6.2'
+const VERSION = '2.6.3'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -1542,6 +1543,11 @@ function registerPages(ctx) {
       catch (err) { return send(res, 404, 'text/plain; charset=utf-8', `VP 页面缺失（${err?.code ?? err?.message}）`) }
     }
 
+    if (['geist-latin-wght-normal.woff2', 'geist-mono-latin-400-normal.woff2'].some(font => pathname === `/coach/fonts/${font}`)) {
+      try { return send(res, 200, 'font/woff2', readFileSync(join(import.meta.dirname, 'assets', 'knowledge', 'fonts', pathname.split('/').at(-1)))) }
+      catch { return send(res, 404, 'text/plain; charset=utf-8', '字体文件缺失') }
+    }
+
     if (pathname === '/coach/api/vp/status' && req.method === 'GET') {
       return sendJson(res, 200, { ok: true, ...vpClient.localStatus() })
     }
@@ -1581,11 +1587,13 @@ function registerPages(ctx) {
     if (pathname === '/coach/skilltree.html') {
       let html
       try {
-        html = readFileSync(SKILLTREE_HTML())
+        html = readFileSync(SKILLTREE_HTML(), 'utf8')
       } catch (err) {
         return send(res, 404, 'text/plain; charset=utf-8',
           `还没有 skilltree.html（${err?.code ?? err?.message}）—— 先跑 python render_skilltree.py`)
       }
+      try { html = upgradeSkilltreeHtml(html, readFileSync(join(import.meta.dirname, 'coach', 'skilltree_template.html'), 'utf8')) }
+      catch { /* 模板不可用时保留现有生成页 */ }
       return send(res, 200, 'text/html; charset=utf-8', html)
     }
 
