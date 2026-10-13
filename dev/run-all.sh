@@ -75,7 +75,7 @@ run "pages"         node --test dev/pages-check.mjs
 run "VP-UI"         node --test dev/vp-ui-check.mjs
 run "map-UI"        node --test dev/map-ui-check.mjs
 run "grading"       node --test dev/grading-check.mjs
-run "training"      node --test dev/training-check.mjs
+run "training"      node --test dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
 run "migration"     node --test dev/workspace-migration-check.mjs

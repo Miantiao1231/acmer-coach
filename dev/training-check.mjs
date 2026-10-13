@@ -77,6 +77,13 @@ test('15-minute node diagnostic fits one action without pretending a lecture or 
   assert.equal(progress.pendingActions.A.kind, 'diagnostic')
 }))
 
+test('a 60-minute lesson can use 20 teaching, 20 practice and 20 cleanup without a fictitious 30-minute floor', async () => fixture(async ({ call }) => {
+  const r = await call('coach_assign', { node: 'A', minutes: 20, teachMinutes: 20, deliverable: '解释最小反例并提交独立尝试' })
+  assert.equal(r.accepted, true, r.reject)
+  assert.equal(r.totalMinutes, 60)
+  assert.deepEqual(r.blocks.map(b => b.minutes), [20, 20, 10, 10])
+}))
+
 test('a full 300-minute VP occupies one schedule block within the physical day', async () => fixture(async ({ call }) => {
   const now = new Date()
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`

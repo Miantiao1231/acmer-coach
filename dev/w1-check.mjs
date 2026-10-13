@@ -80,13 +80,13 @@ console.log('── 1. 默认路径从家目录派生（不再写死） ──')
   const ping = byName.get('coach_ping')
   check('coach_ping 注册了', Boolean(ping))
   const v = await ping.execute({}, undefined)
-  // 默认目录 = ~/.dsh/knowledge。本机能跑说明家目录派生没问题。
-  check('默认数据目录可达（~/.dsh/knowledge）', typeof v?.dataDir === 'string' && v.dataDir.includes('.dsh'),
+  // 原生运行目录优先；没设 DSH_HOME 时才回退到家目录。
+  check('默认数据目录有明确路径', typeof v?.dataDir === 'string' && v.dataDir.length > 0,
     `dataDir=${v?.dataDir}`)
   // 断言的是**推导逻辑**，不是"不含某几个字面量" ——
   // 后者会把名字写进测试文件本身，等于把要清的东西留在了仓库里。
-  const want = join(homedir(), '.dsh', 'knowledge')
-  check('默认路径 = 家目录派生（不是写死的）',
+  const want = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'knowledge')
+  check('默认路径 = 原生运行目录派生（不是写死的）',
     String(v?.dataDir).replace(/\\/g, '/') === want.replace(/\\/g, '/'), `dataDir=${v?.dataDir}`)
 }
 

@@ -18,6 +18,32 @@ const practice = (extra = {}) => ({ date, problemId: '1234A', solved: false,
 const progress = (nodeRecord, node = '区间 DP') => ({ nodes: { [node]: nodeRecord } })
 const rowsFor = (record) => collectEvidence(progress(record))
 
+const studentEvidence = { sessionId: 'test-session', messageId: 'test-report', seq: 7,
+  quote: '这题做出了，但没计时。', start: 0, end: '这题做出了，但没计时。'.length }
+
+test('sourced unknown facts remain observations rather than fabricated gaps or timings', () => {
+  const rows = rowsFor({ passes: [{ date, solved: true, studentEvidence, eventId: 'student:test-report:0' }] })
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].signal, 'observation')
+  assert.equal(rows[0].minutes, undefined)
+  assert.equal(rows[0].independent, undefined)
+  assert.match(rows[0].summary, /未知|未报告/)
+  assert.deepEqual(rowsFor({ passes: [{ date, solved: true, studentEvidence: {} }] }), [])
+})
+
+test('source event identity survives relabeling and mirrored ledgers even when facts are corrected', () => {
+  const fact = practice({ solved: true, studentEvidence, eventId: 'student:test-report:0' })
+  const original = rowsFor({ passes: [fact] })
+  const updated = { ...fact, problemId: '改名后的同一题', minutes: 12 }
+  const corrected = rowsFor({ passes: [updated] })
+  assert.equal(corrected[0].eventId, original[0].eventId)
+  assert.notEqual(corrected[0].id, original[0].id)
+  const both = collectEvidence(progress({ passes: [updated] }), { days: { [date]: { actual: [
+    { ...fact, node: '区间 DP', actualMin: 40 },
+  ] } } })
+  assert.deepEqual(both, corrected)
+})
+
 test('competency diagnostics and VP completions become facts without fake knowledge nodes', () => {
   const schedule = { days: { [date]: { actual: [
     { node: '', competency: 'contest-reading', kind: 'diagnostic', actualMin: 15, solved: true, independent: true, problemId: 'probe' },

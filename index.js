@@ -39,7 +39,7 @@ import { upgradeSkilltreeHtml } from './lib/pages.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.6.3'
+const VERSION = '2.6.4'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -73,7 +73,8 @@ const TEACH_FLOOR_MIN = 10
 // —— 两个时刻的事实可以不一样，于是"数据目录是默认的、闸门却放行"。
 // 那正是这个闸门当初要治的那类 bug（两份真相），别让它自己再长一个出来。
 const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
-const DATA_DIR = process.env.COACH_DATA_DIR || join(homedir(), '.dsh', 'knowledge')
+const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh')
+const DATA_DIR = process.env.COACH_DATA_DIR || join(DSH_HOME, 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
 let ACTIVE_VP_DIR = DATA_DIR
 let strategy
@@ -891,9 +892,9 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
           plannedMin: planned
             .filter((b) => a?.competency ? b.competency === a.competency : String(b.node) === nodeId && !b.competency)
             .reduce((t, b) => t + Number(b.minutes ?? 0), 0),
-          actualMin: Number(a?.actualMin ?? 0),
+          ...(typeof a?.actualMin === 'number' ? { actualMin: a.actualMin } : {}),
           solved: a?.solved === true,
-          independent: a?.independent === true,
+          ...(typeof a?.independent === 'boolean' ? { independent: a.independent } : {}),
         }
         if (a?.competency) e.competency = String(a.competency)
         if (a?.note) e.note = String(a.note)
@@ -1122,8 +1123,7 @@ function suggest(cursor, nodes) {
 //
 // 单位跟着 #7 一起统一：这里给的是**他自己动手的净时间**（不是整块长度）。
 // backfill / drill 就是一个标准循环（净 40 → 整块 60，跟以前一样）；
-// redo 给下限净 30 —— 旧口径下它写的是"总 30"，拆开只有 10 分钟自己做，
-// 而净 10 现在连下限都够不上（工具会拒），所以它必须抬到净 30 才自洽。
+// redo 的净时长由教练按错误范围给出；短任务不套固定30分钟下限。
 const MOVES = {
   '不会': { kind: 'backfill', label: '回头把这个知识点补上', minutes: NET_DEFAULT_MIN },
   '不熟': { kind: 'drill', label: '换个题、限时加练同一套路', minutes: NET_DEFAULT_MIN },
@@ -1140,7 +1140,7 @@ const squash = (s) => String(s ?? '').replace(/\s+/g, '')
 
 // 训练库：提交记录的**唯一**来源。只读打开，绝不写。
 // COACH_DB 可覆盖 —— verify.mjs 靠它指向临时小库，真库一动不动。
-const DB_PATH = () => process.env.COACH_DB || join(homedir(), '.dsh', 'data', 'training.db')
+const DB_PATH = () => process.env.COACH_DB || join(DSH_HOME, 'data', 'training.db')
 // 教练服务的账号。COACH_TRAINER 没给就取训练库里第一条用户
 // —— 一个人一张库是常态，没有理由写死某个 handle。
 const TRAINER = process.env.COACH_TRAINER || null
@@ -3514,8 +3514,8 @@ function apply(ctx) {
                 // 老记录没有题号 → 空串（别拿它当"这道题叫空"）
                 problemId: { type: 'string', required: true },
                 solved: { type: 'boolean', required: true },
-                independent: { type: 'boolean', required: true },
-                minutes: { type: 'integer', required: true },
+                independent: { type: 'boolean' },
+                minutes: { type: 'integer' },
               },
             },
           },
@@ -3625,7 +3625,7 @@ function apply(ctx) {
             ? `做完记录 ${v.passTotal} 条 / ${v.problemTotal} 题（做出来 ${v.problemSolved} 题，其中**独立做出 ${v.problemIndependent}**），最近：` +
               v.recentPasses.slice(0, 4).map((x) =>
                 `${x.date.slice(5)} ${x.nodeName}${x.problemId ? ` ${x.problemId}` : ''}` +
-                `${x.solved ? (x.independent ? '独立✓' : '看题解✓') : '✗'}`)
+              `${x.solved ? (x.independent === true ? '独立✓' : x.independent === false ? '有帮助✓' : '独立性未知✓') : '✗'}`)
                 .join('　·　')
             : '',
           v.updated ? `进度最后更新：${v.updated}` : '',
@@ -3685,8 +3685,8 @@ function apply(ctx) {
             // 老记录没有题号 → 空串（下面按「一道未知题」单独算）
             problemId: String(x?.problemId ?? ''),
             solved: x?.solved === true,
-            independent: x?.independent === true,
-            minutes: Number(x?.minutes ?? 0),
+            ...(typeof x?.independent === 'boolean' ? { independent: x.independent } : {}),
+            ...(typeof x?.minutes === 'number' ? { minutes: x.minutes } : {}),
           })
         }
       }
@@ -5580,9 +5580,9 @@ function apply(ctx) {
                     properties: {
                       node: { type: 'string', required: true },
                       plannedMin: { type: 'integer', required: true },
-                      actualMin: { type: 'integer', required: true },
+                      actualMin: { type: 'integer' },
                       solved: { type: 'boolean', required: true },
-                      independent: { type: 'boolean', required: true },
+                      independent: { type: 'boolean' },
                       competency: { type: 'string' },
                       // 可选（coach_log 带 note 时才写）。不写 required —— 可选键
                       // 在 dsh 那套里就是"不写 required"，写 required:false 会抛。
@@ -5655,8 +5655,8 @@ function apply(ctx) {
             }
             // 三样都要：实际分钟 / 做出来没有 / 独立没有 —— 少第三样等于废一半
             const body = rows.map((r) =>
-              `实际 ${r.actualMin} 分钟，` +
-              `${r.solved ? (r.independent ? '独立做出' : '看题解做出') : '没做出来'}`).join('　·　')
+              (r.actualMin === undefined ? '实际用时未报告，' : `实际 ${r.actualMin} 分钟，`) +
+              `${r.solved ? (r.independent === true ? '独立做出' : r.independent === false ? '有帮助做出' : '做出，独立性未知') : '没做出来'}`).join('　·　')
             // 条数对不上要明说：同节点排了 2 块只记到 1 条，就是"没吃完"的形状
             const mismatch = planned !== rows.length
               ? `（这天这个节点排了 ${planned} 块，记到 ${rows.length} 条）`
@@ -6005,17 +6005,18 @@ function apply(ctx) {
         description: '做的哪道题，如 "P2880" / "CF1548B"（可选）。' +
           '填了它，同一天同一知识点才能分开记两道题；不填就按老规矩「一天一节点一条」。',
       },
-      actualMin: { type: 'number', required: true, description: '实际花了多少分钟' },
+      actualMin: { type: 'number', description: '学生明确报告的实际分钟数；未报告则省略，不用计划时长代填。' },
+      studentQuote: { type: 'string', description: '原生会话必填：本次练习完整报告的学生原话，最多1500字。同一消息有两题时分别引用各题报告，不改写、不只截取有利部分。' },
       solved: {
         type: 'boolean', required: true,
         description: '**做出来没有**。没做出来就填 false —— 「我想了 40 分钟没做出来」' +
           '正是最该记的一条，别只记成功的',
       },
       independent: {
-        type: 'boolean', required: true,
+        type: 'boolean',
         description: '是不是**独立**做出来的（没看题解、没问人）。这一栏比时长还重要 —— ' +
           '「30 分钟独立做出来」和「30 分钟看了题解才会」在掌握度上是两回事。' +
-          '没做出来时填 false',
+          '包括教练提示在内的帮助均不算独立。学生没报告独立性就省略，不能从做出或AC猜。',
       },
       date: { type: 'string', description: '哪天，YYYY-MM-DD。不填就是今天' },
       note: { type: 'string', description: '一句话备注（可选），如「卡在边界上想了很久」' },
@@ -6032,10 +6033,10 @@ function apply(ctx) {
           nodeName: { type: 'string', required: true },
           competency: { type: 'string' },
           plannedMin: { type: 'integer', required: true },
-          actualMin: { type: 'integer', required: true },
-          deviation: { type: 'integer', required: true },
+          actualMin: { type: 'integer' },
+          deviation: { type: 'integer' },
           solved: { type: 'boolean', required: true },
-          independent: { type: 'boolean', required: true },
+          independent: { type: 'boolean' },
           replaced: { type: 'boolean', required: true },
           // （需求 #2）：回显题号，并报「这天这个点一共记了几条」
           problemId: { type: 'string', required: true },
@@ -6057,15 +6058,16 @@ function apply(ctx) {
         // 但对教练有用（排课密度的输入）。所以偏差挪到教练侧（coach_schedule
         // 的计划块回填里现算），他这边只留中性回显：
         // **事实给他，判断留给教练。**
-        const echo = `记住了：${v.actualMin} 分钟`
+        const echo = v.actualMin === undefined ? '实际用时未报告，保留未知' : `记住了：${v.actualMin} 分钟`
         // ⚠️ **做对了要夸，别接着挑毛病**。
         //   判因工具的出口只有 不会/不熟/不认真 三档 —— 拿它去判一份对的代码，
         //   它也只能挑出错处来。出口里没有"对了"这个选项。
         // 这个渲染是小鲸最容易照抄的模板，把它写成正向的，它就不会
         // 自己再往判因那边滑。做对了**不调 coach_diagnose** —— 见 AGENTS.md 规则 6。
         const how = !v.solved ? '\n  ✗ 没做出来 —— 这很正常，接下来该做的是看看卡在哪，不是重新抄一遍'
-          : v.independent ? '\n  ✓ **独立做出来的**（没看题解、没问人）—— 这是最硬的那种掌握证据'
-            : '\n  ✓ 做出来了，但是**看了题解/问了人才会的** —— 记下了，这两件事在掌握度上不一样'
+          : v.independent === true ? '\n  ✓ **独立做出来的**（没看题解、没问人、没接受提示）—— 这是最硬的那种掌握证据'
+            : v.independent === false ? '\n  ✓ 做出来了，但接受过帮助；不计独立掌握。'
+              : '\n  ✓ 报告做出，独立性未知；不计独立掌握。'
         return [{
           type: 'text',
           text: `✓ 记下了：${v.date}　${v.nodeName}${v.problemId ? `　${v.problemId}` : ''}\n` +
@@ -6087,15 +6089,15 @@ function apply(ctx) {
         }]
       },
     },
-    async execute(args) {
+    async execute(args, exec) {
       const { byId } = loadMap()
       const node = String(args?.node ?? '').trim()
       const d = String(args?.date ?? '').trim() || ymdToday()
       const competency = String(args?.competency ?? '').trim()
       const identity = trainingIdentity(node, competency)
-      const actualMin = Math.round(Number(args?.actualMin))
+      const actualMin = args?.actualMin === undefined ? undefined : Math.round(Number(args.actualMin))
       const solved = args?.solved === true
-      const independent = args?.independent === true
+      const independent = typeof args?.independent === 'boolean' ? args.independent : undefined
       const note = String(args?.note ?? '').trim()
       // （需求 #2）：题号。空串 = 没给 = 老行为。
       const problemId = String(args?.problemId ?? '').trim()
@@ -6115,13 +6117,30 @@ function apply(ctx) {
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先调 coach_status 看他在哪。'))
       }
-      if (!Number.isFinite(actualMin) || actualMin <= 0) {
+      if (actualMin !== undefined && (!Number.isFinite(actualMin) || actualMin <= 0)) {
         return deny(`实际用时要给个正数（分钟），收到「${args?.actualMin ?? ''}」。` +
           '没做出来也要填实际耗掉的时间 —— 「我想了 40 分钟没做出来」正是要记的东西。')
       }
       // 天数上限：记今天和过去，但别往未来记（未来的"实际用时"是编的）
       if (d > ymdToday()) {
         return deny(`「${d}」还没到呢 —— 实际用时只能记今天或过去。`)
+      }
+
+      let studentEvidence
+      if (exec?.agent?.session?.id || args?.studentQuote !== undefined) {
+        const source = await teaching.source(args?.studentQuote, exec)
+        if (!source.ok) return deny(source.reject)
+        const quote = source.studentEvidence.quote
+        const assisted = /(?<!没|未|不|没有)(?:用|使用|接受|借助)(?:了|过)[^，,。；;\n\d]{0,12}(?:提示|题解|帮助)|(?<!没|未|不|没有)(?:看了|看过|参考了|读了)[^，,。；;\n]{0,6}(?:题解|答案)|(?:不是|并非|不算|非)独立|问了(?:人|别人|同学|老师)/u.test(quote)
+        const explicitIndependent = /独立(?:完成|做出|解决|尝试)|自己(?:完成|做出|解决|做的)|(?:没|没有|未)(?:看(?:过|了)?题解|(?:用|使用|接受)(?:过|了)?提示)/u.test(quote)
+        if (independent === true && (assisted || !explicitIndependent)) return deny('原话没有明确独立完成，或明确接受过提示/题解；不要记 independent=true。未知就省略。')
+        if (independent === false && !assisted) return deny('这段原话未明确报告接受帮助；独立性未知请省略 independent。')
+        if (actualMin !== undefined) {
+          const reported = [...quote.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)\s*(分钟|小时|min(?:ute)?s?\b|hours?\b)/gi)]
+            .map(m => Math.round(Number(m[1]) * (/小时|hour/i.test(m[2]) ? 60 : 1)))
+          if (!reported.includes(actualMin)) return deny('实际分钟数没有对应这段学生原话；未报时长请省略 actualMin，不用计划时间或猜测数字代填。')
+        }
+        studentEvidence = { ...source.studentEvidence, start: source.start, end: source.end }
       }
 
       const s = loadSchedule()
@@ -6145,10 +6164,20 @@ function apply(ctx) {
       // **给了题号就按题号分开存**（需求 #2）：同一天同一节点做两道题是常态
       // （09-21 的 ST 表：P2880 独立 AC、1548B 带提示 AC），压成一条等于
       // 把"他独立做出过这个点的题"从台账里抹掉。
+      const sameSource = r => studentEvidence && r?.studentEvidence?.sessionId === studentEvidence.sessionId
+        && r.studentEvidence.messageId === studentEvidence.messageId
+        && r.studentEvidence.start < studentEvidence.end && studentEvidence.start < r.studentEvidence.end
       const idx = list.findIndex((r) =>
-        (competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency) && String(r?.problemId ?? '') === problemId)
+        (competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency)
+        && (studentEvidence ? sameSource(r) : String(r?.problemId ?? '') === problemId))
       // 需求 #8：`plannedMin` 不再写进这条记录（见上面那段注释）
-      const entry = { node, actualMin, solved, independent }
+      const entry = { node, solved, ...(actualMin === undefined ? {} : { actualMin }),
+        ...(independent === undefined ? {} : { independent }) }
+      if (studentEvidence) {
+        entry.studentEvidence = studentEvidence
+        entry.eventId = list[idx]?.eventId || loadProgress().nodes[node]?.passes?.find(sameSource)?.eventId
+          || `student:${studentEvidence.sessionId}:${studentEvidence.messageId}:${studentEvidence.start}`
+      }
       const pendingAction = loadProgress().pendingActions?.[identity.key]
       if (competency) {
         entry.competency = competency
@@ -6183,14 +6212,17 @@ function apply(ctx) {
         if (!competency) {
           const rec = { ...(prog.nodes[node] ?? {}) }
           const passes = Array.isArray(rec.passes) ? rec.passes.slice() : []
-          const e = { date: d, solved, independent, minutes: actualMin }
+          const e = { date: d, solved, ...(independent === undefined ? {} : { independent }),
+            ...(actualMin === undefined ? {} : { minutes: actualMin }) }
+          if (studentEvidence) { e.studentEvidence = studentEvidence; e.eventId = entry.eventId }
           if (problemId) e.problemId = problemId
           if (note) e.note = note
           // 去重键和 SCHEDULE 那边**必须一致**（日期 + 节点 + 题号）：
           // 两边口径分家的话，`coach_status` 的条目数和 `coach_next` 的计划
           // 会对不上同一件事 —— 这个项目反复在治的就是这个病。
-          const pi = passes.findIndex((p) => String(p?.date ?? '') === d &&
-            String(p?.problemId ?? '') === problemId)
+          const pi = passes.findIndex((p) => studentEvidence ? sameSource(p)
+            : String(p?.date ?? '') === d && String(p?.problemId ?? '') === problemId)
+          if (pi >= 0 && passes[pi].eventId) { e.eventId = passes[pi].eventId; entry.eventId = e.eventId }
           if (pi >= 0) passes[pi] = e
           else passes.push(e)
           rec.passes = passes
@@ -6213,7 +6245,8 @@ function apply(ctx) {
         ok: true, reject: '', date: d, node,
         nodeName: identity.name,
         ...(competency ? { competency } : {}),
-        plannedMin, actualMin, deviation: actualMin - plannedMin, solved, independent,
+        plannedMin, ...(actualMin === undefined ? {} : { actualMin, deviation: actualMin - plannedMin }), solved,
+        ...(independent === undefined ? {} : { independent }),
         replaced, problemId, sameDayEntries,
         totalLogged: list.length, recorded, actionCleared, passCount, updated: w.updated,
       }
