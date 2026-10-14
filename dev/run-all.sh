@@ -72,6 +72,7 @@ run "catalog"       node --test dev/catalog-check.mjs
 run "coach-contract" node --test dev/coaching-contract-check.mjs
 run "teaching"      node --test dev/teaching-check.mjs
 run "hindsight"     node --test dev/hindsight-check.mjs
+run "teaching-eval" node --test dev/teaching-eval-check.mjs
 run "persona"       node --test dev/persona-check.mjs
 run "pages"         node --test dev/pages-check.mjs
 run "VP-UI"         node --test dev/vp-ui-check.mjs
