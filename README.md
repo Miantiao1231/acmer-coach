@@ -7,6 +7,8 @@
 
 一个给 ACMer 用的算法训练教练插件，跑在 [dsh](https://github.com/deepseek-ai/deepseek-harness) 上。
 
+随包提供小鲸人设、教练预设和可选的 **Hindsight 记忆桥**。记忆桥默认关闭；接上自己的 Hindsight 服务和记忆库后，小鲸可以跨会话召回训练偏好与经历。见 [启用方法](#给教练接持久记忆可选)。
+
 **它解决的问题**：不是「不知道学什么」——那是搜一下就有答案的。
 是「**不知道现在该学哪一个、该投多少精力**」。
 
@@ -120,6 +122,13 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 
 详见 [长期课程机制](docs/长期课程机制.md)。
+
+### 2.7.0：Hindsight 记忆桥随包
+
+- 原有独立桥的召回、时间戳与异步归档接进主插件；`COACH_HINDSIGHT=1` 才启用，必须指定自己的 `HINDSIGHT_BANK`。安装不会联网读取或写入记忆。
+- 兼容 dsh `0.2.0-rc.2` 的原生消息格式，归档学生原话和小鲸的最终回复；排除插件注入、思维链、工具调用与失败轮次。不同会话分别收集。
+- 已有 bank 的设置保持原样，仅缺失时创建。日志只含状态元数据，服务故障时继续对话。普通测试强制关闭桥，避免连接开发者的正式记忆。
+- 不随包分发后端、密钥或个人记忆。原有 `whale-hindsight` 用户可在原生插件页关闭旧组件，再用相同服务与 bank 启用随包桥。
 
 ### 2.6.4：训练事实与隔离回归
 
@@ -301,13 +310,74 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 
 ## 给教练接持久记忆（可选）
 
-dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次聊到哪。想让它跨会话记住你，
-可以接一个记忆服务：[**Hindsight**](https://github.com/vectorize-io/hindsight)
-是一个开源的 agent 记忆系统（MIT 许可，有云版，也可以自己 Docker 部署），
-挂上去之后每轮自动召回相关记忆、对话结束自动归档。
+**从 2.7.0 起，桥已包含在 acmer-coach 中，不用再写或安装另一个桥插件。**
+[Hindsight](https://github.com/vectorize-io/hindsight) 服务需要单独部署或使用已有服务；安装 acmer-coach 不会自动启动后端或启用记忆。
 
-**本项目不带这个插件** —— 自己装 Hindsight，再写一个 dsh 插件做桥
-（进对话时 recall 注入、结束时 retain 归档）即可。
+启用后，每轮第一步用学生当前原话召回相关记忆，连同本地时间附给小鲸；完成一轮对话后，异步发送学生原话和小鲸最终回复供 Hindsight 提炼。思维链、工具调用和插件注入不归档。记忆用于续课与偏好参考，不能替代 `PROGRESS` / `CURRICULUM` / `TARGET` / `SCHEDULE` 账本，也不能证明掌握。
+
+### 1. 安装或更新插件
+
+```bash
+dsh plugin --profile web add acmer-coach@latest
+```
+
+桌面用户仍在 dsh 的插件页安装／更新同一个 npm 包。已有独立 **`whale-hindsight`** 的用户，先在侧栏 **插件 → 该插件详情 → 组件开关** 关闭旧组件，再启用下面的桥，避免双重召回和重复归档。可以继续使用原有服务地址和 bank，桥不会重写已有 bank 的 mission。
+
+### 2. 准备 Hindsight 服务
+
+**已有服务就跳过部署。** 没有的话，安装 Docker 后在 PowerShell 运行下面的示例；模型配置可按 [官方配置说明](https://hindsight.vectorize.io/developer/configuration) 换成其他提供商。
+
+```powershell
+$env:HINDSIGHT_API_LLM_PROVIDER = 'openai'
+$env:HINDSIGHT_API_LLM_MODEL = 'gpt-4o'
+$env:HINDSIGHT_API_LLM_API_KEY = '填你自己的模型服务 API Key'
+docker run -d --name acmer-coach-hindsight --shm-size=1g `
+  -p 127.0.0.1:18888:8888 -p 127.0.0.1:19999:9999 `
+  -e HINDSIGHT_API_LLM_PROVIDER -e HINDSIGHT_API_LLM_MODEL -e HINDSIGHT_API_LLM_API_KEY `
+  -e HINDSIGHT_API_WORKER_ID=acmer-coach-local `
+  -v acmer-coach-hindsight-data:/home/hindsight/.pg0 `
+  ghcr.io/vectorize-io/hindsight:latest
+```
+
+本地 API 地址是 `http://127.0.0.1:18888`，管理界面是 `http://127.0.0.1:19999`。数据保存在 Docker volume 中。首次启动需要等模型与服务就绪；完整部署步骤见 [官方 Quick Start](https://hindsight.vectorize.io/developer/api/quickstart)。Hindsight 的提炼会调用你配置的模型，可能产生模型费用，安装桥并不包含这些服务。
+
+### 3. 在启动 dsh 的环境里启用
+
+PowerShell：
+
+```powershell
+$env:COACH_HINDSIGHT = '1'
+$env:HINDSIGHT_URL = 'http://127.0.0.1:18888'
+$env:HINDSIGHT_BANK = 'my-training'
+dsh --profile web
+```
+
+macOS／Linux：
+
+```bash
+COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-training dsh --profile web
+```
+
+`HINDSIGHT_BANK` **必填**，使用英文字母、数字、点、短横线或下划线，且以字母或数字开头。每个人、每个测试小鲸分别用不同的 bank。更换 bank 会使用另一个记忆库，不会自动搬运记忆；切换 VP 登录账号不会替你更换这个人的记忆库。
+
+如果服务启用了 Bearer 鉴权，再设置 `HINDSIGHT_API_KEY`。这是**访问 Hindsight 服务的凭据**，和后端的 `HINDSIGHT_API_LLM_API_KEY`、dsh 聊天模型 Key 是不同配置。
+
+**Windows 桌面版**：在「编辑账户的环境变量」中添加上面三个变量，完全退出 dsh，再重新打开；若新进程未继承变量，注销 Windows 后重新登录。只在某个 PowerShell 窗口里设置变量，不会影响已经打开的桌面进程。启用范围是该 dsh 进程的会话，不限于小鲸预设；对话文本会发给你配置的 Hindsight 服务，桥不会在发送前自动脱敏。
+
+### 4. 确认生效与停用
+
+打开 Hindsight 管理界面，选择你配置的 bank；完成一轮对话后，等后台提炼任务完成再检查新记忆。桥不会把整个聊天记录当作完整备份，单轮最多发送 20,000 字符。
+
+日志在 `$DSH_HOME/data/acmer-coach/hindsight.log`，未设置 `DSH_HOME` 时是 `~/.dsh/data/acmer-coach/hindsight.log`。只记录状态、数量与错误类型，不记录对话正文、Key 或召回查询。
+
+| 日志 | 含义 |
+|---|---|
+| `enabled` / `bank-ready` | 已启用／服务中的 bank 已就绪 |
+| `recall-ok` / `recall-empty` | 本轮召回了相关记忆／没有匹配内容 |
+| `retain-accepted` | 后端已接收归档请求；异步提炼完成后才能召回 |
+| `bank-fail` / `recall-fail` / `retain-fail` | 检查服务状态、地址或鉴权；小鲸仍可继续对话 |
+
+停用：把 `COACH_HINDSIGHT` 设为 `0` 或删除该变量，重启 dsh。已有远端记忆保留。测试时指定新 bank 和独立 `DSH_HOME`，不要复用自己的正式 bank。仓库及 npm 包不包含任何人的 bank、服务密钥或记忆内容。
 
 ## 文件
 
@@ -319,6 +389,7 @@ dsh 的会话上下文有限 —— 新开一个会话，教练不记得上次�
 | `lib/curriculum-evidence.js` | 从实际记录派生证据引用与事件身份，去重课表和训练记录 |
 | `lib/curriculum-planning.js` | 阶段编排依据、前置顺序与进入阶段后的新证据检查 |
 | `lib/teaching.js` | 节点续课笔记，复用进度文件与 dsh 原生会话查询 |
+| `lib/hindsight.js` | 随包可选记忆桥：首次召回、时间注入、完成轮次归档；环境变量显式启用 |
 | `lib/client.js` | 浏览器端：会话头部「技能树」按钮 + 弹层 |
 | `package.json` | 声明 `dsh.bundle.patch` + `dsh.client` |
 | `cordis.patch.yml` | bundle 层的 insert 行 |

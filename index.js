@@ -35,11 +35,12 @@ import { createTeachingNotes } from './lib/teaching.js'
 import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 import { upgradeSkilltreeHtml } from './lib/pages.js'
+import { applyHindsight } from './lib/hindsight.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.6.4'
+const VERSION = '2.7.0'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -1955,6 +1956,7 @@ function vpEventsFromSync(payload, account) {
 }
 
 function apply(ctx) {
+  applyHindsight(ctx)
   // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
   // 为什么走 `systemPrompt.section` 而不是把规则塞进消息流：

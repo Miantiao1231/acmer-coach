@@ -20,6 +20,7 @@
 #   加 COACH_TEST_NET=1 连联网段一起跑
 #   默认旧对照不存在时跳过 parity；显式 COACH_LIVE_INDEX 无效时仍报失败
 set -uo pipefail
+export COACH_HINDSIGHT=0
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 SRC="$(pwd)"
 
@@ -70,6 +71,7 @@ run "strategy"      node --test dev/strategy-check.mjs
 run "catalog"       node --test dev/catalog-check.mjs
 run "coach-contract" node --test dev/coaching-contract-check.mjs
 run "teaching"      node --test dev/teaching-check.mjs
+run "hindsight"     node --test dev/hindsight-check.mjs
 run "persona"       node --test dev/persona-check.mjs
 run "pages"         node --test dev/pages-check.mjs
 run "VP-UI"         node --test dev/vp-ui-check.mjs
