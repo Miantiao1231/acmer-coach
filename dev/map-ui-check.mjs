@@ -107,7 +107,8 @@ test('both template scripts compile without altering the data marker', () => {
 })
 
 test('skilltree exposes VP navigation and renders training markdown safely', () => {
-  assert.match(template, /class="viewseg-link" href="\.\/vp\.html"[^>]*>VP 回放/)
+  assert.match(template, /<button data-view="vp" aria-pressed="false">VP 回放<\/button>/)
+  assert.match(template, /id="vpFrame"/)
   const source = template.slice(template.indexOf('const esc ='), template.indexOf('function renderSched'))
   const sandbox = {}
   const markdown = '# 今日复盘\n\n- **二分**：补 `lower_bound`\n> 先写边界\n[题解](https://example.com/x)\n<script>alert(1)</script>'
@@ -117,6 +118,12 @@ test('skilltree exposes VP navigation and renders training markdown safely', () 
   assert.match(sandbox.result, /<code>lower_bound<\/code>/)
   assert.match(sandbox.result, /<a href="https:\/\/example\.com\/x"/)
   assert.doesNotMatch(sandbox.result, /<script>/)
+})
+
+test('VP is a lazy view inside the coach shell instead of only a separate page', () => {
+  assert.match(template, /<section class="vp-view" id="vp"/)
+  assert.match(template, /frame\.src = "\.\/vp\.html\?embed=1"/)
+  assert.match(template, /v === "vp" \? "VP 回放"/)
 })
 
 test('native header has a dedicated training log entry', () => {

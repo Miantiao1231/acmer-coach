@@ -11,6 +11,11 @@ test('VP page links back to the skilltree, schedule, and training log', () => {
   assert.match(html, /href="\.\/skilltree\.html#log">训练日志/)
 })
 
+test('VP supports embedded mode without duplicating the coach shell header', () => {
+  assert.match(html, /URLSearchParams\(location\.search\).*embed.*dataset\.embedded/s)
+  assert.match(html, /html\[data-embedded="1"\] \.site-header\s*\{\s*display:none;/)
+})
+
 function page(saved, blocked = false) {
   let context
   const events = []
@@ -23,6 +28,7 @@ function page(saved, blocked = false) {
     window: { addEventListener: (name, listener) => { listeners[name] = listener }, open() {} },
     fetch: async () => ({ ok: true, json: async () => ({ connected: false }) }),
     console, Date, Error, Number, String, Math, JSON, encodeURIComponent,
+    URLSearchParams, location: { search: '' },
   })
   scripts.forEach(script => vm.runInContext(script, context))
   return { context, nodes, listeners, storage, events }

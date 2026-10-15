@@ -87,3 +87,13 @@ test('a mirrored pass without a problem id does not duplicate a scheduled actual
   assert.equal(log.days[0].events.filter((event) => event.type === 'practice').length, 1)
 })
 
+test('untimed actual work is distinguishable from a day with no actual work', () => {
+  const log = buildTrainingLog({ today: '2026-10-15', days: 1, byId,
+    schedule: { days: { '2026-10-15': { actual: [{ node: 'dp', solved: true }] } } },
+  })
+  const day = log.days[0]
+  assert.equal(day.actualMinutes, 0)
+  assert.equal(day.actualEntries, 1)
+  assert.equal(day.untimedActualEntries, 1)
+})
+

@@ -255,6 +255,16 @@ body[data-view="log"] #stage,
 body[data-view="log"] .side,
 body[data-view="log"] #panel,
 body[data-view="log"] #sched{display:none!important}
+.vp-view{grid-area:vp;display:none;min-height:0;padding:20px 32px 24px;overflow:hidden;background:linear-gradient(180deg,color-mix(in srgb,var(--brand-soft) 28%,transparent),transparent 240px)}
+.vp-view-shell{display:flex;flex-direction:column;min-height:0;flex:1;border:1px solid var(--stroke);border-radius:var(--radius-l);background:var(--bg-1);box-shadow:var(--shadow-1);overflow:hidden}
+.vp-view-head{display:flex;align-items:center;gap:12px;flex:none;padding:14px 18px;border-bottom:1px solid var(--stroke)}
+.vp-view-head h2{margin:0;font-size:15px;font-weight:650}.vp-view-head p{margin:3px 0 0;color:var(--text-3);font-size:12px}.vp-view-head .spacer{flex:1}.vp-open{color:var(--brand-text);font-size:12px;font-weight:600;text-decoration:none}.vp-open:hover{text-decoration:underline;text-underline-offset:3px}
+#vpFrame{display:block;flex:1;width:100%;min-height:0;border:0;background:var(--bg-0)}
+body[data-view="vp"]{grid-template-columns:1fr;grid-template-areas:"hdr" "tools" "vp"}
+body[data-view="vp"] .tree-tools,body[data-view="vp"] #hdrCount{display:none}
+body[data-view="vp"] .mapbar{margin-bottom:0}
+body[data-view="vp"] .vp-view{display:flex;flex-direction:column}
+body[data-view="vp"] #stage,body[data-view="vp"] .side,body[data-view="vp"] #sched,body[data-view="vp"] #log,body[data-view="vp"] #panel{display:none!important}
 
 /* overflow 必须是 auto 不能是 hidden —— 内容（工具栏+网格+两行图例）
    会超过视口高度，hidden 的话底下的颜色对照直接被裁掉，等于没写。
@@ -542,7 +552,7 @@ kbd{
   .stage,body[data-filters="closed"] .stage{margin:0 16px 16px}
   .side{grid-area:stage;position:absolute;inset:0 auto 16px 16px;width:min(280px,calc(100% - 32px));margin:0;z-index:25;box-shadow:var(--shadow-2)}
   .panel{top:12px;right:12px;width:calc(100% - 24px);max-height:calc(100% - 24px);padding:20px}
-  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched,.log{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
+  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched,.log,.vp-view{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
   .log-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.phase-detail{grid-template-columns:1fr}.log-day-min{margin-left:0;width:100%}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
@@ -564,7 +574,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <button data-view="tree" aria-pressed="true">技能树</button>
     <button data-view="sched" aria-pressed="false">日程</button>
     <button data-view="log" aria-pressed="false">训练日志</button>
-    <a class="viewseg-link" href="./vp.html" title="打开 VP 比赛回放">VP 回放 ↗</a>
+    <button data-view="vp" aria-pressed="false">VP 回放</button>
   </nav>
   <div class="spacer"></div>
   <button class="icon-btn" id="theme" title="明暗切换" aria-label="切换明暗主题" data-ico="moon"></button>
@@ -669,6 +679,14 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
   </div>
   <div class="log-days" id="logDays"></div>
   <div class="note" id="logNote" role="status" aria-live="polite">正在读取训练日志…</div>
+</section>
+
+<!-- VP 保留自己的数据和授权脚本，但作为技能树的一个视图嵌入，切换时不离开教练工作台。 -->
+<section class="vp-view" id="vp" aria-label="VP 回放">
+  <div class="vp-view-shell">
+    <div class="vp-view-head"><div><h2>VP 回放</h2><p>同一工作台内切换比赛、时间线和题目轨迹。</p></div><div class="spacer"></div><a class="vp-open" href="./vp.html" target="_blank" rel="noreferrer noopener">新标签页打开 ↗</a></div>
+    <iframe id="vpFrame" title="VP 回放" loading="lazy"></iframe>
+  </div>
 </section>
 
 <script>
@@ -1343,6 +1361,7 @@ let schedLoaded = false;
 let trainingLog = null;
 let logLoaded = false;
 let logDays = 14;
+let vpLoaded = false;
 
 const HOUR_FROM = 8, HOUR_TO = 24;        // 8:00 - 24:00，16 格
 const WINDOW_BACK = 3, WINDOW_DAYS = 10;  // 前 3 回顾 + 后 7 可排（方针 §4.1）
@@ -1800,10 +1819,18 @@ function renderTrainingLog() {
     const state = LOG_STATE[day.state] || day.state;
     const actual = Number(day.actualMinutes || 0);
     const planned = Number(day.plannedMinutes || 0);
-    return `<article class="log-day"><div class="log-day-head"><span class="log-day-date">${esc(day.date)}</span><span class="log-day-state ${esc(day.state)}">${esc(state)}</span><span class="log-day-min">计划 ${planned} 分钟 · 实际 ${actual} 分钟</span></div><div class="log-events">${body}</div></article>`;
+    const actualEntries = Number(day.actualEntries ?? (Array.isArray(day.actual) ? day.actual.length : 0));
+    const untimed = Number(day.untimedActualEntries ?? (Array.isArray(day.actual) ? day.actual.filter((item) => item.actualMin === null).length : 0));
+    const actualText = actualEntries === 0
+      ? "实际 0 分钟 · 无实际记录"
+      : untimed === actualEntries && actual === 0
+        ? `实际时长未填 · ${actualEntries} 条记录`
+        : `实际 ${actual} 分钟${untimed ? ` · ${untimed} 条未填时长` : ` · ${actualEntries} 条记录`}`;
+    return `<article class="log-day"><div class="log-day-head"><span class="log-day-date">${esc(day.date)}</span><span class="log-day-state ${esc(day.state)}">${esc(state)}</span><span class="log-day-min">计划 ${planned} 分钟 · ${actualText}</span></div><div class="log-events">${body}</div></article>`;
   }).join("");
   const warnings = (current.budgetWarnings || []).length + (course.needsReview ? 1 : 0);
-  setLogNote(warnings ? `<b>阶段需要复查</b>：课程快照里有 ${warnings} 条预算或规划提醒；日志只展示事实，不替教练自动推进阶段。` : `<b>日志口径</b>：计划来自 SCHEDULE，实际来自 coach_log，讲课/检测/判因来自 PROGRESS；阶段状态来自课程快照。`);
+  const untimedTotal = Number(totals.untimedActualEntries || 0);
+  setLogNote(warnings ? `<b>阶段需要复查</b>：课程快照里有 ${warnings} 条预算或规划提醒；日志只展示事实，不替教练自动推进阶段。` : `<b>日志口径</b>：计划来自 SCHEDULE，实际来自 coach_log，讲课/检测/判因来自 PROGRESS；阶段状态来自课程快照。${untimedTotal ? ` 当前有 ${untimedTotal} 条实际记录未填写分钟，所以实际时长不会猜。` : ""}`);
 }
 async function loadTrainingLog() {
   try {
@@ -1825,10 +1852,10 @@ async function loadTrainingLog() {
    按一下后退跳回"上一个视图"而不是"上一页"会让人莫名其妙。） */
 function setView(v) {
   document.body.dataset.view = v;
-  $("#viewTitle").textContent = v === "sched" ? "训练日程" : v === "log" ? "训练日志" : "知识地图";
+  $("#viewTitle").textContent = v === "sched" ? "训练日程" : v === "log" ? "训练日志" : v === "vp" ? "VP 回放" : "知识地图";
   document.querySelectorAll("#viewSeg button").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.view === v)));
-  const want = v === "sched" ? "#sched" : v === "log" ? "#log" : "";
+  const want = v === "sched" ? "#sched" : v === "log" ? "#log" : v === "vp" ? "#vp" : "";
   if ((location.hash || "") !== want) {
     history.replaceState(null, "", want || location.pathname + location.search);
   }
@@ -1837,6 +1864,11 @@ function setView(v) {
   }
   if (v === "log") {
     if (!logLoaded) { logLoaded = true; loadTrainingLog(); } else renderTrainingLog();
+  }
+  if (v === "vp" && !vpLoaded) {
+    const frame = $("#vpFrame");
+    frame.src = "./vp.html?embed=1";
+    vpLoaded = true;
   }
 }
 
@@ -1864,6 +1896,7 @@ loadProgress().then(() => {
   // 刷新后停在原来的视图 —— 地址栏是唯一真相（读它，别读内存）
   if (location.hash === "#sched") setView("sched");
   else if (location.hash === "#log") setView("log");
+  else if (location.hash === "#vp") setView("vp");
 });
 </script>
 </body>
