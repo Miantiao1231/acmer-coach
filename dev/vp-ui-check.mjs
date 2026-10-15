@@ -6,6 +6,11 @@ import { test } from 'node:test'
 const html = readFileSync(new URL('../assets/knowledge/vp.html', import.meta.url), 'utf8')
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1])
 
+test('VP page links back to the skilltree, schedule, and training log', () => {
+  assert.match(html, /href="\.\/skilltree\.html">技能树与日程/)
+  assert.match(html, /href="\.\/skilltree\.html#log">训练日志/)
+})
+
 function page(saved, blocked = false) {
   let context
   const events = []

@@ -83,10 +83,12 @@ button{cursor:pointer}
 .pagehead h1{margin:0;font-size:26px;font-weight:600;letter-spacing:-.028em;line-height:1.25}
 .pagehead small{display:block;margin-top:6px;color:var(--text-3);font-size:12.5px}
 .tree-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
-.seg,.viewseg{display:flex;gap:2px;padding:3px;border-radius:var(--radius-pill);background:var(--fill-1)}
-.seg button,.viewseg button{appearance:none;border:0;background:transparent;color:var(--text-3);font-size:12.5px;font-weight:500;padding:6px 13px;border-radius:var(--radius-pill);white-space:nowrap;transition:background var(--speed-1),color var(--speed-1)}
-.seg button:hover,.viewseg button:hover{color:var(--text-1)}
+.seg,.viewseg{display:flex;align-items:center;gap:2px;padding:3px;border-radius:var(--radius-pill);background:var(--fill-1)}
+.seg button,.viewseg button,.viewseg-link{appearance:none;border:0;background:transparent;color:var(--text-3);font:inherit;font-size:12.5px;font-weight:500;padding:6px 13px;border-radius:var(--radius-pill);white-space:nowrap;transition:background var(--speed-1),color var(--speed-1);text-decoration:none}
+.seg button:hover,.viewseg button:hover,.viewseg-link:hover{color:var(--text-1)}
 .seg button[aria-pressed="true"],.viewseg button[aria-pressed="true"]{background:var(--bg-1);color:var(--brand-text);box-shadow:var(--shadow-1)}
+.viewseg-link{display:inline-flex;align-items:center;gap:5px;color:var(--brand-text);border:1px solid var(--stroke-strong);background:var(--bg-1);box-shadow:var(--shadow-1)}
+.viewseg-link:hover{border-color:var(--brand);background:var(--brand-soft)}
 .search{display:flex;align-items:center;gap:8px;width:220px;height:36px;padding:0 14px;background:var(--bg-1);border:1px solid var(--stroke-strong);border-radius:var(--radius-pill);box-shadow:var(--shadow-1);color:var(--text-3)}
 .search:focus-within{border-color:var(--brand)}
 .search input{appearance:none;border:0;background:transparent;color:var(--text-1);font-size:13px;min-width:0;width:100%;outline:none}
@@ -267,7 +269,7 @@ body[data-view="log"] #sched{display:none!important}
 /* ── 训练日志：账本的可读投影 ────────────────────────────────────
    日志只读，不在这里再写一份状态。每天显示「计划 / 实际 / 证据」，
    阶段区显示课程快照和缺口，教练与学生看到的是同一组事实。 */
-.log{min-height:0;padding:24px 32px;overflow-y:auto;overflow-x:hidden;gap:16px}
+.log{min-height:0;padding:24px 32px;overflow-y:auto;overflow-x:hidden;gap:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--brand-soft) 28%,transparent),transparent 240px)}
 .logbar{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
 .logbar h2{margin:0;font-size:15px;font-weight:650}
 .logbar .span{font-size:12.5px;color:var(--text-4);font-variant-numeric:tabular-nums}
@@ -276,8 +278,12 @@ body[data-view="log"] #sched{display:none!important}
 .logbar .seg button{padding:5px 11px}
 .log-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .log-stat,.log-card,.log-day{border:1px solid var(--stroke);border-radius:var(--radius-m);background:var(--bg-1);box-shadow:var(--shadow-1)}
-.log-stat{padding:14px 16px}
-.log-stat .value{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.log-stat{position:relative;overflow:hidden;padding:15px 16px 14px}
+.log-stat::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--brand)}
+.log-stat:nth-child(2)::before{background:var(--ac)}
+.log-stat:nth-child(3)::before{background:var(--tle)}
+.log-stat:nth-child(4)::before{background:#a879e8}
+.log-stat .value{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;color:var(--brand-text)}
 .log-stat .label{margin-top:2px;color:var(--text-3);font-size:12px}
 .log-card{padding:16px}
 .log-card h3{margin:0 0 12px;font-size:14px;font-weight:650}
@@ -290,7 +296,8 @@ body[data-view="log"] #sched{display:none!important}
 .phase.complete .phase-state{color:var(--ac-text)}
 .phase .phase-title{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .phase-detail{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:14px;color:var(--text-2);font-size:12.5px}
-.phase-detail p{margin:0 0 8px}.phase-detail b{color:var(--text-1)}
+.phase-detail p{margin:0 0 8px}.phase-detail b{color:var(--text-1)}.phase-field{margin-bottom:10px}.phase-field:last-child{margin-bottom:0}.phase-field>b{display:block;margin-bottom:2px}
+.md{line-height:1.65;overflow-wrap:anywhere}.md p{margin:0 0 6px}.md p:last-child{margin-bottom:0}.md h3,.md h4,.md h5{margin:0 0 6px;color:var(--text-1);font-size:13px}.md h4{font-size:12.5px}.md h5{font-size:12px}.md ul,.md ol{margin:3px 0 6px;padding-left:20px}.md li+li{margin-top:2px}.md blockquote{margin:4px 0;padding:3px 10px;border-left:2px solid var(--brand);color:var(--text-3);background:var(--brand-soft);border-radius:0 var(--radius-xs) var(--radius-xs) 0}.md code{padding:1px 4px;border:1px solid var(--stroke);border-radius:4px;background:var(--fill-1);font-family:var(--mono);font-size:.92em;color:var(--brand-text)}.md a{color:var(--brand-text);text-decoration:underline;text-underline-offset:2px}.md-empty{color:var(--text-4)}
 .log-days{display:grid;gap:10px}
 .log-day{padding:14px 16px}
 .log-day-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -306,7 +313,7 @@ body[data-view="log"] #sched{display:none!important}
 .log-event[data-type="check"] .event-dot{background:var(--tle)}
 .log-event[data-type="diagnosis"] .event-dot{background:var(--wa)}
 .log-event[data-type="lesson"] .event-dot{background:#a879e8}
-.log-event .event-main{min-width:0;flex:1}.log-event .event-title{font-weight:600}.log-event .event-detail{color:var(--text-3);margin-left:6px}
+.log-event .event-main{min-width:0;flex:1}.log-event .event-title{font-weight:600}.log-event .event-detail{display:block;color:var(--text-3);margin:4px 0 0}.log-event .event-next{display:flex;gap:5px;margin-top:5px;color:var(--text-4);font-size:11.5px}.log-event .event-next>span:first-child{color:var(--text-3);font-weight:600;flex:none}
 .log-empty{padding:18px;color:var(--text-3);background:var(--fill-0);border-radius:var(--radius-s);font-size:12.5px}
 .log .note{margin:0;max-width:900px}
 
@@ -557,6 +564,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <button data-view="tree" aria-pressed="true">技能树</button>
     <button data-view="sched" aria-pressed="false">日程</button>
     <button data-view="log" aria-pressed="false">训练日志</button>
+    <a class="viewseg-link" href="./vp.html" title="打开 VP 比赛回放">VP 回放 ↗</a>
   </nav>
   <div class="spacer"></div>
   <button class="icon-btn" id="theme" title="明暗切换" aria-label="切换明暗主题" data-ico="moon"></button>
@@ -1418,6 +1426,63 @@ function colorOf(label) {
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// 训练记录里的 summary / nextStep 是教练写给人的 Markdown。
+// 先转义，再只放行一小组安全语法；不引第三方渲染器，也不给原文注入 HTML。
+function mdInline(value) {
+  let text = esc(value);
+  const held = [];
+  const hold = (html) => { const token = `\u0000MD${held.length}\u0000`; held.push(html); return token; };
+  text = text.replace(/`([^`\n]+)`/g, (_, code) => hold(`<code>${code}</code>`));
+  text = text.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_, label, url) => hold(`<a href="${esc(url.replace(/&amp;/g, "&"))}" target="_blank" rel="noreferrer noopener">${label}</a>`));
+  text = text.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
+  text = text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  text = text.replace(/(?<!_)_([^_\n]+)_(?!_)/g, "<em>$1</em>");
+  return text.replace(/\u0000MD(\d+)\u0000/g, (_, index) => held[Number(index)]);
+}
+
+function renderMd(value) {
+  const lines = String(value ?? "").replace(/\r\n?/g, "\n").split("\n");
+  const out = [];
+  let list = "";
+  let paragraph = [];
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    out.push(`<p>${paragraph.map(mdInline).join("<br>")}</p>`);
+    paragraph = [];
+  };
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = ""; } };
+  for (const line of lines) {
+    const text = line.trim();
+    if (!text) { flushParagraph(); closeList(); continue; }
+    const heading = text.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph(); closeList();
+      const level = heading[1].length + 2;
+      out.push(`<h${level}>${mdInline(heading[2])}</h${level}>`);
+      continue;
+    }
+    const item = text.match(/^[-*]\s+(.+)$/);
+    if (item) {
+      flushParagraph();
+      if (!list) { list = "ul"; out.push("<ul>"); }
+      out.push(`<li>${mdInline(item[1])}</li>`);
+      continue;
+    }
+    if (/^>\s?/.test(text)) {
+      flushParagraph(); closeList();
+      out.push(`<blockquote>${mdInline(text.replace(/^>\s?/, ""))}</blockquote>`);
+      continue;
+    }
+    if (/^(---+|\*\*\*+)$/.test(text)) { flushParagraph(); closeList(); out.push("<hr>"); continue; }
+    closeList();
+    paragraph.push(text);
+  }
+  flushParagraph(); closeList();
+  return out.join("") || '<span class="md-empty">—</span>';
+}
+
 function renderSched() {
   const start = schedStart(), today = ymdToday();
   const days = [];
@@ -1724,14 +1789,14 @@ function renderTrainingLog() {
   const current = course.current || {};
   const missing = [...(current.missingVerified || []), ...(current.missingFreshEvidence || [])];
   $("#phaseDetail").innerHTML = course.exists ?
-    `<div><p><b>目标：</b>${esc(course.goal || "未填写")}</p><p><b>本阶段：</b>${esc(current.title || "未命名")} · ${esc(current.outcome || "暂无成果描述")}</p><p><b>验收：</b>${esc(current.exitCriteria || "暂无验收说明")}</p></div>` +
-    `<div><p><b>当前主线：</b>${esc((current.focusNodes || []).join("、") || "按课程快照判断")}</p><p><b>证据缺口：</b>${esc(missing.join("、") || "当前快照没有列出缺口")}</p><p><b>剩余预算：</b>${esc(String(current.remainingEstimatedHours || 0))} 小时${current.estimatedWeeks ? ` · 约 ${esc(String(current.estimatedWeeks))} 周` : ""}</p></div>`
+    `<div><div class="phase-field"><b>目标</b><div class="md">${renderMd(course.goal || "未填写")}</div></div><div class="phase-field"><b>本阶段 · ${esc(current.title || "未命名")}</b><div class="md">${renderMd(current.outcome || "暂无成果描述")}</div></div><div class="phase-field"><b>验收</b><div class="md">${renderMd(current.exitCriteria || "暂无验收说明")}</div></div></div>` +
+    `<div><div class="phase-field"><b>当前主线</b><div class="md">${renderMd((current.focusNodes || []).join("、") || "按课程快照判断")}</div></div><div class="phase-field"><b>证据缺口</b><div class="md">${renderMd(missing.join("、") || "当前快照没有列出缺口")}</div></div><div class="phase-field"><b>剩余预算</b><div>${esc(String(current.remainingEstimatedHours || 0))} 小时${current.estimatedWeeks ? ` · 约 ${esc(String(current.estimatedWeeks))} 周` : ""}</div></div></div>`
     : `<div class="log-empty">还没有课程快照。日志仍会显示每天的计划、实际记录和练习证据。</div>`;
 
   const days = Array.isArray(trainingLog.days) ? trainingLog.days.slice().reverse() : [];
   $("#logDays").innerHTML = days.map((day) => {
     const events = Array.isArray(day.events) ? day.events : [];
-    const body = events.length ? events.map((event) => `<div class="log-event" data-type="${esc(event.type)}"><span class="event-dot"></span><div class="event-main"><span class="event-title">${esc(EVENT_LABEL[event.type] || event.type)} · ${esc(event.title)}</span><span class="event-detail">${esc(event.detail || "")}</span></div></div>`).join("") : `<div class="log-empty">这天没有写入训练事实。没有 actual 记录时，日志不会替你推断“没完成”。</div>`;
+    const body = events.length ? events.map((event) => `<div class="log-event" data-type="${esc(event.type)}"><span class="event-dot"></span><div class="event-main"><span class="event-title">${esc(EVENT_LABEL[event.type] || event.type)} · ${esc(event.title)}</span><div class="event-detail md">${renderMd(event.detail || "")}</div>${event.nextStep ? `<div class="event-next"><span>续课：</span><div class="md">${renderMd(event.nextStep)}</div></div>` : ""}</div></div>`).join("") : `<div class="log-empty">这天没有写入训练事实。没有 actual 记录时，日志不会替你推断“没完成”。</div>`;
     const state = LOG_STATE[day.state] || day.state;
     const actual = Number(day.actualMinutes || 0);
     const planned = Number(day.plannedMinutes || 0);

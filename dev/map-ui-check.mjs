@@ -106,6 +106,25 @@ test('both template scripts compile without altering the data marker', () => {
   for (const [, script] of template.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script)
 })
 
+test('skilltree exposes VP navigation and renders training markdown safely', () => {
+  assert.match(template, /class="viewseg-link" href="\.\/vp\.html"[^>]*>VP 回放/)
+  const source = template.slice(template.indexOf('const esc ='), template.indexOf('function renderSched'))
+  const sandbox = {}
+  const markdown = '# 今日复盘\n\n- **二分**：补 `lower_bound`\n> 先写边界\n[题解](https://example.com/x)\n<script>alert(1)</script>'
+  vm.runInNewContext(`${source}\nthis.result = renderMd(${JSON.stringify(markdown)})`, sandbox)
+  assert.match(sandbox.result, /<h3>今日复盘<\/h3>/)
+  assert.match(sandbox.result, /<strong>二分<\/strong>/)
+  assert.match(sandbox.result, /<code>lower_bound<\/code>/)
+  assert.match(sandbox.result, /<a href="https:\/\/example\.com\/x"/)
+  assert.doesNotMatch(sandbox.result, /<script>/)
+})
+
+test('native header has a dedicated training log entry', () => {
+  assert.match(clientSource, /id: "acmer-coach:log"/)
+  assert.match(clientSource, /src: LOG_PAGE_URL/)
+  assert.match(clientSource, /children: "训练日志"/)
+})
+
 test('empty search results give a visible recovery hint', () => {
   const source = template.slice(template.indexOf('function apply() {'), template.indexOf('function paintChain(id)'))
   const empty = { hidden: true }, count = {}
