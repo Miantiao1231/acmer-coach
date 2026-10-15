@@ -129,6 +129,13 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 - 启用桥后追加只读 `coach_recall`，小鲸可按当前教学需要主动查询同一个 bank；自动少量召回继续保留。工具不提供切换 bank、修改或删除记忆的入口。
 - 增加手动运行的 [真实教学验收](docs/真实教学验收.md)：串行检查新会话续课、错误理解后的讲法调整、复测后的计划调整。使用独立小鲸和 bank，保留回复、工具与账本证据；机械检查与人工教学判定分别记录。普通回归和 CI 不调用付费模型。
 
+### 2.9.0：训练日志与阶段仪表盘
+
+- 技能树页面新增「训练日志」视图，支持查看最近 7 / 14 / 30 天每天的计划、实际用时、练习、讲课、检测、判因和状态变更。
+- 日志是 `SCHEDULE.yaml`、`PROGRESS.yaml` 和 `CURRICULUM.yaml` 的只读汇总：没有 `actual` 记录时显示「待补实际」，不会替你猜成“没完成”，也不会复制出第二套进度。
+- 阶段区显示已完成 / 当前 / 未开始的路线、当前阶段成果、验收条件、主线、证据缺口和剩余预算；阶段推进仍只能由 `coach_curriculum advance` 根据证据决定。
+- 页面对应的只读接口是 `/coach/api/training-log?days=14`，也接受 `from=YYYY-MM-DD&to=YYYY-MM-DD`；最多返回 90 天。接口按当前教练工作区读取，VP 账号目录只提供 VP 数据，不会替换个人训练日志。
+
 ### 2.7.0：Hindsight 记忆桥随包
 
 - 原有独立桥的召回、时间戳与异步归档接进主插件；`COACH_HINDSIGHT=1` 才启用，必须指定自己的 `HINDSIGHT_BANK`。安装不会联网读取或写入记忆。
@@ -509,6 +516,7 @@ bash dev/trace-scan.sh                         # 开源前反证：没留私人�
 | `/coach/skilltree.html` | 吐技能树页面 |
 | `/coach/api/progress` | GET 读进度 / POST 写（`mark` / `cursor`） |
 | `/coach/api/schedule` | GET 读日程 / POST 写。日程视图读写 `SCHEDULE.yaml` 的唯一通道 |
+| `/coach/api/training-log` | GET 汇总每日训练事实与课程阶段，只读；默认最近 14 天 |
 
 **鉴权交给 dsh 自己**：主闸是 `connection.requestRejection(req)` ——
 dsh 的签名 cookie + Host fence。**不自己抄一套 loopback 检查**：

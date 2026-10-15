@@ -83,3 +83,16 @@ test('bundled fonts use an authenticated exact-path route without opening arbitr
   assert.equal((await request('/coach/fonts/unknown.woff2')).status, 404)
   assert.equal((await request('/coach/fonts/geist-latin-wght-normal.woff2', { socket: { remoteAddress: '203.0.113.7' } })).status, 403)
 })
+
+test('training-log endpoint returns a read-only joined view with a bounded range', async t => {
+  const { dir, request } = await fixture(t)
+  const before = readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')])
+  const res = await request('/coach/api/training-log?days=7')
+  assert.equal(res.status, 200)
+  const body = JSON.parse(String(res.body))
+  assert.equal(body.ok, true)
+  assert.equal(body.days.length, 7)
+  assert.equal(body.curriculum.exists, false)
+  assert.equal(body.totals.actualMinutes, 0)
+  assert.deepEqual(readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')]), before)
+})

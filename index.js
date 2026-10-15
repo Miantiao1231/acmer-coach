@@ -36,11 +36,12 @@ import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
+import { buildTrainingLog } from './lib/training-log.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.8.0'
+const VERSION = '2.9.0'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -1667,6 +1668,21 @@ function registerPages(ctx) {
         return sendJson(res, r.ok ? 200 : 400, r)
       }
       return send(res, 405, 'text/plain; charset=utf-8', 'method not allowed')
+    }
+
+    if (pathname === '/coach/api/training-log' && req.method === 'GET') {
+      try {
+        const query = new URL(req.url ?? '/', 'http://dsh.internal').searchParams
+        const snapshot = curriculum.snapshot()
+        const log = buildTrainingLog({
+          progress: loadProgress(), schedule: loadSchedule(), curriculum: snapshot,
+          byId: loadMap().byId, today: query.get('today') || undefined,
+          from: query.get('from') || '', to: query.get('to') || '', days: query.get('days') || 14,
+        })
+        return sendJson(res, 200, log)
+      } catch (err) {
+        return sendJson(res, 500, { ok: false, reject: String(err?.message ?? err) })
+      }
     }
 
     return send(res, 404, 'text/plain; charset=utf-8', 'not found')

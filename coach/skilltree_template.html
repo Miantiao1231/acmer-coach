@@ -244,6 +244,15 @@ body[data-view="sched"] .sched{display:flex;flex-direction:column}
 body[data-view="sched"] #stage,
 body[data-view="sched"] .side,
 body[data-view="sched"] #panel{display:none!important}
+.log{grid-area:log;display:none}
+body[data-view="log"]{grid-template-columns:1fr;grid-template-areas:"hdr" "tools" "log"}
+body[data-view="log"] .tree-tools,body[data-view="log"] #hdrCount{display:none}
+body[data-view="log"] .mapbar{margin-bottom:0}
+body[data-view="log"] .log{display:flex;flex-direction:column}
+body[data-view="log"] #stage,
+body[data-view="log"] .side,
+body[data-view="log"] #panel,
+body[data-view="log"] #sched{display:none!important}
 
 /* overflow 必须是 auto 不能是 hidden —— 内容（工具栏+网格+两行图例）
    会超过视口高度，hidden 的话底下的颜色对照直接被裁掉，等于没写。
@@ -254,6 +263,52 @@ body[data-view="sched"] #panel{display:none!important}
 .schedhelp{font-size:13px;color:var(--text-3);margin:0 0 16px}
 .sched .note{margin-top:16px;max-width:760px}
 .sched .legend2{flex:none}
+
+/* ── 训练日志：账本的可读投影 ────────────────────────────────────
+   日志只读，不在这里再写一份状态。每天显示「计划 / 实际 / 证据」，
+   阶段区显示课程快照和缺口，教练与学生看到的是同一组事实。 */
+.log{min-height:0;padding:24px 32px;overflow-y:auto;overflow-x:hidden;gap:16px}
+.logbar{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
+.logbar h2{margin:0;font-size:15px;font-weight:650}
+.logbar .span{font-size:12.5px;color:var(--text-4);font-variant-numeric:tabular-nums}
+.logbar .spacer{flex:1}
+.logbar .seg{margin-left:auto}
+.logbar .seg button{padding:5px 11px}
+.log-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.log-stat,.log-card,.log-day{border:1px solid var(--stroke);border-radius:var(--radius-m);background:var(--bg-1);box-shadow:var(--shadow-1)}
+.log-stat{padding:14px 16px}
+.log-stat .value{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.log-stat .label{margin-top:2px;color:var(--text-3);font-size:12px}
+.log-card{padding:16px}
+.log-card h3{margin:0 0 12px;font-size:14px;font-weight:650}
+.phase-rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.phase{padding:11px 12px;border:1px solid var(--stroke);border-radius:var(--radius-s);background:var(--fill-0);min-width:0}
+.phase.current{border-color:var(--brand);background:var(--brand-soft);box-shadow:var(--glow-brand)}
+.phase.complete{border-color:var(--ac-s);background:var(--ac-soft)}
+.phase .phase-state{color:var(--text-4);font-size:11px}
+.phase.current .phase-state{color:var(--brand-text)}
+.phase.complete .phase-state{color:var(--ac-text)}
+.phase .phase-title{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.phase-detail{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:14px;color:var(--text-2);font-size:12.5px}
+.phase-detail p{margin:0 0 8px}.phase-detail b{color:var(--text-1)}
+.log-days{display:grid;gap:10px}
+.log-day{padding:14px 16px}
+.log-day-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.log-day-date{font-weight:650;font-variant-numeric:tabular-nums}
+.log-day-state{font-size:11px;color:var(--text-4);padding:2px 7px;border-radius:var(--radius-pill);background:var(--fill-1)}
+.log-day-state.logged{color:var(--ac-text);background:var(--ac-soft)}
+.log-day-state.planned-only{color:var(--tle-text);background:color-mix(in srgb,var(--tle) 12%,transparent)}
+.log-day-min{margin-left:auto;color:var(--text-3);font-size:12px;font-variant-numeric:tabular-nums}
+.log-events{display:grid;gap:6px;margin-top:10px}
+.log-event{display:flex;align-items:flex-start;gap:9px;padding:7px 9px;border-radius:var(--radius-xs);background:var(--fill-0);font-size:12.5px}
+.log-event .event-dot{width:7px;height:7px;margin-top:6px;border-radius:50%;background:var(--brand);flex:none}
+.log-event[data-type="practice"] .event-dot{background:var(--ac)}
+.log-event[data-type="check"] .event-dot{background:var(--tle)}
+.log-event[data-type="diagnosis"] .event-dot{background:var(--wa)}
+.log-event[data-type="lesson"] .event-dot{background:#a879e8}
+.log-event .event-main{min-width:0;flex:1}.log-event .event-title{font-weight:600}.log-event .event-detail{color:var(--text-3);margin-left:6px}
+.log-empty{padding:18px;color:var(--text-3);background:var(--fill-0);border-radius:var(--radius-s);font-size:12.5px}
+.log .note{margin:0;max-width:900px}
 
 /* ── 时间面：**不要格子，要连续的时间轴** ─────────────────────────
    第一版是"一格一小时"，太粗了（「1h 分块太大了」）——
@@ -480,7 +535,8 @@ kbd{
   .stage,body[data-filters="closed"] .stage{margin:0 16px 16px}
   .side{grid-area:stage;position:absolute;inset:0 auto 16px 16px;width:min(280px,calc(100% - 32px));margin:0;z-index:25;box-shadow:var(--shadow-2)}
   .panel{top:12px;right:12px;width:calc(100% - 24px);max-height:calc(100% - 24px);padding:20px}
-  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
+  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched,.log{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
+  .log-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.phase-detail{grid-template-columns:1fr}.log-day-min{margin-left:0;width:100%}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
@@ -500,6 +556,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
   <nav class="viewseg" id="viewSeg" aria-label="训练视图">
     <button data-view="tree" aria-pressed="true">技能树</button>
     <button data-view="sched" aria-pressed="false">日程</button>
+    <button data-view="log" aria-pressed="false">训练日志</button>
   </nav>
   <div class="spacer"></div>
   <button class="icon-btn" id="theme" title="明暗切换" aria-label="切换明暗主题" data-ico="moon"></button>
@@ -581,6 +638,29 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <span class="lt2">没写事由的 → 斜纹</span>
   </div>
   <div class="note" id="schedNote" role="status" aria-live="polite">正在读取训练进度…</div>
+</section>
+
+<!-- 训练日志视图：由 PROGRESS / SCHEDULE / CURRICULUM 派生，只读。 -->
+<section class="log" id="log" aria-label="训练日志">
+  <div class="logbar">
+    <h2>训练日志</h2>
+    <span class="span" id="logSpan"></span>
+    <div class="spacer"></div>
+    <div class="seg" id="logRange" role="group" aria-label="日志范围">
+      <button data-days="7" aria-pressed="false">7 天</button>
+      <button data-days="14" aria-pressed="true">14 天</button>
+      <button data-days="30" aria-pressed="false">30 天</button>
+    </div>
+    <button class="icon-btn" id="logRefresh" title="刷新训练日志">刷新</button>
+  </div>
+  <div class="log-summary" id="logSummary"></div>
+  <div class="log-card" id="phaseCard">
+    <h3>课程阶段</h3>
+    <div class="phase-rail" id="phaseRail"></div>
+    <div class="phase-detail" id="phaseDetail"></div>
+  </div>
+  <div class="log-days" id="logDays"></div>
+  <div class="note" id="logNote" role="status" aria-live="polite">正在读取训练日志…</div>
 </section>
 
 <script>
@@ -1252,6 +1332,9 @@ addEventListener("resize", () => fit());
 let sched = { days: {} };
 let schedAnchor = null;      // 窗口起点；null = 「今天 - 3 天」
 let schedLoaded = false;
+let trainingLog = null;
+let logLoaded = false;
+let logDays = 14;
 
 const HOUR_FROM = 8, HOUR_TO = 24;        // 8:00 - 24:00，16 格
 const WINDOW_BACK = 3, WINDOW_DAYS = 10;  // 前 3 回顾 + 后 7 可排（方针 §4.1）
@@ -1612,6 +1695,64 @@ async function loadSchedule() {
   renderSched();
 }
 
+const LOG_STATE = { logged: "有实际记录", "planned-only": "有计划，待补实际", active: "有活动", empty: "无记录" };
+const PHASE_STATE = { complete: "已完成", current: "当前阶段", upcoming: "未开始" };
+const EVENT_LABEL = { planned: "计划", practice: "练习", lesson: "讲课", check: "检测", diagnosis: "判因", status: "状态" };
+function setLogNote(html, isError = false) {
+  const el = $("#logNote");
+  if (!el) return;
+  el.innerHTML = html;
+  el.classList.toggle("err", Boolean(isError));
+}
+function renderTrainingLog() {
+  if (!trainingLog) return;
+  const totals = trainingLog.totals || {};
+  $("#logSpan").textContent = `${trainingLog.from} ～ ${trainingLog.to}`;
+  const hours = (Number(totals.actualMinutes || 0) / 60).toFixed(1);
+  $("#logSummary").innerHTML = [
+    [hours + " h", "实际训练时长"],
+    [String(totals.loggedDays || 0), "有实际记录的天数"],
+    [String(totals.activeDays || 0), "有活动的天数"],
+    [((Number(totals.plannedMinutes || 0) / 60).toFixed(1)) + " h", "计划投入"],
+  ].map(([value, label]) => `<div class="log-stat"><div class="value">${esc(value)}</div><div class="label">${esc(label)}</div></div>`).join("");
+
+  const course = trainingLog.curriculum || {};
+  const phases = Array.isArray(course.phases) ? course.phases : [];
+  $("#phaseRail").innerHTML = phases.length
+    ? phases.map((phase) => `<div class="phase ${esc(phase.status)}"><div class="phase-state">${esc(PHASE_STATE[phase.status] || phase.status)}</div><div class="phase-title" title="${esc(phase.title)}">${esc(phase.title)}</div></div>`).join("")
+    : `<div class="log-empty">还没有长期课程。阶段状态会在 coach_curriculum create 后出现在这里。</div>`;
+  const current = course.current || {};
+  const missing = [...(current.missingVerified || []), ...(current.missingFreshEvidence || [])];
+  $("#phaseDetail").innerHTML = course.exists ?
+    `<div><p><b>目标：</b>${esc(course.goal || "未填写")}</p><p><b>本阶段：</b>${esc(current.title || "未命名")} · ${esc(current.outcome || "暂无成果描述")}</p><p><b>验收：</b>${esc(current.exitCriteria || "暂无验收说明")}</p></div>` +
+    `<div><p><b>当前主线：</b>${esc((current.focusNodes || []).join("、") || "按课程快照判断")}</p><p><b>证据缺口：</b>${esc(missing.join("、") || "当前快照没有列出缺口")}</p><p><b>剩余预算：</b>${esc(String(current.remainingEstimatedHours || 0))} 小时${current.estimatedWeeks ? ` · 约 ${esc(String(current.estimatedWeeks))} 周` : ""}</p></div>`
+    : `<div class="log-empty">还没有课程快照。日志仍会显示每天的计划、实际记录和练习证据。</div>`;
+
+  const days = Array.isArray(trainingLog.days) ? trainingLog.days.slice().reverse() : [];
+  $("#logDays").innerHTML = days.map((day) => {
+    const events = Array.isArray(day.events) ? day.events : [];
+    const body = events.length ? events.map((event) => `<div class="log-event" data-type="${esc(event.type)}"><span class="event-dot"></span><div class="event-main"><span class="event-title">${esc(EVENT_LABEL[event.type] || event.type)} · ${esc(event.title)}</span><span class="event-detail">${esc(event.detail || "")}</span></div></div>`).join("") : `<div class="log-empty">这天没有写入训练事实。没有 actual 记录时，日志不会替你推断“没完成”。</div>`;
+    const state = LOG_STATE[day.state] || day.state;
+    const actual = Number(day.actualMinutes || 0);
+    const planned = Number(day.plannedMinutes || 0);
+    return `<article class="log-day"><div class="log-day-head"><span class="log-day-date">${esc(day.date)}</span><span class="log-day-state ${esc(day.state)}">${esc(state)}</span><span class="log-day-min">计划 ${planned} 分钟 · 实际 ${actual} 分钟</span></div><div class="log-events">${body}</div></article>`;
+  }).join("");
+  const warnings = (current.budgetWarnings || []).length + (course.needsReview ? 1 : 0);
+  setLogNote(warnings ? `<b>阶段需要复查</b>：课程快照里有 ${warnings} 条预算或规划提醒；日志只展示事实，不替教练自动推进阶段。` : `<b>日志口径</b>：计划来自 SCHEDULE，实际来自 coach_log，讲课/检测/判因来自 PROGRESS；阶段状态来自课程快照。`);
+}
+async function loadTrainingLog() {
+  try {
+    const r = await fetch(`./api/training-log?days=${logDays}`);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.reject || "读训练日志失败");
+    trainingLog = j;
+    renderTrainingLog();
+  } catch (e) {
+    trainingLog = null;
+    setLogNote(`<b>训练日志读不到</b>：${esc(e.message)}`, true);
+  }
+}
+
 /* ⚠️ 视图状态要写进**地址栏**，不能只改内存。
    踩过：「点日程以后刷新，又回到技能树了」——
    原来 setView 只改 DOM，刷新就丢。地址栏是唯一真相，刷新/收藏/分享都靠它。
@@ -1619,15 +1760,18 @@ async function loadSchedule() {
    按一下后退跳回"上一个视图"而不是"上一页"会让人莫名其妙。） */
 function setView(v) {
   document.body.dataset.view = v;
-  $("#viewTitle").textContent = v === "sched" ? "训练日程" : "知识地图";
+  $("#viewTitle").textContent = v === "sched" ? "训练日程" : v === "log" ? "训练日志" : "知识地图";
   document.querySelectorAll("#viewSeg button").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.view === v)));
-  const want = v === "sched" ? "#sched" : "";
+  const want = v === "sched" ? "#sched" : v === "log" ? "#log" : "";
   if ((location.hash || "") !== want) {
     history.replaceState(null, "", want || location.pathname + location.search);
   }
   if (v === "sched") {
     if (!schedLoaded) { schedLoaded = true; loadSchedule(); } else renderSched();
+  }
+  if (v === "log") {
+    if (!logLoaded) { logLoaded = true; loadTrainingLog(); } else renderTrainingLog();
   }
 }
 
@@ -1638,6 +1782,15 @@ $("#viewSeg").addEventListener("click", (e) => {
 $("#schedPrev").onclick = () => { const s = schedStart(); s.setDate(s.getDate() - 3); schedAnchor = ymdOf(s); renderSched(); };
 $("#schedNext").onclick = () => { const s = schedStart(); s.setDate(s.getDate() + 3); schedAnchor = ymdOf(s); renderSched(); };
 $("#schedToday").onclick = () => { schedAnchor = null; renderSched(); };
+$("#logRange").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-days]");
+  if (!b) return;
+  logDays = Number(b.dataset.days) || 14;
+  document.querySelectorAll("#logRange button").forEach((item) => item.setAttribute("aria-pressed", String(item === b)));
+  logLoaded = true;
+  loadTrainingLog();
+});
+$("#logRefresh").onclick = () => { logLoaded = true; loadTrainingLog(); };
 
 // 先把进度拉回来再画 —— 不然会先闪一屏「全部未学」，然后才跳成真实状态。
 // 那一下闪烁会让人以为自己之前标的没存上。
@@ -1645,6 +1798,7 @@ loadProgress().then(() => {
   paint(); apply(); fit(); syncThemeIcon();
   // 刷新后停在原来的视图 —— 地址栏是唯一真相（读它，别读内存）
   if (location.hash === "#sched") setView("sched");
+  else if (location.hash === "#log") setView("log");
 });
 </script>
 </body>
