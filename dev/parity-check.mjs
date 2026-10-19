@@ -9,11 +9,10 @@
 //
 // 跑法：node dev/parity-check.mjs
 import { mkdtempSync, writeFileSync, readFileSync, cpSync, existsSync, rmSync } from 'node:fs'
-import { tmpdir, homedir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const LIVE = process.env.COACH_LIVE_INDEX
-  ?? join(homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')
 
 let pass = 0, fail = 0, diff = 0
 const check = (n, ok, d = '') => { console.log(`${ok ? '  ✓' : '  ✗'} ${n}${d ? `  — ${d}` : ''}`); ok ? pass++ : fail++ }
@@ -108,11 +107,10 @@ const CALLS = [
 //   ② 数据目录路径（两份故意用不同临时目录，否则后跑的会看到先跑的那份被写过）
 //   ③ 探针显示的版本号；功能输出仍逐项比较。
 const ALLOWED = [
-  ['name', /^(dsh-coach|acmer-coach)$/],
-  ['version', /^1\.0\.0$/],
+  ['name', /^acmer-coach$/],
+  ['version', /^\d+\.\d+\.\d+$/],
 ]
 const strip = (s) => s
-  .replace(/acmer-coach/g, 'dsh-coach')
   .replaceAll(`v${A.mod.VERSION}`, '<VERSION>')
   .replaceAll(`v${B.mod.VERSION}`, '<VERSION>')
   .split(join(base, 'A')).join('<DATA>')

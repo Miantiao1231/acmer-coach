@@ -41,9 +41,14 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     apply(ctx); await tick()
     assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
     assert.equal((hooks.get('agent/pre-step') || []).length, enabled ? 2 : 1)
-    assert.equal(tools.size, enabled ? 32 : 31)
-    assert.equal(tools.has('coach_recall'), enabled)
-    if (!enabled) assert.equal(calls.length, 0)
+    assert.equal(tools.size, 32)
+    assert.equal(tools.has('coach_recall'), true)
+    if (!enabled) {
+      assert.equal(calls.length, 0)
+      const result = await tools.get('coach_recall').execute({ query: '检查桥状态' })
+      assert.equal(result.ok, false)
+      assert.match(result.reject, /COACH_HINDSIGHT/)
+    }
   }, { enabled })
 })
 
@@ -122,10 +127,14 @@ test('only a missing bank is created; bootstrap contains no personal user or ban
   ? request.url.endsWith('/config') ? 404 : 405 : 200 }) }))
 
 test('missing or traversal bank fails closed without network or hooks', async t => {
-  for (const bank of ['', '../someone-else', 'a/b']) await fixture(t, async ({ ctx, calls, hooks }) => {
+  for (const bank of ['', '../someone-else', 'a/b']) await fixture(t, async ({ ctx, calls, hooks, tools }) => {
     const { applyHindsight } = await import('../lib/hindsight.js')
     assert.equal(applyHindsight(ctx), false)
     assert.equal(calls.length, 0); assert.equal(hooks.size, 0)
+    assert.ok(tools.has('coach_recall'))
+    const result = await tools.get('coach_recall').execute({ query: '检查桥状态' })
+    assert.equal(result.ok, false)
+    assert.match(result.reject, /HINDSIGHT_BANK/)
   }, { bank })
 })
 

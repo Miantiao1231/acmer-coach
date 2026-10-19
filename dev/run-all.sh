@@ -83,13 +83,10 @@ run "training"      node --test dev/training-check.mjs dev/practice-evidence-che
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
 run "migration"     node --test dev/workspace-migration-check.mjs
-if [ "${COACH_LIVE_INDEX+x}" = x ] || node -e "
-  const fs=require('fs'), os=require('os'), path=require('path');
-  process.exit(fs.existsSync(path.join(os.homedir(), '.dsh', 'profiles', 'web', 'node_modules', 'dsh-coach', 'index.js')) ? 0 : 1);
-"; then
+if [ -n "${COACH_LIVE_INDEX:-}" ]; then
   run "parity-check" node dev/parity-check.mjs
 else
-  printf '%-16s %s\n' 'parity-check' 'SKIP 默认旧对照不存在；设置 COACH_LIVE_INDEX 可启用'
+  printf '%-16s %s\n' 'parity-check' 'SKIP 未配置对照副本；设置 COACH_LIVE_INDEX 可启用'
 fi
 
 echo

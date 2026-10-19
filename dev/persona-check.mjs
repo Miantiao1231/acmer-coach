@@ -46,7 +46,7 @@ function denyReads(t, denied) {
 }
 
 function assertTools(f) {
-  assert.equal(f.tools.size, 31)
+  assert.equal(f.tools.size, 32)
   assert.ok(f.tools.has('coach_status'))
   assert.ok(f.tools.has('coach_note'))
 }
@@ -111,7 +111,7 @@ test('rejected rules section leaves packaged persona and tools available', async
 })
 
 for (const unavailable of ['missing service', 'missing get', 'throwing get']) {
-  test(`all 31 tools load with ${unavailable}`, async t => {
+  test(`all 32 tools load with ${unavailable}`, async t => {
     const f = await fixture(t)
     if (unavailable === 'missing get') delete f.ctx.get
     else f.ctx.get = () => {
