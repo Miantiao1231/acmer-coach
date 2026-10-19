@@ -502,6 +502,45 @@ test('phase advancement requires verified facts, no pending actions, and no ungr
   assert.equal(f.store.execute({ action: 'revise', expectedRevision: 2, phases: [{ ...phases[0], outcome: '重写过去' }, phases[1]], reason: '尝试通过修订重写之前已完成的能力阶段' }).ok, false)
 })
 
+test('skip ends an unfinished phase with its gaps recorded and unlocks the next phase', () => {
+  const f = fixture(); f.create()
+  prove(f.progress, 'B')   // 让下一阶段的前置成立；C 仍未验证，advance 依然过不了
+  assert.equal(f.store.execute({ action: 'advance', expectedRevision: 1, reason: '按验收条件检查当前阶段是否已经完成' }).ok, false)
+  assert.equal(f.store.execute({ action: 'skip', expectedRevision: 1, reason: '太短' }).ok, false)
+  const skipped = f.store.execute({ action: 'skip', expectedRevision: 1, reason: '西安站已结束，赛前阶段的验收窗口已过，按未完成记录后进入香港站诊断' })
+  assert.equal(skipped.ok, true)
+  assert.equal(skipped.phaseId, 'transfer')
+  assert.equal(skipped.roadmap[0].skipped, true)
+  assert.ok(skipped.roadmap[0].skippedMissing.some((item) => item.includes('未验证：C')), JSON.stringify(skipped.roadmap[0].skippedMissing))
+  assert.equal(skipped.history.at(-1).action, 'skip')
+  validateShape(curriculumTool(f.store).output.schema, skipped)
+  const reloaded = f.store.load()
+  assert.equal(reloaded.phases[0].skipped, true)
+  assert.deepEqual(reloaded.phases[0].skippedMissing, skipped.roadmap[0].skippedMissing)
+  assert.equal(f.store.snapshot().phaseId, 'transfer')
+})
+
+test('skip leaves legacy pending actions visible without blocking the next phase', () => {
+  const f = fixture(); f.create()
+  prove(f.progress, 'B')
+  f.progress.pendingActions.A = { deliverable: '建立课程前已经布置的动作', at: '2026-10-08' }
+  const skipped = f.store.execute({ action: 'skip', expectedRevision: 1, reason: '比赛窗口已经结束，旧阶段不再补做，直接进入下一阶段训练' })
+  assert.equal(skipped.ok, true)
+  assert.ok(skipped.roadmap[0].skippedMissing.some((item) => item.includes('未完成动作：A')))
+  assert.deepEqual(f.store.snapshot().pendingNodes, [])
+  assert.equal(f.store.assignment({ node: 'D', revision: skipped.revision }).ok, true)
+  assert.ok(f.progress.pendingActions.A)
+})
+
+test('skipping the last phase closes the route instead of trapping it', () => {
+  const f = fixture(); f.create({ phases: [phases[0]] })
+  const done = f.store.execute({ action: 'skip', expectedRevision: 1, reason: '训练员决定结束这条路线，未完成的验收如实记录在阶段里' })
+  assert.equal(done.ok, true)
+  assert.equal(done.status, 'complete')
+  assert.equal(done.roadmap[0].skipped, true)
+  assert.equal(f.store.load().status, 'complete')
+})
+
 test('all phases can finish explicitly and a new route retains the previous audit history', () => {
   const f = fixture(); f.create({ phases: [phases[0]] })
   prove(f.progress, 'B'); prove(f.progress, 'C')
