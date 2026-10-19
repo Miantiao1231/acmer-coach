@@ -132,6 +132,12 @@ test('native header has a dedicated training log entry', () => {
   assert.match(clientSource, /children: "训练日志"/)
 })
 
+test('past course phases are kept in a separate collapsed history', () => {
+  assert.match(template, /<details class="phase-history" id="phaseHistory">/)
+  assert.match(template, /id="phaseHistoryList"/)
+  assert.match(template, /phases\.filter\(\(phase\) => phase\.status === "skipped" \|\| phase\.status === "complete"\)/)
+})
+
 test('empty search results give a visible recovery hint', () => {
   const source = template.slice(template.indexOf('function apply() {'), template.indexOf('function paintChain(id)'))
   const empty = { hidden: true }, count = {}

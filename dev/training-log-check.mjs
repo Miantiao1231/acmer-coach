@@ -55,6 +55,28 @@ test('phase rail marks completed/current/upcoming and keeps current evidence gap
   assert.equal(log.curriculum.current.remainingEstimatedHours, 12)
 })
 
+test('an abandoned past phase is history, not an unstarted phase beside the current one', () => {
+  const log = buildTrainingLog({ curriculum: {
+    exists: true, status: 'active', current: 1, phaseId: 'hk', phaseTitle: '香港站基线诊断',
+    roadmap: [
+      { id: 'xian', title: '西安赛前维持', skipped: true },
+      { id: 'hk', title: '香港站基线诊断', active: true },
+    ],
+  } })
+  assert.deepEqual(log.curriculum.phases.map((phase) => phase.status), ['skipped', 'current'])
+})
+
+test('a past completed phase uses the active roadmap entry when current index is absent', () => {
+  const log = buildTrainingLog({ curriculum: {
+    exists: true, status: 'active', phaseId: 'hk', phaseTitle: '香港站基线诊断',
+    roadmap: [
+      { id: 'xian', title: '西安赛前维持' },
+      { id: 'hk', title: '香港站基线诊断', active: true },
+    ],
+  } })
+  assert.deepEqual(log.curriculum.phases.map((phase) => phase.status), ['complete', 'current'])
+})
+
 test('date range is bounded and deterministic', () => {
   const log = buildTrainingLog({ today: '2026-10-15', from: '2026-10-01', to: '2026-10-31', days: 999 })
   assert.equal(log.from, '2026-10-01')

@@ -144,7 +144,7 @@ function graphIndex() {
 
 function statusOf(nodeId) {
   const p = loadYaml(PROGRESS_PATH, 'PROGRESS.yaml')
-  return p?.nodes?.[nodeId]?.status ?? null      // null = 未学（PROGRESS 里不写就是没碰过）
+  return p?.nodes?.[nodeId]?.status ?? null      // null = 没有学习状态记录，不能推断是否接触过
 }
 
 // ── 插件本体 ───────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ function apply(ctx) {
           noteExists: { type: 'boolean', required: true },
           requires: { type: 'array', required: true, items: { type: 'string' } },
           dependents: { type: 'array', required: true, items: { type: 'string' } },
-          progress: { type: 'string' },        // 未学 / studying / learned / verified
+          progress: { type: 'string' },        // studying / learned / verified；缺失表示未记录
           mapped: { type: 'boolean', required: true }   // 是否已在 NOTE_MAP 里登记
         }
       },
@@ -185,7 +185,7 @@ function apply(ctx) {
         if (!v.found) return [{ type: 'text', text: v.reason ?? '没找到。' }]
         const L = []
         L.push(`图节点：${v.nodes.join(' / ')}`)
-        L.push(`学习状态：${v.progress ?? '未学（PROGRESS.yaml 里没有这条 = 没碰过）'}`)
+        L.push(`学习状态：${v.progress ?? '未记录学习状态（不代表从未接触）'}`)
         if (v.requires.length) L.push(`前置（学它之前必须先会）：${v.requires.join('、')}`)
         if (v.dependents.length) L.push(`依赖它的：${v.dependents.join('、')}`)
         if (!v.noteExists) {

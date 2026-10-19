@@ -41,7 +41,7 @@ import { buildTrainingLog } from './lib/training-log.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.9.4'
+const VERSION = '2.9.5'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -4370,9 +4370,9 @@ function apply(ctx) {
 
         const m = matchTags(db, node)
         if (m.kind === 'none') {
-          return deny(`题库里没有任何题打着「${node}」这个标签 —— 这个点出不了卷。` +
-            '别自己报题号凑数：没有标签就没有可信的难度排序，挑出来的卷子测不出东西。' +
-            '如实告诉他这个知识点暂时做不了检测。')
+          return deny(`内置题库没有「${node}」的标签，无法自动分档。` +
+            '仍可从真实题面和题解挑三道已核实、未做过的题，用 coach_test 的 source=web 开卷；' +
+            '每道必须写 verified、title、url，不能凭标签或题号猜解法。')
         }
 
         const { hits } = nodePool(db, node)

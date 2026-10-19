@@ -318,6 +318,7 @@ test('budget reports time pressure and uncertainty without pretending a weekly a
 
 test('a changed source invalidates its reference and requires an explicit rebase', () => {
   const f = fixture(); f.create()
+  const entered = f.store.load()
   f.progress.nodes.B.checks[0].minutes = 50
   const state = f.store.snapshot(); assert.equal(state.needsReview, true)
   assert.equal(f.store.assignment({ node: 'B', revision: 1 }).ok, false)
@@ -325,6 +326,9 @@ test('a changed source invalidates its reference and requires an explicit rebase
   const refs = f.store.execute({ action: 'assess' }).evidence
   const rebased = phases.map((phase) => ({ ...phase, evidenceRefs: refs.filter((entry) => phase.nodes.includes(entry.node)).map((entry) => entry.id) }))
   assert.equal(f.store.execute({ action: 'revise', expectedRevision: 1, phases: rebased, reason: '原检测记录有实质修订，按当前真实内容重新引用' }).ok, true)
+  const after = f.store.load()
+  assert.equal(after.enteredAt, entered.enteredAt)
+  assert.deepEqual(after.entryEvidenceRefs, entered.entryEvidenceRefs)
 })
 
 test('diagnostic cannot advance on old evidence, change into training or delete a probe', () => {

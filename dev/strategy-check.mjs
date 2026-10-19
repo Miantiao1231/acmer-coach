@@ -196,6 +196,17 @@ test('scope refuses unknown knowledge instead of inventing applicability', () =>
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('packaged ST table scope states when overlapping blocks are valid', () => {
+  const { dir, store } = fixture()
+  try {
+    const scope = store.scope('ST 表')
+    assert.equal(scope.ok, true)
+    assert.match(scope.appliesTo.join(' '), /可重复贡献/)
+    assert.match(scope.notFor.join(' '), /区间和/)
+    assert.equal(scope.sources[0].url, 'https://oi-wiki.org/ds/sparse-table/')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('first-use focus has a complete refusal shape and targets reject unknown cards', () => {
   const { dir, store } = fixture()
   try {

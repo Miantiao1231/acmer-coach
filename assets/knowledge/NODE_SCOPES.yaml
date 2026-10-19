@@ -29,6 +29,20 @@ nodes:
     sources:
       - title: OI Wiki 贪心：证明与动态规划的区别
         url: https://oi-wiki.org/basic/greedy/
+  - id: ST 表
+    title: ST 表：静态区间的可重复贡献查询
+    contestUse: 静态数组上多次查询区间最值或 GCD，用倍增预处理换取常数次查询。
+    recognition: [数组不修改且区间查询很多, 合并操作满足结合律和可重复贡献]
+    proofQuestions: [两个长度为二的幂的区间为什么覆盖查询区间, 重叠元素重复计算后答案为什么不变]
+    appliesTo: [静态区间最大最小值, 静态区间 GCD 等可重复贡献问题]
+    extensions: [倍增预处理, 区间最值作为其他算法的静态查询部件]
+    notFor: [需要修改数组后继续查询, 区间和等重复贡献会改变答案的问题]
+    commonFailures: [把区间和直接用重叠两块相加, 查询长度取对数时下标越界, 预处理表尺寸未按 n 和层数计算]
+    transferProblems: [把区间最大值换成区间 GCD 并解释为什么仍能重叠, 把查询改成带修改并重新选择数据结构]
+    exitEvidence: [能证明重叠覆盖合法, 独立完成限时静态查询题并核算预处理空间]
+    sources:
+      - title: OI Wiki ST 表：可重复贡献、预处理与查询
+        url: https://oi-wiki.org/ds/sparse-table/
   - id: 前缀和 & 差分
     title: 前缀和与差分：离线维护的边界
     contestUse: 先区分查询发生在全部更新之后，还是更新查询交替发生。

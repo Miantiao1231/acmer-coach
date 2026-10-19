@@ -301,9 +301,16 @@ body[data-view="vp"] #stage,body[data-view="vp"] .side,body[data-view="vp"] #sch
 .phase{padding:11px 12px;border:1px solid var(--stroke);border-radius:var(--radius-s);background:var(--fill-0);min-width:0}
 .phase.current{border-color:var(--brand);background:var(--brand-soft);box-shadow:var(--glow-brand)}
 .phase.complete{border-color:var(--ac-s);background:var(--ac-soft)}
+.phase.skipped{border-color:var(--stroke);background:var(--fill-0)}
 .phase .phase-state{color:var(--text-4);font-size:11px}
 .phase.current .phase-state{color:var(--brand-text)}
 .phase.complete .phase-state{color:var(--ac-text)}
+.phase-history{margin-top:12px;border-top:1px solid var(--stroke);padding-top:10px;color:var(--text-3);font-size:12px}
+.phase-history summary{cursor:pointer;width:max-content;max-width:100%;color:var(--brand-text);font-weight:600}
+.phase-history-list{display:grid;gap:8px;margin-top:10px}
+.phase-history-item{padding:10px 12px;border:1px solid var(--stroke);border-radius:var(--radius-s);background:var(--fill-0)}
+.phase-history-item b{color:var(--text-1)}
+.phase-history-item p{margin:4px 0 0;line-height:1.5}
 .phase .phase-title{margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .phase-detail{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:14px;color:var(--text-2);font-size:12.5px}
 .phase-detail p{margin:0 0 8px}.phase-detail b{color:var(--text-1)}.phase-field{margin-bottom:10px}.phase-field:last-child{margin-bottom:0}.phase-field>b{display:block;margin-bottom:2px}
@@ -676,6 +683,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <h3>课程阶段</h3>
     <div class="phase-rail" id="phaseRail"></div>
     <div class="phase-detail" id="phaseDetail"></div>
+    <details class="phase-history" id="phaseHistory"><summary id="phaseHistorySummary">历史阶段</summary><div class="phase-history-list" id="phaseHistoryList"></div></details>
   </div>
   <div class="log-days" id="logDays"></div>
   <div class="note" id="logNote" role="status" aria-live="polite">正在读取训练日志…</div>
@@ -1780,7 +1788,7 @@ async function loadSchedule() {
 }
 
 const LOG_STATE = { logged: "有实际记录", "planned-only": "有计划，待补实际", active: "有活动", empty: "无记录" };
-const PHASE_STATE = { complete: "已完成", current: "当前阶段", upcoming: "未开始" };
+const PHASE_STATE = { complete: "已完成", skipped: "已跳过", current: "当前阶段", upcoming: "未开始" };
 const EVENT_LABEL = { planned: "计划", practice: "练习", lesson: "讲课", check: "检测", diagnosis: "判因", status: "状态" };
 function setLogNote(html, isError = false) {
   const el = $("#logNote");
@@ -1802,9 +1810,14 @@ function renderTrainingLog() {
 
   const course = trainingLog.curriculum || {};
   const phases = Array.isArray(course.phases) ? course.phases : [];
-  $("#phaseRail").innerHTML = phases.length
-    ? phases.map((phase) => `<div class="phase ${esc(phase.status)}"><div class="phase-state">${esc(PHASE_STATE[phase.status] || phase.status)}</div><div class="phase-title" title="${esc(phase.title)}">${esc(phase.title)}</div></div>`).join("")
-    : `<div class="log-empty">还没有长期课程。阶段状态会在 coach_curriculum create 后出现在这里。</div>`;
+  const history = phases.filter((phase) => phase.status === "skipped" || phase.status === "complete");
+  const visible = phases.filter((phase) => phase.status !== "skipped" && phase.status !== "complete");
+  $("#phaseRail").innerHTML = visible.length
+    ? visible.map((phase) => `<div class="phase ${esc(phase.status)}"><div class="phase-state">${esc(PHASE_STATE[phase.status] || phase.status)}</div><div class="phase-title" title="${esc(phase.title)}">${esc(phase.title)}</div></div>`).join("")
+    : `<div class="log-empty">${phases.length ? "当前没有执行中的阶段，历史阶段见下方。" : "还没有长期课程。阶段状态会在 coach_curriculum create 后出现在这里。"}</div>`;
+  $("#phaseHistory").hidden = history.length === 0;
+  $("#phaseHistorySummary").textContent = `查看历史阶段（${history.length}）`;
+  $("#phaseHistoryList").innerHTML = history.map((phase) => `<div class="phase-history-item"><b>${esc(phase.title)}</b> · ${esc(PHASE_STATE[phase.status] || phase.status)}${phase.skippedMissing?.length ? `<p>未完成：${esc(phase.skippedMissing.join("；"))}</p>` : ""}</div>`).join("");
   const current = course.current || {};
   const missing = [...(current.missingVerified || []), ...(current.missingFreshEvidence || [])];
   $("#phaseDetail").innerHTML = course.exists ?

@@ -149,9 +149,10 @@ check('  命中节点正确', r1.nodes.includes('区间 DP'), r1.nodes.join(',')
 check('  前置正确', JSON.stringify(r1.requires) === JSON.stringify(['动态规划基础']), r1.requires.join(','))
 check('  后继非空（反查成功）', r1.dependents.length > 0, r1.dependents.join(','))
 check('  找到笔记正文', (r1.content ?? '').includes('区间'), `${(r1.content ?? '').length} 字符`)
-// 区间 DP 不在 PROGRESS.yaml 里 → 未学 → 不返回 progress 字段。这是**对的行为**：
-// 「不写 = 没碰过」，工具不该凭空编一个状态出来。
-check('  未学的不编状态', r1.progress === undefined, r1.progress ?? '（正确地没给）')
+// 没有状态记录不等于从未接触；note_context 不应从空字段推断学习历史。
+check('  缺状态的不编状态', r1.progress === undefined, r1.progress ?? '（正确地没给）')
+const r1Text = registered.get('note_context').output.render({}, r1)[0].text
+check('  缺状态不误称从未接触', r1Text.includes('未记录学习状态') && !r1Text.includes('没碰过'))
 
 // 换一个**确实有状态**的节点，验状态真的被带出来了
 const r1b = await call('note_context', { query: '动态规划基础' })
