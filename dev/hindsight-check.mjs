@@ -69,6 +69,7 @@ test('recall uses only real user text, first step, typed plugin messages, and pr
   const recalled = calls.find(c => c.url.endsWith('/recall'))
   assert.equal(recalled.body.query, real.content[0].text)
   assert.equal(recalled.body.max_tokens, 400)
+  assert.deepEqual(recalled.body.types, ['observation'])
   assert.ok(calls.every(c => c.url.includes('/banks/fixture-coach')))
   assert.ok(calls.some(c => c.method === 'GET' && c.url.endsWith('/banks/fixture-coach/config')))
   assert.equal(calls.filter(c => c.method === 'PUT').length, 0)

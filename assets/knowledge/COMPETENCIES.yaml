@@ -2,14 +2,14 @@ version: 1
 competencies:
   - id: contest-reading
     title: 比赛读题与筛选
-    contestUse: 在团队约定的首轮时间盒内扫描题面，识别可做题和高风险题，记录漏读与过早开写。
+    contestUse: 首轮快速扫描题目，估计本队可做范围；深入读题只针对候选题。没有读题回放时，未提交不等于漏读。
     nodes: []
     appliesTo: [所有区域赛场次]
-    extensions: [首轮扫描, 题目分层, 读题时间盒]
+    extensions: [首轮快速扫描, 可做题分层, 候选题深入阅读]
     notFor: [把 A 题默认当成签到题, 读一题写一题]
-    commonFailures: [漏读题面, 被样例带偏, 没有放弃条件]
+    commonFailures: [可做题被误判或遗漏, 被样例带偏, 没有放弃条件]
     transferProblems: [一场完整 VP]
-    exitEvidence: [两场 VP 都记录首轮扫描顺序, 没有漏读题]
+    exitEvidence: [两场 VP 记录首轮扫描与候选题取舍, 有证据时再判断是否遗漏本队可做题]
     sources:
       - title: ICPC NCNA 公布的区域赛规则（通用背景；扫描时间盒是教学设计）
         url: https://nc.na.icpc.global/rules/

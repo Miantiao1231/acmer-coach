@@ -11,6 +11,20 @@ const personaPath = new URL('../assets/persona/xiaojing-coach.md', import.meta.u
 const rulesPath = new URL('../assets/rules/coach-rules.md', import.meta.url)
 let imports = 0
 
+test('packaged coaching instructions stay focused on judgment, not stale contest prescriptions', () => {
+  const rules = fs.readFileSync(rulesPath, 'utf8')
+  assert.ok(rules.length < 7000, `static rules are ${rules.length} characters`)
+  assert.match(rules, /可做题/)
+  assert.match(rules, /快速扫描/)
+  assert.doesNotMatch(rules, /题目是不是全都被读过|强制交版|每\s*\d+\s*分钟必须提交/)
+})
+
+test('postmortem tool distinguishes missing read events from missed reachable problems', () => {
+  const source = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+  assert.match(source, /未提交不等于未读题/)
+  assert.match(source, /全场 AC 队数不能单独证明本队可做/)
+})
+
 async function fixture(t) {
   const dir = fs.mkdtempSync(join(tmpdir(), 'coach-persona-'))
   const previous = Object.fromEntries(['COACH_DATA_DIR', 'COACH_DB', 'COACH_RULES_DIR'].map(key => [key, process.env[key]]))

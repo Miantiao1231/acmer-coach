@@ -470,6 +470,13 @@ test('expired weekly focus pauses new progression without changing long-term cou
   assert.equal(f.store.snapshot().goal, '区域赛稳定表现，长期向 WF 发展')
 })
 
+test('turn context shows the current route without replaying old phase conclusions', () => {
+  const f = fixture(); f.create()
+  const context = f.store.context()
+  assert.match(context, /当前阶段：稳定基础能力/)
+  assert.doesNotMatch(context, /阶段编排依据|已跳过阶段|先修复已观测的基础问题/)
+})
+
 test('unfinished bound action stops a new unit; completing it permits the next one', () => {
   const f = fixture(); f.create()
   f.progress.pendingActions.B = { curriculum: { phaseId: 'foundation' } }

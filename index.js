@@ -2234,7 +2234,7 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_postmortem',
-    description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id，结论必须引用真实 evidenceRefs。工具核对引用，不替代你核对代码/回放的因果判断；旧文字复盘只保留为观察。',
+    description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id。未提交不等于未读题；全场 AC 队数不能单独证明本队可做。提交间隔不是败因，强制交未完成代码还会产生罚时。结论必须引用事实，且核对本队候选题与当时的思路、代码状态和替代选择；工具只核对引用，不证明因果。',
     parameters: {
       eventId: { type: 'string', required: true }, competencies: { type: 'array', items: { type: 'string' } },
       missedReads: { type: 'array', items: { type: 'string' } }, decisionErrors: { type: 'array', items: { type: 'string' } },

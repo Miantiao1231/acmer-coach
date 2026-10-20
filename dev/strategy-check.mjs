@@ -41,6 +41,18 @@ test('local training day includes morning VP evidence and computes the local dea
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('unknown VP reading time stays unknown and turn context does not pronounce a repair priority', () => {
+  const { dir, store } = fixture({ now: () => new Date('2026-10-11T12:00:00Z') })
+  try {
+    store.target('set', { expectedRevision: 0, contest: 'VP', date: '2026-10-17', result: '稳定', weeklyHours: 25,
+      priorities: [{ id: 'contest-decision', weight: 10 }] })
+    store.vpImport([{ eventId: 'unknown-reading', contest: 'VP', date: '2026-10-10',
+      problems: [{ problemId: 'B', status: 'AC' }] }])
+    assert.equal('readMinutes' in store.loadVp().events[0].problems[0], false)
+    assert.doesNotMatch(store.context(), /本轮优先能力|近30天有|每次布置前/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('event measurements are explicit finite facts and sync preserves coach annotations', () => {
   const { dir, store } = fixture()
   try {
