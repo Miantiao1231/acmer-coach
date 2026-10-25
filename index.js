@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, renameSync, statSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -41,7 +41,7 @@ import { buildTrainingLog } from './lib/training-log.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.9.5'
+const VERSION = '2.9.7'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -217,6 +217,10 @@ function loadProgress() {
     throw err
   }
   const doc = parse(raw)
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc) || doc.version !== 1 ||
+      !doc.nodes || typeof doc.nodes !== 'object' || Array.isArray(doc.nodes)) {
+    throw new Error('PROGRESS.yaml 存在但内容无效；请检查文件，不会当作空进度覆盖。')
+  }
   return {
     version: doc?.version ?? 1,
     cursor: String(doc?.cursor ?? ''),
@@ -288,17 +292,11 @@ const PROGRESS_HEADER = `
 # ══════════════════════════════════════════════════════════════
 `
 
-// 原子写：先写 .tmp 再 rename。半路崩了也不会把真相源撕成半个文件。
+// 写入失败必须保留旧账本；不能删掉目标文件再复制临时文件。
 // ⚠️ 千万不要在解析失败时静默返回空进度再写回 —— 那是**拿空数据覆盖真相源**。
 //    loadProgress 遇到非 ENOENT 的错一律抛，就是要让这种情况炸出来。
 function replaceFile(tmp, destination) {
-  try { renameSync(tmp, destination) } catch (err) {
-    if (!['EPERM', 'EEXIST'].includes(err.code)) throw err
-    // Windows sandbox may refuse rename over an existing file; replace from the complete temp copy.
-    try { unlinkSync(destination) } catch (removeErr) { if (removeErr.code !== 'ENOENT') throw err }
-    copyFileSync(tmp, destination)
-    unlinkSync(tmp)
-  }
+  renameSync(tmp, destination)
 }
 
 function saveProgress(p) {
@@ -356,6 +354,10 @@ function loadSchedule() {
     throw err
   }
   const doc = parse(raw)
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc) || doc.version !== 1 ||
+      !doc.days || typeof doc.days !== 'object' || Array.isArray(doc.days)) {
+    throw new Error('SCHEDULE.yaml 存在但内容无效；请检查文件，不会当作空日程覆盖。')
+  }
   return {
     version: doc?.version ?? 1,
     updated: String(doc?.updated ?? ''),
@@ -2107,9 +2109,12 @@ function apply(ctx) {
       try {
         const payload = await vpClient.sync({ limit: args?.limit, includeProfile: args?.includeProfile !== false })
         const account = vpAccount(payload.account)
-        switchCoachWorkspace(account.id)
         const importedEvents = vpEventsFromSync(payload, account)
-        const imported = importedEvents.length ? strategy.vpImport(importedEvents, { source: 'sync' }) : { ok: true, reject: '', imported: 0 }
+        const vpDir = join(DATA_DIR, 'vp-accounts', String(account.id))
+        const importStore = ACTIVE_VP_DIR === vpDir ? strategy : createStrategyStore({
+          dataDir: DATA_DIR, vpDir, competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+        })
+        const imported = importedEvents.length ? importStore.vpImport(importedEvents, { source: 'sync' }) : { ok: true, reject: '', imported: 0 }
         const hasMore = payload.hasMore === true
         const pageCounts = payload.pageCounts
         return { ok: imported.ok, reject: String(imported.reject || ''), account, imported: Number(imported.imported || 0), contests: payload.contests || [], submissions: payload.submissions || [], events: payload.events || [],
@@ -2234,12 +2239,16 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_postmortem',
-    description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id。未提交不等于未读题；全场 AC 队数不能单独证明本队可做。提交间隔不是败因，强制交未完成代码还会产生罚时。结论必须引用事实，且核对本队候选题与当时的思路、代码状态和替代选择；工具只核对引用，不证明因果。',
+    description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id。未提交不等于未读题；全场 AC 队数不能单独证明本队可做。提交间隔不是败因，强制交未完成代码还会产生罚时。可选 decisionSnapshot 记录当时可选题、手上进度、剩余时间，只填真实回忆；工具核引用，不证明因果。',
     parameters: {
       eventId: { type: 'string', required: true }, competencies: { type: 'array', items: { type: 'string' } },
       missedReads: { type: 'array', items: { type: 'string' } }, decisionErrors: { type: 'array', items: { type: 'string' } },
       teamIssues: { type: 'array', items: { type: 'string' } }, rootCauses: { type: 'array', items: { type: 'string' } },
       nextActions: { type: 'array', items: { type: 'string' } }, note: { type: 'string' }, date: { type: 'string' },
+      decisionSnapshot: { type: 'object', description: '可选赛中决策快照；只记录学生或回放确认的事实。', additionalProperties: false, properties: {
+        alternatives: { type: 'array', required: true, items: { type: 'string' } },
+        workInProgress: { type: 'string', required: true }, remainingMinutes: { type: 'integer', required: true },
+      } },
       findings: { type: 'array', description: '每能力最多一项结论；确认前需对照代码或回放。不能把 WA 直接等同于不会。', items: { type: 'object', additionalProperties: false, properties: {
         competency: { type: 'string', required: true }, status: { type: 'string', required: true, enum: ['hypothesis', 'confirmed', 'resolved'] },
         cause: { type: 'string', required: true, description: '至少10字，说明观察与推理；不能只重复判题结果。' },
@@ -4241,15 +4250,14 @@ function apply(ctx) {
   // 难度怎么排。这三样查一下就有，让模型凭印象挑就是让它在四万道题里编题号。
   //
   // 所以流程是两步：先调这个拿**真实的候选池**，再用你自己的判断从中挑三道，
-  // 交给 coach_test。别跳过这一步直接报题号 —— 会被 coach_test 挡下来。
+  // 交给 coach_test；缺池时仍可走已核实题面的 source=web 通道。
   ctx.tools.register(defineTool({
     name: 'coach_pool',
     description:
       '查一个知识点的候选题池（出卷的第一步）。返回该节点标签下的题，' +
       '**已经 AC 过的不会出现**，按难度分 易/中/难 三档，每档给几道候选。' +
       '你从这个池子里挑三道（各档一道）交给 coach_test。\n' +
-      '如果它拒绝，说明题库里没有这个标签的题（比如「插头 DP」这种没人打标签的），' +
-      '那就老老实实说这个点出不了卷，**不要自己报题号凑数**。',
+      '如果没有标签或候选太少，可核实真实题面后通过 coach_test 的 source=web 组卷；不要编题号。',
     parameters: {
       node: { type: 'string', required: true, description: '知识点 id，必须在地图里' },
     },
@@ -4300,7 +4308,7 @@ function apply(ctx) {
         },
       },
       render: (_args, v) => {
-        if (!v.ok) return [{ type: 'text', text: `❌ 出不了卷：${v.reject}` }]
+        if (!v.ok) return [{ type: 'text', text: `❌ 题池不可用：${v.reject}\n可核实真实题面，再由 coach_test 的 source=web 组卷。` }]
         const lines = [
           `【题池】${v.nodeName}　[${v.domain}]`,
           `标签匹配：${v.matchKind === 'exact' ? '精确' : '子串'}（${v.matchedTags.join(' / ')}）`,
@@ -4361,7 +4369,7 @@ function apply(ctx) {
       try {
         db = await openDb()
       } catch (err) {
-        return deny(`训练库打不开（${err.code || err.message}）—— 出不了卷。`)
+        return deny(`训练库打不开（${err.code || err.message}）。`)
       }
 
       try {
@@ -4418,7 +4426,7 @@ function apply(ctx) {
 
         if (ranked.length < BANDS.length) {
           return deny(`「${node}」的池子里只剩 ${ranked.length} 道可用的未做题，` +
-            '凑不出 易/中/难 三档 —— 出不了卷。题池太浅的知识点得先攒题，别硬出。')
+            '凑不出 易/中/难 三档；可核实外部题面后用 source=web。')
         }
         if (m.kind === 'substring') {
           warnings.push(`标签是**子串**匹配到的（${m.tags.join(' / ')}），` +
@@ -4484,7 +4492,7 @@ function apply(ctx) {
           mapStamp: stamp,
         }
       } catch (err) {
-        return deny(`查题库出错（${err.message}）—— 出不了卷。`)
+        return deny(`查题库出错（${err.message}）。`)
       } finally {
         try { db.close() } catch { /* 关不掉不影响结果 */ }
       }
@@ -6100,10 +6108,7 @@ function apply(ctx) {
               ? '\n  📌 这个节点上押着的动作**销了** —— 这条记录就是它的落地。'
               : '') +
             `\n  这天这个点 ${v.sameDayEntries} 条，这天总共 ${v.totalLogged} 条。` +
-            (v.solved
-              ? '\n\n**做对了就先好好夸一句，然后往下走。** 不要接着挑边界、挑写法 —— ' +
-                '「对了」已经拿到手了，剩下的是教练下次讲的时候顺带提的事，不是现在的作业。'
-              : ''),
+            (v.solved ? '\n\n已记录这次完成；后续反馈请结合学生目标和真实证据判断。' : ''),
         }]
       },
     },
@@ -6150,7 +6155,7 @@ function apply(ctx) {
         if (!source.ok) return deny(source.reject)
         const quote = source.studentEvidence.quote
         const assisted = /(?<!没|未|不|没有)(?:用|使用|接受|借助)(?:了|过)[^，,。；;\n\d]{0,12}(?:提示|题解|帮助)|(?<!没|未|不|没有)(?:看了|看过|参考了|读了)[^，,。；;\n]{0,6}(?:题解|答案)|(?:不是|并非|不算|非)独立|问了(?:人|别人|同学|老师)/u.test(quote)
-        const explicitIndependent = /独立(?:完成|做出|解决|尝试)|自己(?:完成|做出|解决|做的)|(?:没|没有|未)(?:看(?:过|了)?题解|(?:用|使用|接受)(?:过|了)?提示)/u.test(quote)
+        const explicitIndependent = /独立(?:完成|做出|解决|尝试|\s*(?:AC|通过|写出))|自己(?:完成|做出|解决|做的)|(?:没|没有|未)(?:看(?:过|了)?题解|(?:用|使用|接受)(?:过|了)?提示)/iu.test(quote)
         if (independent === true && (assisted || !explicitIndependent)) return deny('原话没有明确独立完成，或明确接受过提示/题解；不要记 independent=true。未知就省略。')
         if (independent === false && !assisted) return deny('这段原话未明确报告接受帮助；独立性未知请省略 independent。')
         if (actualMin !== undefined) {

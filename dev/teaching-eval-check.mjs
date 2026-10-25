@@ -11,6 +11,7 @@ test('教学验收默认只显示帮助；付费运行需要明确模式且限�
   assert.equal(parseArgs([]).mode, 'help')
   assert.equal(parseArgs(['--prepare']).mode, 'prepare')
   assert.deepEqual(parseArgs(['--run', 'prepared', '--case', 'repair']), { mode: 'run', directory: 'prepared', caseId: 'repair' })
+  assert.deepEqual(parseArgs(['--run', 'prepared', '--case', 'contest']), { mode: 'run', directory: 'prepared', caseId: 'contest' })
   for (const args of [['--run'], ['--case', 'unknown'], ['--prepare', '--run', 'x'], ['--unknown']]) assert.throws(() => parseArgs(args))
 })
 

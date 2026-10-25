@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs'
+import fs, { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createStrategyStore } from '../lib/strategy.js'
@@ -14,6 +15,36 @@ function fixture(options = {}) {
   })
   return { dir, store }
 }
+
+test('an existing empty target is rejected instead of becoming a fresh target', () => {
+  const { dir, store } = fixture()
+  try {
+    writeFileSync(join(dir, 'TARGET.yaml'), 'null\n')
+    const result = store.target('read')
+    assert.equal(result.ok, false)
+    assert.match(result.reject, /TARGET.yaml/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('failed replacement keeps the previous target intact', () => {
+  const { dir, store } = fixture()
+  const first = { expectedRevision: 0, contest: '第一站', date: '2026-10-17', result: '铜牌',
+    weeklyHours: 25, priorities: [{ id: 'contest-decision', weight: 100 }] }
+  const path = join(dir, 'TARGET.yaml')
+  const rename = fs.renameSync, copy = fs.copyFileSync
+  try {
+    assert.equal(store.target('set', first).ok, true)
+    const old = readFileSync(path, 'utf8')
+    fs.renameSync = () => { const error = new Error('simulated replace failure'); error.code = 'EEXIST'; throw error }
+    fs.copyFileSync = () => { const error = new Error('simulated copy failure'); error.code = 'EIO'; throw error }
+    syncBuiltinESMExports()
+    assert.throws(() => store.target('set', { ...first, expectedRevision: 1, contest: '第二站' }))
+    assert.equal(readFileSync(path, 'utf8'), old)
+  } finally {
+    fs.renameSync = rename; fs.copyFileSync = copy; syncBuiltinESMExports()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 test('invalid target constraints and VP numbers are rejected before changing ledgers', () => {
   const { dir, store } = fixture()
@@ -112,6 +143,26 @@ test('hypotheses stay observations and confirmation requires cited facts from th
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('editing a VP annotation preserves cited facts, but changed results flag stale findings', () => {
+  const { dir, store } = fixture({ now: () => new Date('2026-10-11T12:00:00Z') })
+  try {
+    store.target('set', { expectedRevision: 0, contest: '目标', date: '2026-10-17', result: '稳定发挥', weeklyHours: 25,
+      priorities: [{ id: 'contest-decision', weight: 100 }] })
+    const event = note => ({ eventId: 'note-edit', contest: 'VP', date: '2026-10-10',
+      problems: [{ problemId: 'A', status: 'WA', competencies: ['contest-decision'], note }] })
+    store.vpImport([event('最初备注')])
+    const id = store.evidence().evidence.find(item => item.source === 'vp').id
+    assert.equal(store.postmortem({ eventId: 'note-edit', findings: [{ competency: 'contest-decision', status: 'confirmed',
+      cause: '根据当时的代码与备选题确认切题时机不合适', evidenceRefs: [id] }] }).ok, true)
+    store.vpImport([event('修正错别字')])
+    assert.equal(store.evidence().evidence.find(item => item.source === 'vp').id, id)
+    assert.equal(store.focus().focus[0].gapCount, 1)
+    store.vpImport([{ ...event('修正错别字'), problems: [{ ...event('').problems[0], status: 'AC' }] }])
+    assert.equal(store.focus().focus[0].gapCount, 0)
+    assert.match(store.focus().focus[0].whyNow, /引用失效/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('synced unlabelled facts can be cited without fabricating an algorithm tag', () => {
   const { dir, store } = fixture()
   try {
@@ -196,6 +247,21 @@ test('VP import is idempotent and postmortem drives focus', () => {
     const focus = store.focus()
     assert.equal(focus.ok, true)
     assert.equal(focus.focus[0].id, 'contest-reading')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('VP postmortem preserves a factual contest decision snapshot', () => {
+  const { dir, store } = fixture()
+  try {
+    assert.equal(store.vpImport([{ eventId: 'decision', contest: '区域赛', date: '2026-10-10',
+      problems: [{ problemId: 'A', status: 'AC' }] }]).ok, true)
+    const decisionSnapshot = { alternatives: ['B', 'C'], workInProgress: 'B 已写出主体，正在调边界', remainingMinutes: 35 }
+    const saved = store.postmortem({ eventId: 'decision', competencies: ['contest-decision'], decisionSnapshot })
+    assert.equal(saved.ok, true, saved.reject)
+    assert.deepEqual(store.loadVp().postmortems[0].decisionSnapshot, decisionSnapshot)
+    assert.equal(store.postmortem({ eventId: 'decision', competencies: ['contest-decision'],
+      decisionSnapshot: { ...decisionSnapshot, remainingMinutes: -1 } }).ok, false)
+    assert.deepEqual(store.loadVp().postmortems[0].decisionSnapshot, decisionSnapshot)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

@@ -193,14 +193,13 @@ test('bundle declares a native 小鲸教练 preset with the stock standard capab
   assert.ok(persona.config.prefix.includes('coach:persona'))
   assert.ok(persona.config.prefix.includes('coach:rules'))
   assert.ok(persona.config.prefix.length < 200, 'reuse packaged persona without duplicating its full text')
-  assert.equal(persona.config.suffix, 'Your working directory is {{cwd}}.')
+  assert.ok(persona.config.suffix === undefined || persona.config.suffix === '',
+    'dsh 0.2.1 prompt templates only register {{provider}}/{{model}}; a {{cwd}} suffix fails every turn')
   const ids = config.plugins.map(entry => entry.id)
   for (const id of ['tool-bash', 'tool-pwsh', 'tool-fs', 'tool-fs-search', 'tool-jobs', 'skill-filesystem', 'tool-skill',
     'planning', 'compaction', 'delegation', 'tool-ask-user', 'tool-todo', 'tool-web', 'present']) assert.ok(ids.includes(id), id)
   const delegation = config.plugins.find(entry => entry.id === 'delegation')
-  for (const id of ['tool-subagent-codex', 'tool-subagent-claude-code', 'tool-ralph']) {
-    assert.equal(delegation.config.find(entry => entry.id === id).disabled, true, `${id} stays disabled`)
-  }
+  assert.ok(!delegation.config.some(entry => ['tool-subagent-codex', 'tool-subagent-claude-code', 'tool-ralph'].includes(entry.id)))
   assert.equal(config.plugins.find(entry => entry.id === 'tool-bash').disabled, "process.platform === 'win32'")
   assert.equal(config.plugins.find(entry => entry.id === 'tool-pwsh').disabled, "process.platform !== 'win32'")
   assert.equal(config.plugins.find(entry => entry.id === 'tool-plugin-manager').disabled, true)

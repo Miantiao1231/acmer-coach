@@ -93,3 +93,20 @@ test('explicit no-help statement is not mistaken for having used a hint', async 
     assert.equal(r.ok, true, r.reject)
   }, [quote])
 })
+
+test('student saying 独立ac is accepted as explicit independence', async () => {
+  const quote = '1467C独立ac。'
+  await fixture(async ({ call, read }) => {
+    const result = await call({ solved: true, independent: true, problemId: '1467C', studentQuote: quote })
+    assert.equal(result.ok, true, result.reject)
+    assert.equal(read('PROGRESS.yaml').nodes.A.passes[0].independent, true)
+  }, [quote])
+})
+
+test('negated 独立AC does not become independent evidence', async () => {
+  const quote = '1467C不是独立AC，用了提示。'
+  await fixture(async ({ call }) => {
+    const result = await call({ solved: true, independent: true, studentQuote: quote })
+    assert.equal(result.ok, false)
+  }, [quote])
+})

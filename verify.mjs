@@ -2911,11 +2911,11 @@ check('★ 没做出来的也有一条 passes（solved:false 是事实，不是�
 check('★ **不动 status**（做对一道题 ≠ 这个知识点学完了，那是检测的活）',
   recB?.status === undefined, `B.status=${recB?.status}（B 全程没被判过卷，记 passes 不该动它）`)
 
-// 渲染是**小鲸最容易照抄的模板** —— 它必须正向，否则小鲸会自己往判因那边滑
+// 渲染报告事实，不强制教练下一句必须夸奖或停止讲解。
 const logTxt = T30.get('coach_log').output.render({}, l30b)[0].text
-check('★ 独立做对了的渲染是正向的（夸 + 往下走，不接着挑毛病）',
-  logTxt.includes('独立做出来的') && logTxt.includes('夸'),
-  (logTxt.match(/.*夸.*/) ?? ['（没有）'])[0].slice(0, 50))
+check('★ 独立做对的事实可见，后续反馈留给教练判断',
+  logTxt.includes('独立做出来的') && logTxt.includes('已记录这次完成'),
+  (logTxt.match(/.*已记录这次完成.*/) ?? ['（没有）'])[0].slice(0, 50))
 const logTxtNo = T30.get('coach_log').output.render({}, l30d)[0].text
 check('★ 没做出来的不是骂（"这很正常"），也不是不管（"看卡在哪"）',
   logTxtNo.includes('很正常') && logTxtNo.includes('卡在哪'),

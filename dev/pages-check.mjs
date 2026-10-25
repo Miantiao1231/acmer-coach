@@ -11,7 +11,7 @@ async function fixture(t) {
   process.env.COACH_DATA_DIR = dir
   process.env.COACH_DB = join(dir, 'unused.db')
   writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 3}\nnodes: []\n')
-  writeFileSync(join(dir, 'PROGRESS.yaml'), 'cursor: custom-node\nnodes: {}\n')
+  writeFileSync(join(dir, 'PROGRESS.yaml'), 'version: 1\ncursor: custom-node\nnodes: {}\n')
   let handler
   const ctx = {
     tools: { register() {} }, on() {}, get() {},

@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite'
 import YAML from 'yaml'
 import { evaluationPolicy, nativePermissionArgs } from './teaching-eval-guard.mjs'
 
-export const CASES = ['continuity', 'repair', 'replan']
+export const CASES = ['continuity', 'repair', 'replan', 'contest']
 export function parseArgs(args) {
   const options = { mode: 'help' }
   if (args.includes('--help')) return options
@@ -29,7 +29,7 @@ export function parseArgs(args) {
       options[flag === '--case' ? 'caseId' : 'out'] = value
     } else throw new Error(`未知参数：${flag}`)
   }
-  if (options.caseId && !CASES.includes(options.caseId)) throw new Error('--case 只能是 continuity、repair 或 replan。')
+  if (options.caseId && !CASES.includes(options.caseId)) throw new Error(`--case 只能是 ${CASES.join('、')}。`)
   if (options.caseId && options.mode !== 'run') throw new Error('--case 需要 --run。')
   if (options.out && options.mode !== 'prepare') throw new Error('--out 仅用于 --prepare。')
   return options
@@ -164,6 +164,10 @@ const prompts = {
     '原计划今天训练60分钟，但我现在只剩15分钟。背包更新方向仍说不清，也没独立写代码。请根据实际表现缩小今天目标，解释保留什么、推迟什么，不把未完成的旧计划算作进展。不要调用终端、委派或工作流。',
     '刚做了口头复测：一个物品重2、价值3，容量4。正序会得到6，因为用了本轮刚更新的状态；倒序得到3。但我还不会恰好装满的初始化，也没实写代码。这不是独立AC或编译判卷。请根据这次复测和剩余5分钟重新安排收尾，记录仍未核对的点，不替我判通过。',
   ],
+  contest: [
+    '我们是区域赛铜牌水平，五小时 13 题做出 4 题。剩下 9 题我没逐题看，后半场有一段没有提交。请判断这场 VP 暴露了什么训练问题；你只有这些信息。不要调用终端、委派或工作流。',
+    '补充：最后 35 分钟队里有 B 和 C 两个可选题；B 已写出主体，在调边界，C 还没形成做法。请评价当时继续调 B 的决策，也说明还缺什么事实才能下结论。',
+  ],
 }
 
 async function runCase(manifest, item) {
@@ -287,7 +291,7 @@ export async function runEvaluation(directory, caseId) {
   return root
 }
 
-const HELP = `手动教学验收（默认不调用模型）\n  node dev/teaching-eval.mjs --prepare [--out <父目录>]\n  node dev/teaching-eval.mjs --run <准备目录> [--case continuity|repair|replan]\n--prepare只复制公开包并生成独立夹具；--run使用模型和专用Hindsight bank，可能付费。\n每场串行运行一次，固定2次学生输入（上限3），不自动重试。DEEPSEEK_API_KEY只从环境读取。\n配置：DSH_EVAL_CLI、DSH_APP_NODE_MODULES、COACH_EVAL_MODEL、COACH_EVAL_REASONING、COACH_EVAL_MODEL_URL。\n`
+const HELP = `手动教学验收（默认不调用模型）\n  node dev/teaching-eval.mjs --prepare [--out <父目录>]\n  node dev/teaching-eval.mjs --run <准备目录> [--case continuity|repair|replan|contest]\n--prepare只复制公开包并生成独立夹具；--run使用模型和专用Hindsight bank，可能付费。\n每场串行运行一次，固定2次学生输入（上限3），不自动重试。DEEPSEEK_API_KEY只从环境读取。\n配置：DSH_EVAL_CLI、DSH_APP_NODE_MODULES、COACH_EVAL_MODEL、COACH_EVAL_REASONING、COACH_EVAL_MODEL_URL。\n`
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const options = parseArgs(process.argv.slice(2))

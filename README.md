@@ -123,6 +123,13 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 
 详见 [长期课程机制](docs/长期课程机制.md)。
 
+### 2.9.7：账本安全与赛场判断
+
+- 写入目标、进度、课程和 VP 记录失败时保留旧文件；已有损坏账本直接报错，不伪装成空白新学生。
+- VP 同步结束时不抢回已切换的账号；事实引用不随备注改写，实质变化会提示复核。
+- 出卷先查题池；缺标签时可核实题面后使用 `source=web`，不编造题号。「独立 AC」可按学生原话记录。
+- 复盘可选填赛中决策快照；新增隔离教学验收场景，检查小鲸会不会把正常的铜牌队取舍误判成错误。
+
 ### 2.9.5：部署源与课程历史
 
 - 开发同步同时核对 `.dsh/plugins/acmer-coach` 和 web/desktop 运行副本，避免下次重新安装时从旧部署源覆盖 Hindsight 修复。开发与自测请在 Git 仓库运行；部署目录不维护独立的 `node_modules`。
@@ -182,7 +189,7 @@ VP 回放、知识地图和日程沿用 CompetitionWhale VP v5 的深蓝／浅�
 
 现在插件内置 `assets/persona/xiaojing-coach.md`，默认提供小鲸鱼娘的外观、性格、训练员称呼、语气词、颜文字和小动作。新用户安装后无需另建本机 `personas` 文件。互动、讲题、复盘和赛时都保留可爱风格，公式及代码内部保持干净。
 
-在支持原生预设的 dsh（已验 `0.2.0-rc.2`）中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；插件的 32 个工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
+在 dsh `0.2.1-rc.2` 中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；教练工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
 
 人设通过 dsh 已有 `systemPrompt.section()` 静态加载，位于宿主人设之前；当前用户偏好和宿主自定义风格优先。训练选题、长期计划、来源及验收继续遵循 `coach:rules`，不把旧人设里的 rating 门槛或固定工具步骤带回来，也不携带个人账号与训练记录。插件不会自行改写已有本机人设文件；如个人预设仍包含旧教学规则，需单独更新它的 `persona.config.prefix`，避免覆盖新版教练规则。
 
@@ -228,6 +235,8 @@ VP 回放、知识地图和日程沿用 CompetitionWhale VP v5 的深蓝／浅�
 成功不会增加“问题次数”；WA 不直接证明不会。`coach_postmortem findings` 用
 `hypothesis/confirmed/resolved` 区分判断，必须引用 `coach_curriculum assess` 返回的本场
 原始事实；原始内容变化后旧确认引用失效。旧文字复盘保留为观察，不删除。
+仅修改备注文字时事实引用保持稳定；题目结果等实质信息变化时，`coach_focus` 会提示旧结论引用失效。
+可选的 `decisionSnapshot` 只记录当时可选题、手上进度和剩余分钟，不把未看过的高难题自动归因成扫题失败。
 
 新训练阶段必须提供结构化 `exitChecks`，例如
 `[{node: "区间 DP", minEvents: 2, minDistinctDays: 2, independent: true, maxMinutes: 45}]`。
@@ -257,7 +266,7 @@ VP 增量同步会累计各分页记录，`hasMore` 告诉教练是否继续拉�
 
 ```bash
 # 1. 装 dsh（需要 Node ≥ 24）
-npm i -g @deepseek-ai/dsh
+npm i -g @deepseek-ai/dsh@0.2.1-rc.2
 
 # 2. 装插件（二选一）
 dsh plugin --profile web add acmer-coach                        # 从 npm（推荐）

@@ -36,6 +36,10 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
       return result
     }
     assert.ok(tools.get('coach_postmortem').parameters.properties.findings)
+    assert.ok(tools.get('coach_postmortem').parameters.properties.decisionSnapshot)
+    assert.match(tools.get('coach_pool').description, /source=web/)
+    assert.doesNotMatch(tools.get('coach_pool').description, /出不了卷/)
+    assert.match(tools.get('coach_pool').output.render({}, { ok: false, reject: '无标签' })[0].text, /source=web/)
     assert.ok(tools.get('coach_focus').output.schema.properties.profile.properties?.id, 'SDK needs explicit nested profile fields')
     assert.ok(tools.get('coach_vp_import').parameters.properties.events.items.properties.measurements)
     assert.equal((await call('coach_grade', { results: [] })).ok, false, 'an absent paper has a complete refusal shape')
