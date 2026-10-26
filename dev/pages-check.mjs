@@ -59,6 +59,17 @@ test('skilltree route applies the current packaged UI without replacing the user
   assert.deepEqual(snapshot(), before)
 })
 
+test('skilltree marks integrated concepts on an older cached map without rewriting it', async t => {
+  const { dir, request } = await fixture(t)
+  writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 3}\nnodes:\n  - {id: 离散化, name: 离散化, domain: 杂项, depends: []}\n')
+  const data = { nodes: [{ id: '离散化', name: '离散化', domain: '杂项', x: 10, y: 10, w: 120, h: 44, pre: [], suc: [] }], edges: [], bands: [], size: [900, 600], domainColors: { 杂项: ['#2b7fe0', '#4aa3f7'] } }
+  const cached = `<!doctype html><script>const DATA = ${JSON.stringify(data)};\n</script>`
+  writeFileSync(join(dir, 'skilltree.html'), cached)
+  const res = await request('/coach/skilltree.html')
+  assert.equal(JSON.parse(String(res.body).match(/const DATA = ([^\r\n]+);[ \t]*\r?\n/)[1]).nodes[0].role, 'integrated')
+  assert.equal(readFileSync(join(dir, 'skilltree.html'), 'utf8'), cached)
+})
+
 test('unknown or invalid cached skilltree formats are preserved without silent data substitution', async t => {
   const { dir, request } = await fixture(t)
   for (const cached of ['<html>custom external page</html>', '<script>const DATA = notJSON;\n</script>', '<script>const DATA = null;\n</script>',
@@ -95,4 +106,16 @@ test('training-log endpoint returns a read-only joined view with a bounded range
   assert.equal(body.curriculum.exists, false)
   assert.equal(body.totals.actualMinutes, 0)
   assert.deepEqual(readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')]), before)
+})
+
+test('progress endpoint exposes existing pending work for the today card without changing the ledger', async t => {
+  const { dir, request } = await fixture(t)
+  const source = 'version: 1\ncursor: custom-node\nnodes: {}\npendingActions:\n  custom-node:\n    at: 2026-10-25\n    deliverable: 完成一道限时题\n    why: 本阶段缺独立限时证据\n    totalMinutes: 60\n'
+  writeFileSync(join(dir, 'PROGRESS.yaml'), source)
+  const res = await request('/coach/api/progress')
+  assert.equal(res.status, 200)
+  const body = JSON.parse(String(res.body))
+  assert.equal(body.pendingActions['custom-node'].deliverable, '完成一道限时题')
+  assert.equal(body.pendingActions['custom-node'].totalMinutes, 60)
+  assert.equal(readFileSync(join(dir, 'PROGRESS.yaml'), 'utf8'), source)
 })

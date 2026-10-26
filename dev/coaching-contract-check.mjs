@@ -19,6 +19,29 @@ function shape(schema, value) {
   else assert.equal(typeof value, schema.type)
 }
 
+test('integrated map concepts cannot be assigned or examined as standalone units', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-integrated-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes:\n  - {id: 动态规划基础, name: 动态规划基础, depends: []}\n')
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    const { apply } = await import('../index.js?integrated-role-contract')
+    const tools = new Map()
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on() {} })
+    const assigned = await tools.get('coach_assign').execute({ cursor: '动态规划基础', node: '动态规划基础', deliverable: '单独做一题', kind: 'practice' })
+    assert.equal(assigned.accepted, false)
+    assert.match(assigned.reject, /随题融合/)
+    const paper = await tools.get('coach_test').execute({ node: '动态规划基础', problems: [] })
+    assert.equal(paper.ok, false)
+    assert.match(paper.reject, /随题融合/)
+  } finally {
+    if (previous.data === undefined) delete process.env.COACH_DATA_DIR; else process.env.COACH_DATA_DIR = previous.data
+    if (previous.db === undefined) delete process.env.COACH_DB; else process.env.COACH_DB = previous.db
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('registered coaching tools expose cited findings, sourced teaching and complete refusal shapes', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-contract-'))
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }

@@ -49,6 +49,8 @@
 # ══ 写法约定 ═════════════════════════════════════════════════
 #
 # · 只写 `tier`。**偏离同域默认的**才加 `why` —— 那些正是该人工复核的。
+# · `role: integrated` 表示支撑概念/跨题技巧：重要性照常保留，但随具体题型教学和验收，不独立开章节卷。
+#   没写 role 的节点默认是可独立考核的训练单元；这不是题目难度或掌握度。
 # · 每个域名在 group_defaults 里给一个默认 tier，节点没写的继承它。
 # · 节点名必须与 MAP.yaml 逐字相同（build_map.py 按名字合并，对不上会报错）。
 # ══════════════════════════════════════════════════════════════
@@ -84,8 +86,8 @@ nodes:
   前缀和 & 差分: { tier: core }
   递归 & 分治: { tier: core }
   倍增: { tier: core }
-  复杂度: { tier: core, why: "不会算复杂度等于不会判断解法能不能过" }
-  排序相关 STL: { tier: core }
+  复杂度: { tier: core, role: integrated, why: "不会算复杂度等于不会判断解法能不能过" }
+  排序相关 STL: { tier: core, role: integrated }
   快速排序: { tier: normal, why: "库已代劳，但要懂分治思想" }
   归并排序: { tier: normal, why: "库已代劳，但归并思想是 CDQ 分治的基础" }
   排序应用: { tier: normal }
@@ -103,7 +105,7 @@ nodes:
   # ══ 动态规划 ══════════════════════════════════════════════
   # 共识「最高频核心考点」，但**要注意 cfRating**：dp 的 p25 只有 1800。
   # 高频 ≠ 早学。基础那批 core，优化那批是"会用得上但不决定成败"。
-  动态规划基础: { tier: core }
+  动态规划基础: { tier: core, role: integrated }
   背包 DP: { tier: core }
   区间 DP: { tier: core }
   树形 DP: { tier: core }
@@ -115,9 +117,9 @@ nodes:
   DAG 上的 DP: { tier: normal }
   动态 DP: { tier: rare }
   插头 DP: { tier: rare, why: "只在棋盘覆盖类特定题型出现" }
-  其它 DP 方法: { tier: rare }
+  其它 DP 方法: { tier: rare, role: integrated }
   状态设计优化: { tier: normal }
-  DP 优化: { tier: normal }
+  DP 优化: { tier: normal, role: integrated }
   单调队列/单调栈优化: { tier: normal, why: "入门段位 1700，是 DP 优化里最该先拿下的" }
   斜率优化: { tier: normal, why: "入门段位 2300，超出入门水平一档，但区域赛反复出现" }
   四边形不等式优化: { tier: rare }
@@ -125,18 +127,18 @@ nodes:
   # ══ 图论 ══════════════════════════════════════════════════
   # 共识「次高频、覆盖最全面」。基础全是 core；高阶匹配/特殊图 rare。
   图的存储: { tier: core }
-  图论相关概念: { tier: core }
+  图论相关概念: { tier: core, role: integrated }
   BFS（图论）: { tier: core }
   DFS（图论）: { tier: core }
   拓扑排序: { tier: core }
-  连通性相关: { tier: core }
+  连通性相关: { tier: core, role: integrated }
   最短路: { tier: core }
   最小生成树: { tier: core }
   最近公共祖先: { tier: core }
   二分图: { tier: core }
   树的直径: { tier: core }
   树的重心: { tier: core }
-  树基础: { tier: core }
+  树基础: { tier: core, role: integrated }
   强连通分量: { tier: core }
   割点和桥: { tier: core }
   双连通分量: { tier: core }
@@ -203,7 +205,7 @@ nodes:
   单调队列: { tier: core }
   树状数组: { tier: core }
   线段树: { tier: core }
-  分块思想: { tier: normal }
+  分块思想: { tier: normal, role: integrated }
   块状数据结构: { tier: normal }
   块状数组: { tier: normal }
   块状链表: { tier: rare }
@@ -262,7 +264,7 @@ nodes:
   最大公约数: { tier: core }
   素数: { tier: core }
   筛法: { tier: core }
-  数论基础: { tier: core }
+  数论基础: { tier: core, role: integrated }
   乘法逆元: { tier: core }
   欧拉函数: { tier: core }
   欧拉定理 & 费马小定理: { tier: core }
@@ -369,7 +371,7 @@ nodes:
 
   # ══ 字符串 ══════════════════════════════════════════════
   # 共识「中频，匹配与自动机为主」。基础哈希/KMP 是 core，自动机以上 rare。
-  字符串基础: { tier: core }
+  字符串基础: { tier: core, role: integrated }
   字符串哈希: { tier: core, why: "区域赛字符串题的万能钥匙，性价比极高" }
   前缀函数与 KMP 算法: { tier: core }
   字典树 (Trie): { tier: normal }
@@ -396,7 +398,7 @@ nodes:
   # 来源打架：一份说"区域赛常出现但选手因精度问题避开"，另一份列为中频。
   # 取前者——常出现且难，所以是 normal 到 rare，不是 skip。
   # ⚠️ 这一组是我按判断拍的，不是来源直接说的，复核时优先看这里。
-  二维计算几何基础: { tier: normal }
+  二维计算几何基础: { tier: normal, role: integrated }
   凸包: { tier: normal }
   距离: { tier: normal }
   计算几何杂项: { tier: normal }
@@ -426,15 +428,15 @@ nodes:
 
   # ══ 杂项 ══════════════════════════════════════════════
   双指针: { tier: core }
-  离散化: { tier: core }
-  离线算法: { tier: normal }
+  离散化: { tier: core, role: integrated }
+  离线算法: { tier: normal, role: integrated }
   CDQ 分治: { tier: normal }
   整体二分: { tier: normal }
   莫队算法: { tier: normal, why: "亚洲区域赛数据结构题常客；入门段位 2400 但模板化程度高" }
   分数规划: { tier: normal }
   悬线法: { tier: normal }
   表达式求值: { tier: normal }
-  随机化技巧: { tier: normal, why: "ICPC 不允许近似解，但随机化算法（如哈希/随机化判定）有位置" }
+  随机化技巧: { tier: normal, role: integrated, why: "ICPC 不允许近似解，但随机化算法（如哈希/随机化判定）有位置" }
   随机化: { tier: rare }
   随机函数: { tier: rare }
   模拟退火: { tier: rare }

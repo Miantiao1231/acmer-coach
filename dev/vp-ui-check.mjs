@@ -16,6 +16,35 @@ test('VP supports embedded mode without duplicating the coach shell header', () 
   assert.match(html, /html\[data-embedded="1"\] \.site-header\s*\{\s*display:none;/)
 })
 
+test('selected VP has a one-click coach handoff and no manual contest ID field', () => {
+  assert.match(html, /id="askCoach"/)
+  assert.doesNotMatch(html, /<input[^>]*contestId/i)
+  const p = page()
+  assert.equal(p.nodes.askCoach.disabled, true)
+  vm.runInContext('contestAccountId = 6; selected = { id: 12, title: "区域赛 VP" }; updateCoachButton()', p.context)
+  assert.equal(p.nodes.askCoach.disabled, false)
+})
+
+test('VP handoff refuses a stale page after switching accounts and names the selected contest', async () => {
+  const p = page()
+  const sent = []
+  p.context.window.parent = { postMessage: message => sent.push(message) }
+  p.context.location.origin = 'http://localhost'
+  let accountId = 6
+  p.context.fetch = async () => ({ ok: true, json: async () => ({ ok: true, connected: true, activeAccountId: accountId, account: { id: accountId, handle: 'Mianiii' } }) })
+  await p.context.loadStatus()
+  vm.runInContext('contestAccountId = 6; selected = { id: 12, title: "区域赛 VP" }; updateCoachButton()', p.context)
+  accountId = 7
+  await p.nodes.askCoach.onclick()
+  assert.equal(sent.length, 0)
+  assert.match(p.nodes.message.textContent, /账号已切换/)
+  accountId = 6
+  await p.nodes.askCoach.onclick()
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].accountId, 6)
+  assert.equal(sent[0].contestTitle, '区域赛 VP')
+})
+
 function page(saved, blocked = false) {
   let context
   const events = []

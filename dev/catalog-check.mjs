@@ -13,6 +13,16 @@ const read = name => YAML.parse(readFileSync(new URL(name, knowledge), 'utf8'))
 const mapIds = new Set(read('MAP.yaml').nodes.map(node => node.id))
 const competencies = read('COMPETENCIES.yaml').competencies
 
+test('cross-cutting concepts stay on the map without becoming standalone exam units', () => {
+  const roles = read('NODE_META.yaml').nodes
+  for (const id of ['动态规划基础', '离散化', '图论相关概念', '复杂度']) {
+    assert.ok(mapIds.has(id))
+    assert.equal(roles[id]?.role, 'integrated')
+    assert.equal(roles[id]?.tier, 'core')
+  }
+  for (const id of ['背包 DP', '线段树', '最短路']) assert.notEqual(roles[id]?.role, 'integrated')
+})
+
 function sources(value, label) {
   assert.ok(Array.isArray(value) && value.length > 0, `${label}: sources required`)
   for (const source of value) {

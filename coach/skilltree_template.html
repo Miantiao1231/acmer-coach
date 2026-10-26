@@ -138,6 +138,14 @@ body[data-filters="closed"] .stage{margin-left:32px}
 }
 .stage.dragging{cursor:grabbing}
 .stage.dragging *{cursor:grabbing !important}
+.today-card{position:absolute;z-index:12;top:16px;left:16px;width:min(350px,calc(100% - 32px));padding:16px 18px;background:var(--bg-1);border:1px solid var(--stroke-strong);border-radius:var(--radius-m);box-shadow:var(--shadow-2);cursor:default;touch-action:auto;user-select:text;-webkit-user-select:text}
+.today-card .eyebrow{color:var(--brand-text);font-size:11px;font-weight:700;letter-spacing:.04em}
+.today-card h2{margin:6px 0;font-size:17px;line-height:1.35;color:var(--text-1)}
+.today-card p{margin:5px 0;color:var(--text-3);font-size:12px;line-height:1.55}
+.today-card .today-meta{font-size:11px;color:var(--text-4)}
+.today-card button{margin-top:9px;padding:7px 13px;border:0;border-radius:var(--radius-pill);background:var(--brand-fill);color:#fff;font:inherit;font-size:12px;font-weight:600}
+.today-card button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.today-card .today-feedback{color:var(--wa-text);min-height:0}
 /* 面板里的知识点名是可以复制的，别一起禁了 */
 .panel, .panel *{user-select:text; -webkit-user-select:text}
 #cv{display:block;transform-origin:0 0;will-change:transform}
@@ -612,6 +620,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
 </aside>
 
 <main class="stage" id="stage">
+  <section class="today-card" id="todayCard" aria-label="今天这一件" aria-live="polite"><div class="eyebrow">今天这一件</div><p>正在读取待完成动作…</p></section>
   <svg id="cv">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
@@ -756,6 +765,7 @@ const STATUS_COLOR = {
   verified: ["#16a24a", "#3fd968"],
 };
 let progress = { cursor: "", nodes: {} };
+let progressError = "";
 const statusOf = (id) => progress.nodes?.[id]?.status ?? "none";
 
 // ── 重点（tier）──────────────────────────────────────────────
@@ -793,12 +803,47 @@ function showStatus() {
   );
 }
 
+function renderToday(log) {
+  const card = $("#todayCard");
+  const phase = log?.curriculum?.current || {};
+  if (progressError) { card.innerHTML = `<div class="eyebrow">今天这一件</div><p>进度读不到：${esc(progressError)}</p>`; return; }
+  const actions = Object.entries(progress.pendingActions || {}).sort((a, b) => String(a[1]?.at || "").localeCompare(String(b[1]?.at || "")));
+  const current = actions.find(([, action]) => action?.curriculum?.phaseId === phase.id);
+  const [key, action] = phase.id ? current || [] : actions[0] || [];
+  const exam = !action && progress.pending?.node ? progress.pending : null;
+  const older = action?.at && action.at < ymdToday();
+  const title = action?.deliverable || (exam ? `完成「${byId(exam.node)?.name || exam.node}」检测` : "请小鲸确定今天的训练");
+  const reason = action?.why || (exam ? "已有检测卷待提交结果，先收口再开新课。" : phase.outcome ? `当前阶段目标：${phase.outcome}。让小鲸据此拍板下一步。` : "让小鲸核对目标和最近表现后拍板下一步。");
+  const minutes = Number(action?.totalMinutes || exam?.totalMinutes || 0);
+  const label = action ? (older ? `历史待确认 · ${action.at}` : "待继续") : exam ? "检测待完成" : "待安排";
+  const otherCurrent = phase.id ? actions.filter(([, item]) => item?.curriculum?.phaseId === phase.id).length - Number(Boolean(action)) : actions.length - Number(Boolean(action));
+  const otherOld = phase.id ? actions.length - otherCurrent - Number(Boolean(action)) : 0;
+  const otherLabels = [otherCurrent ? `另有 ${otherCurrent} 件待确认` : "", otherOld ? `旧阶段 ${otherOld} 件待确认` : ""].filter(Boolean).join(" · ");
+  card.innerHTML = `<div class="eyebrow">今天这一件 · ${esc(label)}</div><h2>${esc(title)}</h2><p>${esc(reason)}</p>` +
+    `<div class="today-meta">${action ? esc(byId(key)?.name || key) + " · " : ""}${minutes ? `${minutes} 分钟` : "时长待小鲸确定"}${otherLabels ? ` · ${otherLabels}` : ""}</div>` +
+    `<button id="todayCoach" type="button">${action || exam ? "继续和小鲸聊" : "让小鲸安排今天"} →</button><p id="todayFeedback" class="today-feedback" role="status"></p>`;
+  $("#todayCoach").onclick = () => {
+    if (window.parent === window) { $("#todayFeedback").textContent = "请在 DSH 会话内打开技能树。"; return; }
+    window.parent.postMessage({ type: "acmer-coach:handoff", kind: "today" }, location.origin);
+  };
+}
+
+async function loadToday() {
+  try {
+    const r = await fetch("./api/training-log?days=1");
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.reject || "读课程阶段失败");
+    renderToday(j);
+  } catch (e) { renderToday({ curriculum: { current: { outcome: `课程阶段暂时读不到：${e.message}` } } }); }
+}
+
 async function loadProgress() {
   try {
     const r = await fetch("./api/progress");
     const j = await r.json();
     if (!j.ok) throw new Error(j.reject || "读进度失败");
-    progress = { cursor: j.cursor || "", nodes: j.nodes || {} };
+    progress = { cursor: j.cursor || "", nodes: j.nodes || {}, pending: j.pending || null, pendingActions: j.pendingActions || {} };
+    progressError = "";
     showStatus();
   } catch (e) {
     // 读不到就**明说**，别退回「全部未学」—— 那看着像正常的空进度，
@@ -806,7 +851,9 @@ async function loadProgress() {
     setNote(`<b>进度读不到</b>：${e.message}<br>` +
       `暂时无法保存标记，请刷新页面重试；已有训练记录仍会保留。`, true);
     progress = { cursor: "", nodes: {} };
+    progressError = e.message;
   }
+  loadToday();
   paint(); apply(); if (selected) panel(selected);
 }
 
@@ -1134,6 +1181,7 @@ function panel(id) {
       ${ageTag(progress.nodes?.[id])}
       ${isCursor ? '<span class="tag cur">▶ 当前游标</span>' : ''}
       ${n.tier ? `<span class="tag" title="赛场重不重要">${TIER_LABEL[n.tier] ?? n.tier}</span>` : ''}
+      ${n.role === 'integrated' ? '<span class="tag" title="在具体题型里教、练和检验，不单独开章节卷">随题融合</span>' : ''}
       ${n.entry ? `<span class="tag" title="题池难度的 p25 —— 什么水平开始学得起">≈${n.entry}</span>` : ''}
       <span class="tag">L${n.depth}</span>
       <span class="tag">${n.pre.length} 前置 · ${n.suc.length} 后继</span>
@@ -1235,7 +1283,7 @@ const onUp = () => {
   document.removeEventListener("pointercancel", onUp);
 };
 stage.addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".panel") || e.button !== 0) return;
+  if (e.target.closest(".panel, .today-card") || e.button !== 0) return;
   e.preventDefault();          // 掐掉浏览器的「开始选择文本 / 拖拽图片」
   drag = { x: e.clientX, y: e.clientY, vx, vy };
   dragMoved = false;           // 只在按下时重置 —— 要活到随后的 click 判断
@@ -1246,11 +1294,11 @@ stage.addEventListener("pointerdown", (e) => {
 });
 // 双保险：万一还有漏网的（比如从空白处拖到画布外），直接把选区清掉
 document.addEventListener("selectstart", (e) => {
-  if (e.target.closest?.(".stage")) e.preventDefault();
+  if (e.target.closest?.(".stage") && !e.target.closest?.(".today-card")) e.preventDefault();
 });
 // 点空白 = 收起路径。dragMoved 为真说明刚拖过，那次 click 不算数。
 stage.addEventListener("click", (e) => {
-  if (e.target.closest?.(".node") || e.target.closest?.(".panel") || dragMoved) return;
+  if (e.target.closest?.(".node") || e.target.closest?.(".panel, .today-card") || dragMoved) return;
   select(null);
 });
 
@@ -1884,6 +1932,18 @@ function setView(v) {
     vpLoaded = true;
   }
 }
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== location.origin) return;
+  const frame = $("#vpFrame");
+  if (event.source === frame.contentWindow && event.data?.type === "acmer-coach:handoff" && event.data.kind === "vp") {
+    if (window.parent === window) frame.contentWindow.postMessage({ type: "acmer-coach:handoff-result", kind: "vp", error: "请在 DSH 会话内打开 VP 回放。" }, location.origin);
+    else window.parent.postMessage(event.data, location.origin);
+  } else if (event.source === window.parent && event.data?.type === "acmer-coach:handoff-result") {
+    if (event.data.kind === "vp") frame.contentWindow?.postMessage(event.data, location.origin);
+    else if (event.data.kind === "today" && $("#todayFeedback")) $("#todayFeedback").textContent = event.data.error || "交接失败，请稍后重试。";
+  }
+});
 
 $("#viewSeg").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-view]");

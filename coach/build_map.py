@@ -124,6 +124,7 @@ def main():
             "parent": parent,                          # 仅用于分组显示
             "depends": req.get(name) if name in req else None,   # None = 前置未铺
             "tier": (tiers.get(name) or {}).get("tier"),          # NODE_META.yaml
+            "role": (tiers.get(name) or {}).get("role"),
             "entry": (entries.get(name) or {}).get("entry"),      # NODE_ENTRY.yaml
             "pool": (entries.get(name) or {}).get("pool"),
         })
@@ -155,6 +156,7 @@ def main():
     L.append("#   parent   分类归属，**只用于分组显示，不是前置**。")
     L.append("#            「树上问题」是抽屉不是知识点 —— 它不参与任何依赖计算。")
     L.append("#   tier     这个知识点重不重要：core/normal/rare/skip。")
+    L.append("#   role     integrated = 随具体题型教学和验收，不单独开章节卷；缺省 = 可独立考核。")
     L.append("#            来自 knowledge/NODE_META.yaml（人手维护），本文件只做合并。")
     L.append("#   entry    题池的 p25，≈「什么水平开始学得起」。**只有有题池的节点才有**。")
     L.append("#            来自 knowledge/NODE_ENTRY.yaml（机器算，跑 build-node-meta.mjs）。")
@@ -185,6 +187,8 @@ def main():
         # NODE_ENTRY.yaml，本文件只负责合并。缺了就不写这一行（缺 = 没标 / 没数据）。
         if n["tier"]:
             L.append(f"    tier: {n['tier']}")
+        if n["role"]:
+            L.append(f"    role: {n['role']}")
         if n["entry"]:
             L.append(f"    entry: {n['entry']}      # 题池 p25（≈入门段位），机器算")
         if n["pool"]:

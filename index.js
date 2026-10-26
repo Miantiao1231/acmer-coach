@@ -41,7 +41,7 @@ import { buildTrainingLog } from './lib/training-log.js'
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.9.7'
+const VERSION = '2.9.8'
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -165,7 +165,8 @@ function loadMap() {
   if (_map && _map.mtime === mtime) return _map
 
   const doc = parse(readFileSync(path, 'utf8'))
-  const nodes = doc.nodes ?? []
+  const roles = parse(readFileSync(join(import.meta.dirname, 'assets', 'knowledge', 'NODE_META.yaml'), 'utf8'))?.nodes ?? {}
+  const nodes = (doc.nodes ?? []).map((node) => ({ ...node, role: node.role || roles[node.id]?.role || 'unit' }))
   const byId = new Map(nodes.map((n) => [n.id, n]))
 
   // 反向索引：谁依赖我。技能树里的「下一层」就是查这个。
@@ -1596,7 +1597,7 @@ function registerPages(ctx) {
         return send(res, 404, 'text/plain; charset=utf-8',
           `还没有 skilltree.html（${err?.code ?? err?.message}）—— 先跑 python render_skilltree.py`)
       }
-      try { html = upgradeSkilltreeHtml(html, readFileSync(join(import.meta.dirname, 'coach', 'skilltree_template.html'), 'utf8')) }
+      try { html = upgradeSkilltreeHtml(html, readFileSync(join(import.meta.dirname, 'coach', 'skilltree_template.html'), 'utf8'), loadMap().byId) }
       catch { /* 模板不可用时保留现有生成页 */ }
       return send(res, 200, 'text/html; charset=utf-8', html)
     }
@@ -1607,7 +1608,8 @@ function registerPages(ctx) {
         // 而真相是文件坏了。这个区分是特意留的。
         try {
           const p = loadProgress()
-          return sendJson(res, 200, { ok: true, cursor: p.cursor, updated: p.updated, nodes: p.nodes })
+          return sendJson(res, 200, { ok: true, cursor: p.cursor, updated: p.updated, nodes: p.nodes,
+            pending: p.pending, pendingActions: p.pendingActions })
         } catch (err) {
           return sendJson(res, 500, { ok: false, reject: String(err?.message ?? err) })
         }
@@ -2755,7 +2757,7 @@ function apply(ctx) {
       '用于回答「下一步学什么」「这个学完能开哪些」。' +
       '返回里 ready=true 的是现在就能开的；ready=false 的会给出 missing（还差哪些前置）。' +
       '注意：本工具只给候选集，**排序和挑哪一个是你的事** —— 程序不替你判断轻重缓急。' +
-      '有长期课程时先看 coach_curriculum 当前主线；技能图用于核查前置，不要据此每轮换方向。',
+      '有长期课程时先看 coach_curriculum 当前主线；技能图用于核查前置，不要据此每轮换方向。随题融合节点只是概念/技巧，不是独立章节。',
     parameters: {
       cursor: {
         type: 'string',
@@ -2878,7 +2880,8 @@ function apply(ctx) {
             ? ''
             : `${STATUS_MARK[c.status]}` +
               (ago === null ? '' : ago <= 0 ? '（今天）' : `（${ago} 天前）`)
-          return `  ${c.ready ? '可开' : '待补'}  ${c.id}  [${c.domain}]  ${tail}` +
+          const integrated = loadMap().byId.get(c.id)?.role === 'integrated'
+          return `  ${c.ready ? integrated ? '需融合' : '可开' : '待补'}  ${c.id}  [${c.domain}]${integrated ? '  随题融合·不单独开卷' : ''}  ${tail}` +
             `  ${c.tier ? TIER_TAG[c.tier] ?? c.tier : ''}  ${entryOf(c)}${gapOf(c)}` +
             `${statusMark}${hard}`
         }
@@ -2890,7 +2893,7 @@ function apply(ctx) {
         const noData = v.candidates.filter((c) => !c.hasEntry)
         const head = [
           `${v.cursorName}（${v.domain}）的直接后继 ${v.candidates.length} 个，` +
-            `其中可开 ${v.readyCount}、待补 ${v.blockedCount}`,
+            `其中前置满足 ${v.readyCount}、待补 ${v.blockedCount}；前置满足不等于应独立开课`,
           `假定已学（游标闭包 + 显式标记，${v.assumedLearned.length}）：${v.assumedLearned.join(' / ')}`,
           // rating 拿不到时**必须说出来**。原先这行是
           // `v.trainerRating ? ... : ''` —— 查不到就整行消失，读起来和
@@ -2913,7 +2916,7 @@ function apply(ctx) {
               '要推之前先 coach_pool 看它有没有题，或者直接问训练员。'
             : '',
           '',
-          ...(ready.length ? ['可开：', ...ready.map(line), ''] : []),
+          ...(ready.length ? ['前置满足：', ...ready.map(line), ''] : []),
           ...(blocked.length ? ['待补前置：', ...blocked.map(line), ''] : []),
         ]
         // 兜底：直接后继全都用不上，往前沿退。
@@ -2921,7 +2924,7 @@ function apply(ctx) {
         // 把跨分支的候选讲成"你这节的下一步"。
         const foot = v.fallbackUsed
           ? [
-            `⚠️ 这条线**走不下去了**：${v.candidates.length ? '后继要么缺前置、要么全都够不着' : '它是末端节点，没有下一层'}。`,
+            `⚠️ 这条线**走不下去了**：${v.candidates.length ? '后继缺前置、够不着，或只是随题融合的技巧' : '它是末端节点，没有下一层'}。`,
             '下面是**全图前沿**（前置已满足、够得着、去掉了标 skip 的），按权重排 ——',
             '这是**跨分支**的候选，讲的时候说清「这不是你这节的下一步，是另一条线」。',
             // 需求 #9：光说"这是跨分支"不够 —— 教练很自然会挑一个
@@ -2986,7 +2989,7 @@ function apply(ctx) {
       const candidates = (dependents.get(cursor) ?? []).map((id) => {
         const n = byId.get(id)
         const deps = n.depends ?? []
-        const missing = deps.filter((d) => !assumed.has(d))
+        const missing = deps.filter((d) => !assumed.has(d) && byId.get(d)?.role !== 'integrated')
         return {
           id,
           name: n.name ?? id,
@@ -3025,7 +3028,7 @@ function apply(ctx) {
       // 前沿 = 前置已满足、还没验证过、**不在 skip 里**、**够得着**的节点，
       // 按 tier 排（core 在前）。纯前沿排序会把「学得起但没必要」的排上来 ——
       // 当时否它是因为"有后继时它太噪"。**作为兜底，它恰好对。**
-      const usable = candidates.filter((c) => c.ready && c.reachable)
+      const usable = candidates.filter((c) => c.ready && c.reachable && byId.get(c.id)?.role !== 'integrated')
       const fallbackUsed = usable.length === 0
       let frontier = []
       if (fallbackUsed) {
@@ -3033,8 +3036,9 @@ function apply(ctx) {
           .filter((n) => !assumed.has(n.id))
           .filter((n) => nodeStatus(progress, n.id) !== 'verified')
           .filter((n) => n.tier !== 'skip')          // 标了 skip 的别推，标它就是为了不浪费时间
+          .filter((n) => n.role !== 'integrated')
           .filter((n) => Array.isArray(n.depends))   // depends 为 null = 前置未铺，不推
-          .filter((n) => n.depends.every((d) => assumed.has(d)))
+          .filter((n) => n.depends.every((d) => assumed.has(d) || byId.get(d)?.role === 'integrated'))
           .filter((n) => reachableOf(n.entry, rating))
           .map((n) => ({
             id: n.id,
@@ -3258,6 +3262,7 @@ function apply(ctx) {
           `地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先调 coach_next 看候选。'))
       }
+      if (!competency && byId.get(node)?.role === 'integrated' && kind === 'practice') return deny(`「${node}」是随题融合的概念/技巧，不单独布置章节训练。请选一项具体题型或比赛能力，把它当作解题步骤来讲和练。`)
       let route
       try {
         route = curriculum.assignment({ node, competency, revision: args?.curriculumRevision,
@@ -3299,7 +3304,8 @@ function apply(ctx) {
       // 已学集合走**共用实现**：闭包(游标) ∪ 显式标为 学过/已验证 的节点。
       // 原先这里只展开游标自己，训练员标过的几十个节点全被当没看见。
       const assumed = assumedLearned(loadProgress(), byId, [cursor])
-      const missing = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d))
+      const inline = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d) && byId.get(d)?.role === 'integrated')
+      const missing = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d) && byId.get(d)?.role !== 'integrated')
       if (missing.length) {
         return deny(`「${node}」还缺前置：${missing.join('、')}。它现在还开不了。`)
       }
@@ -3355,7 +3361,7 @@ function apply(ctx) {
       const shape = kind === 'practice' && net !== NET_DEFAULT_MIN
         ? `净 ${net} → 整块 ${net + tail} 分钟，排程时带 minutes=${net + tail + teach}。`
         : ''
-      const boxNote = kind === 'practice' ? [shape].filter(Boolean).join(' ') : ''
+      const boxNote = kind === 'practice' ? [shape, inline.length ? `前置概念 ${inline.join('、')} 尚未单独标记；在本题中先讲并核对，不假装已掌握。` : ''].filter(Boolean).join(' ') : ''
 
       // ── 落盘：押上这个动作（需求 #6）─────────────────────
       // 布置的动作原先**只活在当次调用的返回里**：跨会话再开时教练不知道
@@ -4257,7 +4263,8 @@ function apply(ctx) {
       '查一个知识点的候选题池（出卷的第一步）。返回该节点标签下的题，' +
       '**已经 AC 过的不会出现**，按难度分 易/中/难 三档，每档给几道候选。' +
       '你从这个池子里挑三道（各档一道）交给 coach_test。\n' +
-      '如果没有标签或候选太少，可核实真实题面后通过 coach_test 的 source=web 组卷；不要编题号。',
+      '如果没有标签或候选太少，可核实真实题面后通过 coach_test 的 source=web 组卷；不要编题号。' +
+      'role=integrated 的节点只用题池找例题，不单独开卷。',
     parameters: {
       node: { type: 'string', required: true, description: '知识点 id，必须在地图里' },
     },
@@ -4315,6 +4322,7 @@ function apply(ctx) {
           `池子里 ${v.poolSize} 道，其中他做过的 ${v.solvedExcluded} 道已剔除` +
           (v.trainerRating ? `　他当前 rating ${v.trainerRating}` : ''),
         ]
+        if (loadMap().byId.get(v.node)?.role === 'integrated') lines.push('⚠️ 这是随题融合的概念/技巧；题池只能用来找真实例题，不要据此开独立章节卷。')
         if (v.warnings.length) lines.push('⚠️ ' + v.warnings.join('\n⚠️ '))
         for (const b of v.bands) {
           lines.push('', `── ${b.band}（锚点 ${b.anchorRating}）──`)
@@ -4364,7 +4372,6 @@ function apply(ctx) {
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先用 coach_status 看他在哪。'))
       }
-
       let db
       try {
         db = await openDb()
@@ -4650,6 +4657,7 @@ function apply(ctx) {
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
           (near.length ? `相近的有：${near.join(' / ')}` : '先用 coach_status 看他在哪。'))
       }
+      if (byId.get(node)?.role === 'integrated') return deny(`「${node}」是随题融合的概念/技巧，不适合单独开章节卷。把它放进具体题型的混合题里观察和记录。`)
       if (given.length !== 3) {
         return deny(`卷子是三道题：易 / 中 / 难 各一道。你给了 ${given.length} 道。`)
       }

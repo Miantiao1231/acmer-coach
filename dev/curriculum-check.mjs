@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import { createCurriculumStore, curriculumTool } from '../lib/curriculum.js'
+import { normalizePhases, validatePlan } from '../lib/curriculum-planning.js'
 import { collectEvidence } from '../lib/curriculum-evidence.js'
 
 const byId = new Map([
@@ -78,6 +79,23 @@ const provisional = (nodes = ['D']) => phaseFor(nodes, {
   evidenceRefs: [], requiredVerified: [], exitChecks: [], estimatedHours: 0,
 })
 const advance = (f, revision = f.store.snapshot().revision) => f.store.execute({ action: 'advance', expectedRevision: revision, reason: '依据本阶段实际产生的检测与训练记录评估成果' })
+
+test('new training stages cannot promote integrated support concepts into exam units; saved stages still load', () => {
+  const tagged = new Map(byId)
+  tagged.set('B', { ...byId.get('B'), role: 'integrated' })
+  const oldPhase = phaseFor(['B'])
+  assert.equal(normalizePhases([oldPhase], tagged).length, 1)
+  assert.throws(() => normalizePhases([oldPhase], tagged, { enforceAssessable: true }), /随题融合/)
+  assert.equal(normalizePhases([diagnostic(['B'])], tagged, { enforceAssessable: true }).length, 1)
+})
+
+test('an integrated prerequisite can be taught inside a real unit without fake mastery', () => {
+  const tagged = new Map(byId)
+  tagged.set('B', { ...byId.get('B'), role: 'integrated' })
+  tagged.set('C', { ...byId.get('C'), depends: ['B'] })
+  const phase = normalizePhases([phaseFor(['C'])], tagged, { enforceAssessable: true })
+  assert.doesNotThrow(() => validatePlan(phase, { byId: tagged, progress: { nodes: structuredClone(seedNodes) }, catalog: seedEvidence }))
+})
 
 test('new training stages reject narrative-only exit criteria', () => {
   const f = fixture()
