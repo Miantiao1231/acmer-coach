@@ -43,7 +43,7 @@ import { syncPackagedMap, MAP_BACKUP_FILE, MAP_REPORT_FILE } from './lib/map-upg
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.9.9'
+const VERSION = '2.9.10'
 
 // v2.9.8 Windows checkout 的 MAP 指纹；npm/Linux 的 LF 版由 map-upgrade
 // 归一换行后识别。只服务没有 .map-shipped.json 的老安装。

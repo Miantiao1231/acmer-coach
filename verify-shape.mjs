@@ -22,12 +22,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-// 跑的是 profile 里那份**已安装副本**（不是本目录的源码）——
-// 副本才是运行时真正加载的东西。路径派生，要换 profile 就设 COACH_VERIFY_PROFILE。
+// 本地检查 profile 里的已安装副本；CI 没有 dsh profile，检查当前仓库源码。
+// 打包后的安装结果另由 dev/pack-smoke.mjs 验证。
 const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const PROFILE = process.env.COACH_VERIFY_PROFILE || 'web'
-const INSTALLED = pathToFileURL(
-  path.join(DSH_HOME, 'profiles', PROFILE, 'node_modules', 'acmer-coach', 'index.js')).href
+const INSTALLED = process.env.CI
+  ? new URL('./index.js', import.meta.url).href
+  : pathToFileURL(path.join(DSH_HOME, 'profiles', PROFILE, 'node_modules', 'acmer-coach', 'index.js')).href
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'coach-sweep-'))
 
 // ── 夹具：小地图 + 进度 + 空日程 ────────────────────────────────
