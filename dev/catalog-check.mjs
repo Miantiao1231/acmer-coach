@@ -105,24 +105,6 @@ test('contest evidence exposes actual reviewed samples, never a complete syllabu
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-test('node teaching cards use exact map nodes and contain sourced transfer boundaries', () => {
-  const catalog = read('NODE_SCOPES.yaml')
-  assert.equal(catalog.version, 1)
-  assert.ok(catalog.nodes.length >= 12)
-  assert.equal(new Set(catalog.nodes.map(card => card.id)).size, catalog.nodes.length)
-  for (const card of catalog.nodes) {
-    assert.ok(mapIds.has(card.id), `${card.id}: unknown MAP node`)
-    assert.ok(card.title && card.contestUse)
-    for (const field of ['recognition', 'proofQuestions', 'appliesTo', 'extensions', 'notFor', 'commonFailures', 'transferProblems', 'exitEvidence']) {
-      textList(card[field], `${card.id}.${field}`)
-    }
-    sources(card.sources, card.id)
-  }
-  for (const id of ['最短路', '强连通分量', '线段树', '动态规划基础']) {
-    assert.ok(catalog.nodes.some(card => card.id === id), `${id}: important boundary card required`)
-  }
-})
-
 test('contest profiles identify sampling limits and use only existing competencies', () => {
   const catalog = read('CONTEST_PROFILES.yaml')
   const competencyIds = new Set(competencies.map(card => card.id))

@@ -677,3 +677,17 @@ test('plugin integration: cross-branch course assignments, detours, logging and 
   const later = await hook({ messages: [], step: 2 }, async () => ({ kind: 'enter', messages: [] }))
   assert.equal(later.messages.length, 0)
 })
+
+test('an acceptance window shorter than minDistinctDays is rejected instead of skipped later', () => {
+  const { create, clock } = fixture()
+  clock.at = '2026-10-09T12:00:00+08:00'
+  const tight = [{ ...phases[0], exitChecks: [
+    { node: 'B', minEvents: 3, minDistinctDays: 3 },
+    { node: 'C', minEvents: 1 },
+  ] }]
+  const rejected = create({ deadline: '2026-10-10', phases: tight })
+  assert.equal(rejected.ok, false, '两天窗口不可能产生跨三天的证据')
+  assert.match(rejected.reject, /跨 3 天|不可能/)
+  const possible = create({ deadline: '2026-10-20', phases: tight })
+  assert.equal(possible.ok, true, possible.reject)
+})

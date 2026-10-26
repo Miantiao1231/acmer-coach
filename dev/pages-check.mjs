@@ -119,3 +119,13 @@ test('progress endpoint exposes existing pending work for the today card without
   assert.equal(body.pendingActions['custom-node'].totalMinutes, 60)
   assert.equal(readFileSync(join(dir, 'PROGRESS.yaml'), 'utf8'), source)
 })
+
+test('schedule endpoint exposes the fixed lesson window to the timetable UI', async t => {
+  const { dir, request } = await fixture(t)
+  writeFileSync(join(dir, 'SCHEDULE.yaml'),
+    'version: 1\nupdated: 2026-10-26\nclassWindow:\n  from: "19:00"\n  to: "19:30"\n  weekdays: [1, 2, 3, 4, 5, 6]\ndays: {}\n')
+  const res = await request('/coach/api/schedule')
+  assert.equal(res.status, 200)
+  assert.deepEqual(JSON.parse(String(res.body)).classWindow,
+    { from: '19:00', to: '19:30', weekdays: [1, 2, 3, 4, 5, 6] })
+})

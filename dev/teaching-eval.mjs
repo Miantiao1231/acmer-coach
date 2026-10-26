@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite'
 import YAML from 'yaml'
 import { evaluationPolicy, nativePermissionArgs } from './teaching-eval-guard.mjs'
 
-export const CASES = ['continuity', 'repair', 'replan', 'contest']
+export const CASES = ['continuity', 'repair', 'replan', 'contest', 'decide', 'retarget', 'integrate', 'gap']
 export function parseArgs(args) {
   const options = { mode: 'help' }
   if (args.includes('--help')) return options
@@ -140,7 +140,44 @@ export async function prepareEvaluation(parent = tmpdir()) {
     writeFileSync(join(data, 'PROGRESS.yaml'), YAML.stringify({ version: 1, cursor: node.id, updated: fixtureTime.slice(0, 10), nodes: { [node.id]: {
       status: 'studying', lessonNotes: [{ at: fixtureTime, summary: '[人工夹具，非真实跨日教学] 昨日谈到状态是否保存选择顺序；尚未核对理解。', nextStep: '先用一个物品的最小例子核对更新方向。', studentEvidence: null }],
     } } }))
-    cases.push({ id, root: caseRoot, home, data, db, runtime, bank, fixture: { node: node.id, at: fixtureTime, synthetic: true } })
+    if (id === 'decide' || id === 'retarget') {
+      // 目标和课程夹具走插件自己的存储层写，别手写 YAML —— 手写会和校验规则漂移。
+      const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+      const { createStrategyStore } = await import(pathToFileURL(join(runtime, 'lib', 'strategy.js')).href)
+      const { createCurriculumStore } = await import(pathToFileURL(join(runtime, 'lib', 'curriculum.js')).href)
+      const strategy = createStrategyStore({ dataDir: data, competenciesPath: join(runtime, 'assets', 'knowledge', 'COMPETENCIES.yaml') })
+      const first = strategy.target('set', { expectedRevision: 0, contest: '西安站', date: day(20), result: '银牌', weeklyHours: 20,
+        priorities: [{ id: 'contest-decision', weight: 100 }] })
+      if (!first.ok) throw new Error(`夹具目标写入失败：${first.reject}`)
+      const byId = new Map(map.nodes.map((item) => [item.id, item]))
+      const progress = { nodes: { [node.id]: { status: 'studying' } }, pendingActions: {} }
+      const curriculum = createCurriculumStore({ dataDir: data, loadMap: () => ({ byId }), loadProgress: () => progress,
+        loadTarget: () => strategy.target('read') })
+      const course = curriculum.execute({ action: 'create', expectedRevision: 0,
+        goal: '区域赛稳定拿牌，长期向 WF 发展', baseline: '昨日笔记显示背包更新方向还没说清，尚无独立检测记录',
+        weeklyHours: 20, deadline: day(60), reason: '根据昨日续课笔记建立诊断阶段，先核实背包建模与初始化',
+        phases: [{ id: 'diagnose-backpack', title: '核实背包更新方向与初始化', kind: 'diagnostic', finding: 'unknown',
+          nodes: [node.id], competencies: [], requiredVerified: [], exitChecks: [],
+          outcome: '能独立说清状态定义与更新方向', exitCriteria: '用新记录核对最小反例与初始化差异',
+          basis: '昨日笔记显示更新方向还没说清，需要新证据', goalContribution: '确定区域赛可完成的 DP 题型范围',
+          priorityReason: '先核实基础建模，再决定训练量', estimatedHours: 3,
+          uncertainty: '尚未确认是否理解倒序与初始化', diagnosticMethod: '口头复述一个物品的最小例子并自写初始化', evidenceRefs: [] }] })
+      if (!course.ok) throw new Error(`夹具课程写入失败：${course.reject}`)
+      writeFileSync(join(data, 'PROGRESS.yaml'), YAML.stringify({ version: 1, cursor: node.id, updated: fixtureTime.slice(0, 10),
+        nodes: { [node.id]: { status: 'studying', lessonNotes: [{ at: fixtureTime,
+          summary: '[人工夹具，非真实跨日教学] 昨日谈到状态是否保存选择顺序；尚未核对理解。',
+          nextStep: '先用一个物品的最小例子核对更新方向。', studentEvidence: null }] } },
+        pendingActions: { [node.id]: { at: fixtureTime.slice(0, 10), deliverable: '用最小例子复述 0/1 背包的更新方向并写出初始化',
+          why: '昨日笔记留下未核对的理解', solveMinutes: 25, tailMinutes: 0, teachMinutes: 0, totalMinutes: 25,
+          curriculum: { revision: course.revision, phaseId: course.phaseId, phaseTitle: course.phaseTitle, purpose: 'progress', reason: '' } } } }))
+      if (id === 'retarget') {
+        const second = strategy.target('set', { expectedRevision: first.revision, contest: '香港站', date: day(80), result: '金牌',
+          weeklyHours: 20, priorities: [{ id: 'contest-decision', weight: 100 }] })
+        if (!second.ok) throw new Error(`夹具目标更新失败：${second.reject}`)
+      }
+    }
+    cases.push({ id, root: caseRoot, home, data, db, runtime, bank, fixture: { node: node.id, at: fixtureTime, synthetic: true,
+      ledger: id === 'decide' || id === 'retarget' ? 'target+course+pendingAction' : 'progress-only' } })
   }
   const manifest = { version: 1, preparedAt: new Date().toISOString(), source: sourceRoot, coachVersion: packageInfo.version,
     fingerprint, files, paths, model, modelURL, memoryURL, preset: 'acmer-coach-xiaojing', cases }
@@ -168,7 +205,36 @@ const prompts = {
     '我们是区域赛铜牌水平，五小时 13 题做出 4 题。剩下 9 题我没逐题看，后半场有一段没有提交。请判断这场 VP 暴露了什么训练问题；你只有这些信息。不要调用终端、委派或工作流。',
     '补充：最后 35 分钟队里有 B 和 C 两个可选题；B 已写出主体，在调边界，C 还没形成做法。请评价当时继续调 B 的决策，也说明还缺什么事实才能下结论。',
   ],
+  decide: [
+    '这是隔离教学验收：账本里的目标和课程是人工夹具，不是真实训练历史。我今天只有 40 分钟，目标和课程都已设好，还有一个没做完的动作。请直接决定今天做哪一件事：给出时间盒、交付物和做完后的检查，先处理未完成动作或说明为什么改。不要调用终端、委派或工作流。',
+    '我同意先做那个动作，但现在只剩 25 分钟。请按新时长重排，保留交付物，说明哪个检查可以留到下次，不要把没做的部分算成进展。',
+  ],
+  retarget: [
+    '这是隔离教学验收：目标和课程是人工夹具。我原来的目标是西安站，现在已经改成香港站了，课程还是按旧目标排的。请先核对这两件事是否一致，再告诉我今天练什么；不要用旧阶段的理由直接布置。不要调用终端、委派或工作流。',
+    '我确认要按新目标继续，但不想丢掉已经学了一半的背包内容。请给出复核后的下一步，说明哪些旧阶段内容保留、哪些推迟，不要自动重写课程文件。',
+  ],
+  integrate: [
+    '我在做一道坐标范围到 10^9 的题，需要对区间端点做离散化。请结合这道题讲离散化：什么时候必须离散化、什么时候会出错、怎么写；不要单独开一章，也不要因为我会用就说我掌握。不要调用终端、委派或工作流。',
+    '我理解成先把所有坐标排序去重再二分。但如果两个端点相同，或者要保留长度信息，我有点乱。请用一个具体小例子检查我的理解，指出适用边界，不要给完整代码。',
+  ],
+  gap: [
+    '这是隔离教学验收：我没有任何 VP 记录，也没有提交数据。请判断我现在能不能直接开始训练 Top Tree；如果证据不够，就说清楚缺什么，并给出唯一一个现在能做的取证动作。不要编题号或难度频率。不要调用终端、委派或工作流。',
+    '我暂时不想打 VP。除了提交记录，还有什么办法能核实我现在的水平？请只给一个下一步，并说明它不能证明什么。',
+  ],
 }
+
+// 每场的人工判分标准。机械检查只证明轮次跑完，不证明教学。
+export const RUBRICS = {
+  continuity: ['读懂续课笔记并接上未完成处', '用新原话核对理解，不把笔记当掌握证据', '不重开无关课程', '账本不虚报独立性或已验证状态'],
+  repair: ['用最小例子让学生自己找到根因', '核对不变量而不是直接给答案', '回应初始化疑问', '不宣称已掌握'],
+  replan: ['按新时长缩小目标并说明保留与推迟', '区分已解释与仍未会', '保留下一课入口', '不把口头复测写成独立 AC'],
+  contest: ['不从未提交推断未读题', '不把高难剩余题算成扫题失败', '结合代码状态与剩余时间评价取舍', '证据不足时保留未知'],
+  decide: ['只给一个今天能立即开始的动作', '先处理未完成动作或说明改期理由', '给出时间盒、交付物与完成后的检查', '时长缩短后重排，不把未做算成进展'],
+  retarget: ['发现课程与当前目标不一致并说明', '不以旧阶段理由直接布置', '保留旧记录，不自动重写课程', '给出复核后的下一步'],
+  integrate: ['在具体题型里讲识别条件与实现', '说明反例与适用边界', '不单独开课、不宣布整个大类掌握', '用一个具体小例子核对理解'],
+  gap: ['明确说明证据不足，不编题号或频率', '只给一个现在可做的取证动作', '说明该动作不能证明什么', '不把未知说成短板'],
+}
+const DEFAULT_RUBRIC = ['核对学生原话与错误根因', '用最小例子推进推理', '根据实际回应调整计划', '保留未完成处且不虚报掌握']
 
 async function runCase(manifest, item) {
   if (!process.env.DEEPSEEK_API_KEY) throw new Error('付费 --run 需要环境变量 DEEPSEEK_API_KEY；不会读取个人 credentials 文件。')
@@ -257,7 +323,7 @@ async function runCase(manifest, item) {
       mechanical: { finished: true, studentInputs: turns.length, withinInputLimit: turns.length <= 3 },
       memory: { accepted, failed, pending: Math.max(0, turns.length - accepted - failed),
         note: 'accepted仅证明后端接收，未确认时保持未知；不等于提炼已完成。' },
-      teaching: { status: 'not-scored', rubric: ['核对学生原话与错误根因', '用最小例子推进推理', '根据实际回应调整计划', '保留未完成处且不虚报掌握'] }, turns }, secrets)
+      teaching: { status: 'not-scored', rubric: RUBRICS[item.id] ?? DEFAULT_RUBRIC }, turns }, secrets)
   } catch (error) {
     save(join(root, 'result.json'), { case: item.id, mechanical: { finished: false, studentInputs: turns.length }, teaching: { status: 'not-scored' }, error: error.message, turns }, secrets)
     throw new Error(sanitizeEvidence(error.message, secrets))
@@ -286,12 +352,12 @@ export async function runEvaluation(directory, caseId) {
     + results.map(result => `| ${result.case} | ${result.mechanical.finished ? '完成' : '未完成／未运行'} | ${result.mechanical.studentInputs ?? 0} | 待人工核对 |`).join('\n')
     + results.map(result => `\n\n## ${result.case}\n\n`
       + result.turns.map((turn, index) => `### 第 ${index + 1} 轮 · session ${turn.sessionId}\n\n学生：${turn.input}\n\n${teachingText(turn)}\n`).join('\n')
-      + '\n- [ ] 原话与学习结论相符\n- [ ] 反例与推理正确且回应新误解\n- [ ] 时间与下一步随表现调整\n- [ ] 账本未虚报独立性或掌握\n').join(''))
+      + (RUBRICS[result.case] ?? DEFAULT_RUBRIC).map((item) => `\n- [ ] ${item}`).join('') + '\n').join(''))
   }
   return root
 }
 
-const HELP = `手动教学验收（默认不调用模型）\n  node dev/teaching-eval.mjs --prepare [--out <父目录>]\n  node dev/teaching-eval.mjs --run <准备目录> [--case continuity|repair|replan|contest]\n--prepare只复制公开包并生成独立夹具；--run使用模型和专用Hindsight bank，可能付费。\n每场串行运行一次，固定2次学生输入（上限3），不自动重试。DEEPSEEK_API_KEY只从环境读取。\n配置：DSH_EVAL_CLI、DSH_APP_NODE_MODULES、COACH_EVAL_MODEL、COACH_EVAL_REASONING、COACH_EVAL_MODEL_URL。\n`
+const HELP = `手动教学验收（默认不调用模型）\n  node dev/teaching-eval.mjs --prepare [--out <父目录>]\n  node dev/teaching-eval.mjs --run <准备目录> [--case ${CASES.join('|')}]\n--prepare只复制公开包并生成独立夹具；--run使用模型和专用Hindsight bank，可能付费。\n每场串行运行一次，固定2次学生输入（上限3），不自动重试。DEEPSEEK_API_KEY只从环境读取。\n配置：DSH_EVAL_CLI、DSH_APP_NODE_MODULES、COACH_EVAL_MODEL、COACH_EVAL_REASONING、COACH_EVAL_MODEL_URL。\n`
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const options = parseArgs(process.argv.slice(2))

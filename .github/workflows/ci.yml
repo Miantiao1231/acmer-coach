@@ -1,0 +1,26 @@
+# 主分支 / PR 门禁。
+#
+# 发布工作流自己也会跑这些；这里再挡一道，是为了让「标签打上去之前」
+# 就知道包能不能装、工具形状对不对。付费模型的教学验收不在这里跑 ——
+# 那是发布清单上的人工项。
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --no-package-lock
+      - run: npm test
+      - run: node verify-shape.mjs
+      - run: node dev/pack-smoke.mjs

@@ -106,11 +106,6 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     }
     const finished = await call('coach_curriculum', { action: 'advance', expectedRevision: created.revision, reason: '两场不同的新VP都有独立且已验收的零建模错误测量' })
     assert.equal(finished.status, 'complete', finished.reject)
-    const scope = await call('coach_scope', { id: '最短路' })
-    assert.equal(scope.id, '最短路')
-    assert.ok(scope.sources.length)
-    assert.ok(scope.recognition.length)
-    await call('coach_scope', { id: '不存在的卡片' })
   } finally {
     for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
       if (value === undefined) delete process.env[key]

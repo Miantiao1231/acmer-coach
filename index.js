@@ -23,7 +23,7 @@
 //   · `file:` 依赖装出来的是**硬链接**，不是拷贝。原地写两边同变，但改名式
 //     写入（Edit 工具、VS Code 原子保存）会**断开链接**，断了两边分家，
 //     而 `dsh plugin add` 认不出分家、不重链也不报错 —— 所以改完一律跑 dev.sh。
-import { mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { parse, stringify } from 'yaml'
@@ -37,11 +37,17 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
 import { buildTrainingLog } from './lib/training-log.js'
+import { bindStamp, textStamp, writeLedger } from './lib/ledger.js'
+import { syncPackagedMap, MAP_BACKUP_FILE, MAP_REPORT_FILE } from './lib/map-upgrade.js'
 
 const name = 'acmer-coach'
 const inject = ['tools']
 
-const VERSION = '2.9.8'
+const VERSION = '2.9.9'
+
+// v2.9.8 Windows checkout 的 MAP 指纹；npm/Linux 的 LF 版由 map-upgrade
+// 归一换行后识别。只服务没有 .map-shipped.json 的老安装。
+const LEGACY_MAP_HASHES = ['3c96467659ae6e3565d7783f18b2006b2bda2888d374b84523f6f7be0a06bdfd']
 
 // 默认题目循环：40 自己做 + 10 解决遗留 + 10 重写 = 60 分钟。
 // 小诊断和完整 VP 使用独立时长，不强加题目循环的收尾。
@@ -90,6 +96,9 @@ function createStores(vpDir) {
     dataDir: DATA_DIR, loadMap, loadProgress, loadSchedule,
     loadCompetencies: () => strategy.loadCompetencies(),
     loadStrategyEvidence: () => strategy.evidence().evidence,
+    // 课程要记下「按哪个目标排的」。TARGET 和 CURRICULUM 各写各的，
+    // 没有这条线索时旧目标和新阶段可以一直并存。
+    loadTarget: () => strategy.target('read'),
   })
 }
 createStores(ACTIVE_VP_DIR)
@@ -158,6 +167,12 @@ function probe(file) {
 // （日报断更、training-targets 过期、会话日志停更）。地图自己也必须守这条，
 // 否则 build_map.py 重跑完，插件还在拿旧图算候选 —— 同一个病换个地方复发。
 let _map = null
+let mapUpgrade = null
+// 静默降级要能被看见：插件活着、但规则没进去 / 状态没注入时，用户只会觉得它变笨。
+// 这里只记**状态**，不记任何对话内容。
+const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: '' }
+
+const LESSON_NEXT = '根据学生刚才的回应，决定补一个卡点、给一个小例子，或收课转练；若继续讲，讲完就停，等他回答。'
 
 function loadMap() {
   const path = MAP_PATH()
@@ -166,7 +181,11 @@ function loadMap() {
 
   const doc = parse(readFileSync(path, 'utf8'))
   const roles = parse(readFileSync(join(import.meta.dirname, 'assets', 'knowledge', 'NODE_META.yaml'), 'utf8'))?.nodes ?? {}
-  const nodes = (doc.nodes ?? []).map((node) => ({ ...node, role: node.role || roles[node.id]?.role || 'unit' }))
+  const nodes = (doc.nodes ?? []).map((node) => ({ ...node,
+    role: node.role || roles[node.id]?.role || 'unit',
+    // 节点名 → 题库标签的别名（NODE_META 人手维护）。词典另有一套词汇，
+    // 没有这一层时中文细粒度节点在库里明明有题也算零题池。
+    tags: Array.isArray(roles[node.id]?.tags) ? roles[node.id].tags.map(String) : [] }))
   const byId = new Map(nodes.map((n) => [n.id, n]))
 
   // 反向索引：谁依赖我。技能树里的「下一层」就是查这个。
@@ -206,7 +225,7 @@ function loadMap() {
 const PROGRESS_PATH = () => join(DATA_DIR, 'PROGRESS.yaml')
 
 function emptyProgress() {
-  return { version: 1, cursor: '', updated: '', nodes: {}, pending: null }
+  return { version: 1, cursor: '', updated: '', nodes: {}, pending: null, lesson: null }
 }
 
 function loadProgress() {
@@ -214,7 +233,7 @@ function loadProgress() {
   try {
     raw = readFileSync(PROGRESS_PATH(), 'utf8')
   } catch (err) {
-    if (err.code === 'ENOENT') return emptyProgress()   // 还没有 = 空进度，正常
+    if (err.code === 'ENOENT') return bindStamp(emptyProgress(), PROGRESS_PATH(), 'absent')   // 还没有 = 空进度，正常
     throw err
   }
   const doc = parse(raw)
@@ -222,7 +241,7 @@ function loadProgress() {
       !doc.nodes || typeof doc.nodes !== 'object' || Array.isArray(doc.nodes)) {
     throw new Error('PROGRESS.yaml 存在但内容无效；请检查文件，不会当作空进度覆盖。')
   }
-  return {
+  return bindStamp({
     version: doc?.version ?? 1,
     cursor: String(doc?.cursor ?? ''),
     updated: String(doc?.updated ?? ''),
@@ -246,7 +265,10 @@ function loadProgress() {
     // 布置过的动作看起来"从没存在过"，下个会话就会把同一道题再布置一遍。
     pendingActions: (doc?.pendingActions && typeof doc.pendingActions === 'object'
       && !Array.isArray(doc.pendingActions)) ? doc.pendingActions : null,
-  }
+    // 正在上的那节课（教学模式）。和 pending 同一个坑：这里漏接，
+    // 下一次任何 saveProgress 都会把课时状态静默冲掉。
+    lesson: (doc?.lesson && typeof doc.lesson === 'object' && !Array.isArray(doc.lesson)) ? doc.lesson : null,
+  }, PROGRESS_PATH(), textStamp(raw))
 }
 
 // 文件头。写的时候由代码贴回去 —— yaml 库的 stringify **不吃注释**，
@@ -296,10 +318,8 @@ const PROGRESS_HEADER = `
 // 写入失败必须保留旧账本；不能删掉目标文件再复制临时文件。
 // ⚠️ 千万不要在解析失败时静默返回空进度再写回 —— 那是**拿空数据覆盖真相源**。
 //    loadProgress 遇到非 ENOENT 的错一律抛，就是要让这种情况炸出来。
-function replaceFile(tmp, destination) {
-  renameSync(tmp, destination)
-}
-
+// writeLedger 另外挡「另一个 dsh 进程在我们读完之后改过这份文件」：
+// 两个窗口同时写时，后写者会被拒绝，而不是把先写者的记录冲掉。
 function saveProgress(p) {
   p.updated = localStamp(new Date()).slice(0, 10)
   // 显式列出要落盘的字段，而不是 `stringify(p)` 一把梭 ——
@@ -318,9 +338,9 @@ function saveProgress(p) {
   if (p.pendingActions && Object.keys(p.pendingActions).length) {
     out.pendingActions = p.pendingActions
   }
-  const tmp = `${PROGRESS_PATH()}.tmp`
-  writeFileSync(tmp, PROGRESS_HEADER + stringify(out, { lineWidth: 0 }), 'utf8')
-  replaceFile(tmp, PROGRESS_PATH())
+  // 课时状态（教学模式）：同样必须留在白名单里，否则记一条笔记就把课上到一半丢了。
+  if (p.lesson) out.lesson = p.lesson
+  writeLedger(PROGRESS_PATH(), PROGRESS_HEADER + stringify(out, { lineWidth: 0 }), p)
   return p
 }
 
@@ -343,7 +363,7 @@ function saveProgress(p) {
 const SCHEDULE_PATH = () => join(DATA_DIR, 'SCHEDULE.yaml')
 
 function emptySchedule() {
-  return { version: 1, updated: '', days: {} }
+  return { version: 1, updated: '', days: {}, classWindow: null }
 }
 
 function loadSchedule() {
@@ -351,7 +371,7 @@ function loadSchedule() {
   try {
     raw = readFileSync(SCHEDULE_PATH(), 'utf8')
   } catch (err) {
-    if (err.code === 'ENOENT') return emptySchedule()
+    if (err.code === 'ENOENT') return bindStamp(emptySchedule(), SCHEDULE_PATH(), 'absent')
     throw err
   }
   const doc = parse(raw)
@@ -359,13 +379,17 @@ function loadSchedule() {
       !doc.days || typeof doc.days !== 'object' || Array.isArray(doc.days)) {
     throw new Error('SCHEDULE.yaml 存在但内容无效；请检查文件，不会当作空日程覆盖。')
   }
-  return {
+  if (doc.classWindow != null && !validClassWindow(doc.classWindow)) {
+    throw new Error('SCHEDULE.yaml 的固定上课时段无效；请检查时间和星期，不会覆盖原文件。')
+  }
+  return bindStamp({
     version: doc?.version ?? 1,
     updated: String(doc?.updated ?? ''),
     // 防御：手改文件时可能写成数组或 null
     days: (doc?.days && typeof doc.days === 'object' && !Array.isArray(doc.days))
       ? doc.days : {},
-  }
+    classWindow: doc.classWindow ?? null,
+  }, SCHEDULE_PATH(), textStamp(raw))
 }
 
 const SCHEDULE_HEADER = `
@@ -395,9 +419,8 @@ const SCHEDULE_HEADER = `
 
 function saveSchedule(s) {
   s.updated = localStamp(new Date()).slice(0, 10)
-  const tmp = `${SCHEDULE_PATH()}.tmp`
   let body = stringify(
-    { version: s.version, updated: s.updated, days: s.days }, { lineWidth: 0 })
+    { version: s.version, updated: s.updated, ...(s.classWindow ? { classWindow: s.classWindow } : {}), days: s.days }, { lineWidth: 0 })
   // 时间值**强制加引号**。
   //
   // 裸写的 `11:40` 在 YAML 1.1（PyYAML）里是**六十进制整数 700**，
@@ -417,8 +440,7 @@ function saveSchedule(s) {
   body = body.replace(/^(\s*(?:- )?(?:updated|date):\s*)(\d{4}-\d{2}-\d{2})\s*$/gm, '$1"$2"')
   // days 的 key 本身就是日期，也裸着 —— PyYAML 会读成 Date，按字符串索引就 KeyError
   body = body.replace(/^(\s*)(\d{4}-\d{2}-\d{2}):(\s*)$/gm, '$1"$2":')
-  writeFileSync(tmp, SCHEDULE_HEADER + body, 'utf8')
-  replaceFile(tmp, SCHEDULE_PATH())
+  writeLedger(SCHEDULE_PATH(), SCHEDULE_HEADER + body, s)
   return s
 }
 
@@ -529,6 +551,17 @@ function hmMin(s) {
   //   会被「超出网格范围」挡掉，不会漏进来。）
   if (h === 24) return mi === 0 ? 1440 : null
   return h < 24 ? h * 60 + mi : null
+}
+
+function validClassWindow(w) {
+  const from = hmMin(w?.from), to = hmMin(w?.to)
+  const days = w?.weekdays
+  return w && typeof w === 'object' && !Array.isArray(w) &&
+    Object.keys(w).every((key) => ['from', 'to', 'weekdays'].includes(key)) &&
+    from !== null && from < 1440 && to !== null && to > from &&
+    Array.isArray(days) && days.length > 0 && days.length <= 7 &&
+    days.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    new Set(days).size === days.length
 }
 const minHM = (t) => `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`
 
@@ -912,6 +945,7 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
     today,
     windowFrom: out[0]?.date ?? '', windowTo: out[out.length - 1]?.date ?? '',
     planTo: ymd(addDays(new Date(), SCHED_AHEAD)),
+    ...(s.classWindow ? { classWindow: s.classWindow } : {}),
     blockKinds: Object.entries(SCHED_KINDS).map(([k, v]) => ({ kind: k, minutes: v.min, name: v.name })),
     days: out,
     // 火候：排课时一定看得见，不依赖"它记得去查 coach_status"
@@ -1337,7 +1371,7 @@ function trainerId(db) {
 // 直接按名字找又会有歧义。所以：先找**逐字相同**的标签，
 // 找不到才退到"标签包含节点名"，并且把用了哪级明说 ——
 // 退级时池子会明显变胖，教练和训练员有权知道这卷子考的还是不是他以为的那个点。
-function matchTags(db, node) {
+function matchTags(db, node, aliases = []) {
   const want = squash(node)
   const rows = db.prepare(
     `SELECT DISTINCT tags FROM unified_problems WHERE tags <> '' AND tags LIKE '%' || ? || '%'`)
@@ -1353,6 +1387,19 @@ function matchTags(db, node) {
   }
   if (exact.size) return { kind: 'exact', tags: [...exact] }
   if (fuzzy.size) return { kind: 'substring', tags: [...fuzzy] }
+  // 第三级：别名。节点名是中文细粒度（BFS（图论）），题库标签是另一套词汇
+  // （广度优先搜索(BFS)）。别名必须**整标签相等**，不做子串 —— 否则
+  // 「BFS」会把所有带 BFS 的标签一起捞进来，池子变胖却没人知道为什么。
+  const wanted = new Set(aliases.map((alias) => String(alias).trim()).filter(Boolean))
+  if (wanted.size) {
+    const like = aliases.map(() => 'tags LIKE ?').join(' OR ')
+    const hit = db.prepare(
+      `SELECT DISTINCT tags FROM unified_problems WHERE tags <> '' AND (${like})`)
+      .all(...aliases.map((alias) => `%${alias}%`))
+      .flatMap((r) => String(r.tags).split(',').map((t) => t.trim()))
+      .filter((tag) => wanted.has(tag))
+    if (hit.length) return { kind: 'alias', tags: [...new Set(hit)] }
+  }
   return { kind: 'none', tags: [] }
 }
 
@@ -1402,8 +1449,8 @@ function fetchProblem(db, platform, problemId, ac) {
 //
 // SQL 的 LIKE 只能粗筛（'%区间 DP%' 会捞到 '二维区间 DP'），
 // 所以拿到行之后按**标签词**再精确复核一遍。宁可少，不可串味。
-function nodePool(db, node) {
-  const m = matchTags(db, node)
+function nodePool(db, node, aliases = []) {
+  const m = matchTags(db, node, aliases)
   if (m.kind === 'none') return { kind: 'none', tags: [], hits: [] }
   const like = m.tags.map(() => 'tags LIKE ?').join(' OR ')
   const rows = db.prepare(
@@ -1583,7 +1630,15 @@ function registerPages(ctx) {
           switchCoachWorkspace(result.activeAccountId)
         }
         else if (payload.op === 'disconnect') { result = vpClient.disconnect(); switchCoachWorkspace('') }
-        else if (payload.op === 'sync') result = await vpClient.sync({})
+        else if (payload.op === 'sync') {
+          // 和 coach_vp_sync 同一条路：缓存 + 导入证据 + 分页状态。
+          // 三件事分开报，别再让页面把「只拉了缓存」说成「同步完成」。
+          const synced = await vpSyncOnce({})
+          return sendJson(res, 200, { ok: true, reject: '', cached: true, account: synced.account,
+            imported: Number(synced.imported.imported || 0), importOk: synced.imported.ok !== false,
+            importReject: String(synced.imported.reject || ''), hasMore: synced.hasMore,
+            pageCounts: synced.pageCounts, totals: synced.totals, summary: synced.summary })
+        }
         else return sendJson(res, 400, { ok: false, reject: 'op 只能是 start/finish/disconnect/sync' })
         return sendJson(res, 200, { ok: true, ...result })
       } catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err) }) }
@@ -1637,7 +1692,7 @@ function registerPages(ctx) {
       if (req.method === 'GET') {
         try {
           const s = loadSchedule()
-          return sendJson(res, 200, { ok: true, updated: s.updated, days: s.days })
+          return sendJson(res, 200, { ok: true, updated: s.updated, classWindow: s.classWindow, days: s.days })
         } catch (err) {
           return sendJson(res, 500, { ok: false, reject: String(err?.message ?? err) })
         }
@@ -1732,33 +1787,62 @@ function registerStateHook(ctx, teaching) {
         .filter(([, r]) => r?.status === 'studying')
         .map(([id]) => id)
       const teachingContext = teaching.context(p)
+      let classWindow = null
+      try { classWindow = loadSchedule().classWindow } catch { /* 日程损坏不影响其余状态注入 */ }
 
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
       let hasTarget = false
       try { hasTarget = Boolean(strategy.loadTarget().contest) } catch { hasTarget = true }
-      if (!cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext) return decision
-
-      const { byId } = loadMap()
-      const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
-      const node = byId.get(cursor)
-      const lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
-      lines.push(strategy.context())
-      lines.push(curriculum.context())
-      if (teachingContext) lines.push(teachingContext)
-      lines.push(cursor
-        ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
-        : '- 游标：**还没设** —— 先问清他现在在哪个知识点，用 coach_set_cursor 设上')
-      if (studying.length) {
-        lines.push(`- 在学（开了头、没达标）：${studying.map(nameOf).join('、')}`)
+      const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow
+      let lines
+      if (empty) {
+        // 首次使用：账本还不存在时给一个可执行入口，不猜水平、不先讲知识点。
+        // 只要写过一次进度（PROGRESS.yaml 出现），这条就不再出现 —— 已配置的人不被打扰。
+        let firstRun = false
+        try { statSync(PROGRESS_PATH()) } catch (err) { firstRun = err.code === 'ENOENT' }
+        if (!firstRun) return decision
+        lines = ['<coach_state>', '（教练插件注入的位置）',
+          '- 账本还是空的：先调 coach_setup status 体检，再按它给的唯一下一步做。',
+          '- 没有数据时别先讲知识点、别猜他的水平；一次只问一件事（先目标或可用时间）。',
+          '</coach_state>']
+      } else {
+        const { byId } = loadMap()
+        const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
+        const node = byId.get(cursor)
+        lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
+        if (!p.lesson) {
+          lines.push(strategy.context())
+          lines.push(curriculum.context())
+          if (teachingContext) lines.push(teachingContext)
+          lines.push(cursor
+          ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
+          : '- 游标：**还没设** —— 先问清他现在在哪个知识点，用 coach_set_cursor 设上')
+          if (studying.length) {
+            lines.push(`- 在学（开了头、没达标）：${studying.map(nameOf).join('、')}`)
+          }
+          if (pending) {
+            const n = Array.isArray(pending.problems) ? pending.problems.length : 0
+            lines.push(`- ⚠️ 押着一张卷：${nameOf(pending.node)}（${pending.date} 开，${n} 道）` +
+              ' → 他做完走 coach_grade；他不做了走 coach_cancel。**别编成绩。**')
+          }
+          if (classWindow) {
+            const now = new Date()
+            const minutes = now.getHours() * 60 + now.getMinutes()
+            const inClass = classWindow.weekdays.includes(now.getDay()) &&
+              minutes >= hmMin(classWindow.from) && minutes < hmMin(classWindow.to)
+            const weekdays = classWindow.weekdays.map((day) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day]).join('、')
+            lines.push(`- 固定上课时段（本机时间）：${weekdays} ${classWindow.from}–${classWindow.to}；当前${inClass ? '在上课时段' : '在时段外，以练习或原定休息为主'}。学生明确要求现在讲课时照办。`)
+          }
+        }
+        if (p.lesson) {
+          lines.push(`- 🎓 教学模式：正在教「${nameOf(p.lesson.node)}」；${LESSON_NEXT}`)
+          const latest = p.lesson.evidence?.findLast((item) => item?.stage === 'response')?.text
+          if (latest) lines.push(`- 最近学生回应（教练记录，原话未核对）：${String(latest).replace(/\s+/g, ' ').slice(0, 180)}`)
+        }
+        lines.push('</coach_state>')
       }
-      if (pending) {
-        const n = Array.isArray(pending.problems) ? pending.problems.length : 0
-        lines.push(`- ⚠️ 押着一张卷：${nameOf(pending.node)}（${pending.date} 开，${n} 道）` +
-          ' → 他做完走 coach_grade；他不做了走 coach_cancel。**别编成绩。**')
-      }
-      lines.push('</coach_state>')
 
       // 动态 import，不走顶上的静态依赖 —— 和这个文件里 `node:sqlite` 一个套路：
       // 包挪了位置 / 换了版本，注入就静默跳过，工具和对话照常用。
@@ -1767,8 +1851,10 @@ function registerStateHook(ctx, teaching) {
         content: [{ type: 'text', text: lines.join('\n') }],
         source: { kind: `plugin:${name}` },
       })
+      health.stateAt = new Date().toISOString()
       return { ...decision, messages: [...decision.messages, msg] }
-    } catch {
+    } catch (err) {
+      health.lastError = `状态注入失败：${err?.message ?? err}`
       return decision   // 注入失败绝不能影响对话本身
     }
   })
@@ -1975,7 +2061,82 @@ function vpEventsFromSync(payload, account) {
   }).filter((event) => /^\d{4}-\d{2}-\d{2}$/.test(event.date) && event.problems.length)
 }
 
+// ── VP 同步：页面和工具必须走同一条路 ────────────────────────────
+//
+// 事故形状：页面「同步最新 VP」只更新缓存，工具 coach_vp_sync 才导入训练证据。
+// 页面说「同步完成」的时候，教练手里其实还是旧数据。这里收成一个函数，
+// 两个入口都调它，页面多显示「导入了几场 / 还有几页」。
+const VP_ACCEPTED = new Set(['AC', 'OK', 'ACCEPTED', 'SOLVED'])
+
+function vpSyncSummary(payload) {
+  const contests = Array.isArray(payload?.contests) ? payload.contests : []
+  const submissions = Array.isArray(payload?.submissions) ? payload.submissions : []
+  const events = Array.isArray(payload?.events) ? payload.events : []
+  const rows = new Map()
+  const rowOf = (id) => {
+    const key = String(id)
+    if (!rows.has(key)) rows.set(key, { contestId: key, title: key, date: '', problems: new Set(), solved: new Set(), submissions: 0, events: 0 })
+    return rows.get(key)
+  }
+  for (const contest of contests) {
+    const row = rowOf(contest.id)
+    row.title = String(contest.title || row.title)
+    row.date = String(contest.start_time || row.date).slice(0, 10)
+  }
+  for (const submission of submissions) {
+    const row = rowOf(submission.contest_id)
+    row.submissions++
+    const problemId = String(submission.problem_id ?? '').trim()
+    if (!problemId) continue
+    row.problems.add(problemId)
+    if (VP_ACCEPTED.has(String(submission.verdict || '').toUpperCase())) row.solved.add(problemId)
+  }
+  for (const event of events) if (event?.contest_id !== undefined) rowOf(event.contest_id).events++
+  return [...rows.values()]
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 20)
+    .map((row) => ({ contestId: row.contestId, title: row.title, date: row.date,
+      problems: row.problems.size, solved: row.solved.size, submissions: row.submissions, events: row.events }))
+}
+
+async function vpSyncOnce({ limit, includeProfile } = {}) {
+  const payload = await vpClient.sync({ limit, includeProfile: includeProfile !== false })
+  const account = vpAccount(payload.account)
+  const importedEvents = vpEventsFromSync(payload, account)
+  const vpDir = join(DATA_DIR, 'vp-accounts', String(account.id))
+  const importStore = ACTIVE_VP_DIR === vpDir ? strategy : createStrategyStore({
+    dataDir: DATA_DIR, vpDir, competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
+  })
+  let imported = { ok: true, reject: '', imported: 0 }
+  if (importedEvents.length) {
+    try { imported = importStore.vpImport(importedEvents, { source: 'sync' }) }
+    catch (err) { imported = { ok: false, reject: String(err?.message || err), imported: 0 } }
+  }
+  const contests = Array.isArray(payload.contests) ? payload.contests : []
+  const submissions = Array.isArray(payload.submissions) ? payload.submissions : []
+  const events = Array.isArray(payload.events) ? payload.events : []
+  return {
+    payload, account, imported,
+    hasMore: payload.hasMore === true,
+    summary: vpSyncSummary(payload),
+    totals: { contests: contests.length, submissions: submissions.length, events: events.length },
+    pageCounts: payload.pageCounts || { contests: 0, submissions: 0, events: 0 },
+  }
+}
+
 function apply(ctx) {
+  // 随包地图升级：干净旧图换新（留 .prev 备份），改过的图只出差异报告。
+  // 失败不拦插件加载 —— 地图读不出来的后果由 coach_setup status 如实报。
+  try {
+    mapUpgrade = syncPackagedMap({
+      dataDir: DATA_DIR,
+      packagedPath: join(import.meta.dirname, 'assets', 'knowledge', 'MAP.yaml'),
+      legacyHashes: LEGACY_MAP_HASHES,
+      pluginVersion: VERSION,
+    })
+  } catch (err) {
+    mapUpgrade = { action: 'error', reject: String(err?.message || err) }
+  }
   applyHindsight(ctx)
   // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
@@ -1995,16 +2156,25 @@ function apply(ctx) {
   //    工具能不能用和"规则进不进得去"是两件事。
   try {
     const sp = ctx.get?.('systemPrompt')
-    if (sp && typeof sp.section === 'function') {
-      for (const section of [
+    if (!sp || typeof sp.section !== 'function') health.rules = 'missing'
+    else {
+      const sections = [
         { name: 'coach:persona', order: -100, path: join(import.meta.dirname, 'assets', 'persona', 'xiaojing-coach.md') },
         { name: 'coach:rules', order: 400, path: join(RULES_DIR, 'coach-rules.md') },
-      ]) {
-        try { sp.section({ name: section.name, order: section.order, text: readFileSync(section.path, 'utf8') }) }
-        catch { /* 单个文件或 section 不可用，继续注册其他段与工具 */ }
+      ]
+      let ok = 0
+      for (const section of sections) {
+        try { sp.section({ name: section.name, order: section.order, text: readFileSync(section.path, 'utf8') }); ok++ }
+        catch (err) { health.lastError = `规则段 ${section.name} 注入失败：${err?.message ?? err}` }
       }
+      health.rules = ok === sections.length ? 'ok' : ok ? 'partial' : 'failed'
+      health.rulesAt = new Date().toISOString()
     }
-  } catch { /* 没这服务 / 没这文件 → 不注，照常加载 */ }
+  } catch (err) {
+    // 没这服务 / 没这文件 → 不注，照常加载；但体检要如实说。
+    health.rules = 'failed'
+    health.lastError = String(err?.message || err)
+  }
 
   ctx.tools.register(defineTool(curriculumTool(curriculum)))
   const teaching = createTeachingNotes({ loadProgress, saveProgress, loadMap,
@@ -2035,7 +2205,7 @@ function apply(ctx) {
       ? `续课笔记 · ${v.node}（最近 ${v.notes.length} / 共 ${v.total} 条）\n` + v.notes.map(note =>
         `${note.at}\n教练记录：${note.summary}\n续课建议：${note.nextStep}\n` +
         (note.studentEvidence ? `学生原话：「${note.studentEvidence.quote}」（存在已核对，理解程度仍由教练判断）`
-          : '尚无学生回应依据；这条是教练笔记。')).join('\n\n')
+          : '学生原话未核对；这条是教练记录。')).join('\n\n')
       : `「${v.node || '当前节点'}」尚无续课笔记。` }] },
     execute: async (args = {}, exec) => {
       const action = args.action ?? 'read'
@@ -2091,14 +2261,22 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_vp_sync',
-    description: '从当前 VP 账号增量读取一页比赛、提交、事件和个人时间线。hasMore 为 true 时继续调用；pageCounts 是本页拉取数，返回数组是累计缓存。VP 平台只读，游标和缓存按账号隔离。同步后写入或更新带账号前缀的 VP 训练记录，导入被拒绝时返回 ok:false。',
+    description: '从当前 VP 账号增量读取一页比赛、提交、事件和个人时间线。hasMore 为 true 时继续调用。只返回本页计数、累计总数和最近的比赛摘要（最多 20 场）；要看某场的提交细节或复盘，按需调 coach_vp_contests / coach_vp_replay。VP 平台只读，游标和缓存按账号隔离。同步后写入或更新带账号前缀的 VP 训练记录，导入被拒绝时返回 ok:false。',
     parameters: {
       limit: { type: 'integer', description: '单次最多同步多少条提交，默认 200' },
       includeProfile: { type: 'boolean', description: '是否同步个人 rating/比赛历史，默认 true' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, account: { type: 'object', required: true, additionalProperties: false, properties: { id: { type: 'integer', required: true }, handle: { type: 'string', required: true }, display_name: { type: 'string', required: true } } },
-      imported: { type: 'integer', required: true }, contests: { type: 'array', required: true }, submissions: { type: 'array', required: true }, events: { type: 'array', required: true },
+      imported: { type: 'integer', required: true },
+      summary: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+        contestId: { type: 'string', required: true }, title: { type: 'string', required: true }, date: { type: 'string', required: true },
+        problems: { type: 'integer', required: true }, solved: { type: 'integer', required: true },
+        submissions: { type: 'integer', required: true }, events: { type: 'integer', required: true },
+      } } },
+      totals: { type: 'object', required: true, additionalProperties: false, properties: {
+        contests: { type: 'integer', required: true }, submissions: { type: 'integer', required: true }, events: { type: 'integer', required: true },
+      } },
       hasMore: { type: 'boolean', required: true },
       pageCounts: { type: 'object', required: true, additionalProperties: false, properties: {
         contests: { type: 'integer', required: true }, submissions: { type: 'integer', required: true }, events: { type: 'integer', required: true },
@@ -2109,23 +2287,17 @@ function apply(ctx) {
     } }, render: (_a, v) => strategyText(v) },
     execute: async (args) => {
       try {
-        const payload = await vpClient.sync({ limit: args?.limit, includeProfile: args?.includeProfile !== false })
-        const account = vpAccount(payload.account)
-        const importedEvents = vpEventsFromSync(payload, account)
-        const vpDir = join(DATA_DIR, 'vp-accounts', String(account.id))
-        const importStore = ACTIVE_VP_DIR === vpDir ? strategy : createStrategyStore({
-          dataDir: DATA_DIR, vpDir, competenciesPath: join(import.meta.dirname, 'assets', 'knowledge', 'COMPETENCIES.yaml'),
-        })
-        const imported = importedEvents.length ? importStore.vpImport(importedEvents, { source: 'sync' }) : { ok: true, reject: '', imported: 0 }
-        const hasMore = payload.hasMore === true
-        const pageCounts = payload.pageCounts
-        return { ok: imported.ok, reject: String(imported.reject || ''), account, imported: Number(imported.imported || 0), contests: payload.contests || [], submissions: payload.submissions || [], events: payload.events || [],
-          hasMore, pageCounts, nextCursor: { submission_id: Number(payload.cursor?.submission_id || 0), event_id: Number(payload.cursor?.event_id || 0) }, cachedPath: String(payload.cachedPath || ''),
+        const synced = await vpSyncOnce({ limit: args?.limit, includeProfile: args?.includeProfile })
+        const { payload, account, imported, hasMore, summary, totals, pageCounts } = synced
+        return { ok: imported.ok, reject: String(imported.reject || ''), account, imported: Number(imported.imported || 0),
+          summary, totals, hasMore, pageCounts,
+          nextCursor: { submission_id: Number(payload.cursor?.submission_id || 0), event_id: Number(payload.cursor?.event_id || 0) }, cachedPath: String(payload.cachedPath || ''),
           text: imported.ok
-            ? `VP 本页同步：${account.handle}；本页拉取比赛 ${pageCounts.contests} 场、提交 ${pageCounts.submissions} 条、事件 ${pageCounts.events} 条；缓存累计比赛 ${payload.contests?.length || 0} 场、提交 ${payload.submissions?.length || 0} 条、事件 ${payload.events?.length || 0} 条；写入或更新训练记录 ${imported.imported || 0} 场。${hasMore ? '仍有下一页，请继续调用 coach_vp_sync。' : '分页读取完成。'}`
+            ? `VP 本页同步：${account.handle}；本页比赛 ${pageCounts.contests} 场、提交 ${pageCounts.submissions} 条、事件 ${pageCounts.events} 条；缓存累计 ${totals.contests} 场 / ${totals.submissions} 条 / ${totals.events} 条；写入或更新训练记录 ${imported.imported || 0} 场。${hasMore ? '仍有下一页，请继续调用 coach_vp_sync。' : '分页读取完成。'}细节按需查 coach_vp_contests / coach_vp_replay。`
             : `VP 缓存已同步，训练记录导入被拒绝：${imported.reject}` }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, contests: [], submissions: [], events: [], hasMore: false,
+        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, summary: [],
+          totals: { contests: 0, submissions: 0, events: 0 }, hasMore: false,
           pageCounts: { contests: 0, submissions: 0, events: 0 }, nextCursor: { submission_id: 0, event_id: 0 }, cachedPath: '', text: '' }
       }
     },
@@ -2322,29 +2494,6 @@ function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
-    name: 'coach_scope',
-    description: '查看一个比赛能力或知识点的适用范围、延伸、反例、常见错误、迁移题和退出条件。没有范围卡片时明确拒绝编造。',
-    parameters: { id: { type: 'string', required: true, description: '能力 id 或地图节点 id' } },
-    output: { schema: { type: 'object', additionalProperties: false, properties: {
-      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true }, found: { type: 'boolean', required: true },
-      id: { type: 'string', required: true }, title: { type: 'string', required: true }, contestUse: { type: 'string', required: true },
-      nodes: { type: 'array', required: true }, appliesTo: { type: 'array', required: true }, extensions: { type: 'array', required: true }, notFor: { type: 'array', required: true },
-      commonFailures: { type: 'array', required: true }, transferProblems: { type: 'array', required: true }, exitEvidence: { type: 'array', required: true },
-      recognition: { type: 'array', required: true }, proofQuestions: { type: 'array', required: true }, sources: { type: 'array', required: true },
-      text: { type: 'string', required: true },
-    } }, render: (_a, v) => strategyText(v) },
-    execute: (args) => {
-      const v = strategy.scope(args?.id)
-      return { ...v, text: v.ok ? [`【范围卡片】${v.title}（${v.id}）`, `比赛价值：${v.contestUse}`,
-        `适用：${v.appliesTo.join('、')}`, `延伸：${v.extensions.join('、')}`, `不要用于：${v.notFor.join('、')}`,
-        `常见错误：${v.commonFailures.join('、')}`, `迁移：${v.transferProblems.join('、')}`, `退出条件：${v.exitEvidence.join('、')}`,
-        `识别信号：${v.recognition.join('；') || '先核对适用条件'}`, `解释与证明：${v.proofQuestions.join('；') || '先解释为何条件足够'}`,
-        `来源：${v.sources.map(source => `${source.title} ${source.url}`).join('；') || '此卡尚无可核验来源'}`,
-      ].join('\n') : '' }
-    },
-  }))
-
-  ctx.tools.register(defineTool({
     name: 'coach_setup',
     description:
       '教练环境的搭建与体检。三个动作：' +
@@ -2506,6 +2655,13 @@ function apply(ctx) {
         { name: '训练库', status: dbOk ? (subs ? 'ok' : '空') : '缺', detail: dbOk ? `${subs} 条提交 / ${lib} 道题，rating ${rating}` : dbPath },
         { name: 'OI Wiki', status: wiki.chunks.length ? 'ok' : '缺', detail: `${wiki.chunks.length} 块` },
       ]
+      const mapItem = base.items.find((i) => i.name === '地图')
+      if (mapItem && mapUpgrade) {
+        if (mapUpgrade.action === 'upgraded') mapItem.detail += `；已随包更新，旧图备份 ${MAP_BACKUP_FILE}`
+        else if (mapUpgrade.action === 'installed') mapItem.detail += '；已安装随包地图'
+        else if (mapUpgrade.action === 'conflict') mapItem.detail += `；有随包更新待合并（见 ${MAP_REPORT_FILE}）`
+        else if (mapUpgrade.action === 'error') mapItem.detail += `；自动升级失败：${mapUpgrade.reject}`
+      }
       base.ok = ['数据目录', '地图'].every((n) => base.items.find((i) => i.name === n)?.status === 'ok')
       base.note = !dbOk ? '还没有训练库 —— 跑 action=init 建一个，再 action=sync 拉数据。'
         : !subs ? '训练库是空的 —— 跑 action=sync（要先有 CF handle）。'
@@ -2707,6 +2863,11 @@ function apply(ctx) {
           ok: { type: 'boolean', required: true },
           name: { type: 'string', required: true },
           version: { type: 'string', required: true },
+          // 静默降级诊断：插件活着 ≠ 规则进去了、状态注进去了。
+          rulesLoaded: { type: 'string', required: true },
+          rulesAt: { type: 'string', required: true },
+          stateInjectedAt: { type: 'string', required: true },
+          lastError: { type: 'string', required: true },
           dataDir: { type: 'string', required: true },
           dataDirReachable: { type: 'boolean', required: true },
           files: {
@@ -2729,6 +2890,8 @@ function apply(ctx) {
         type: 'text',
         text: [
           `教练插件 ${v.name} v${v.version} — ${v.ok ? '活着' : '装上了但数据不通'}`,
+          `能力诊断：规则${v.rulesLoaded === 'ok' ? '已加载' : v.rulesLoaded === 'missing' ? '**没加载**（宿主没有 systemPrompt 服务）' : v.rulesLoaded === 'partial' ? '只进了一部分' : '**加载失败**'}；` +
+            `状态${v.stateInjectedAt ? `最近注入 ${v.stateInjectedAt}` : '**还没注入过**'}${v.lastError ? `；最近错误：${v.lastError}` : ''}`,
           `数据根：${v.dataDir}${v.dataDirReachable ? '' : '（不可达）'}`,
           ...v.files.map((f) => `  ${f.status === 'ok' ? 'OK  ' : 'MISS'} ${f.file}  ${f.detail}`),
           `运行时：node ${v.node}`,
@@ -2741,6 +2904,10 @@ function apply(ctx) {
         ok: files.every((f) => f.status === 'ok'),
         name,
         version: VERSION,
+        rulesLoaded: health.rules,
+        rulesAt: health.rulesAt,
+        stateInjectedAt: health.stateAt,
+        lastError: health.lastError,
         dataDir: DATA_DIR,
         dataDirReachable: files.some((f) => f.status === 'ok'),
         files,
@@ -3133,6 +3300,8 @@ function apply(ctx) {
         properties: {
           accepted: { type: 'boolean', required: true },
           reject: { type: 'string', required: true },
+          // 课程是按旧目标排的时候必须带出来；空串 = 没这回事。
+          targetWarning: { type: 'string', required: true },
           cursor: { type: 'string', required: true },
           node: { type: 'string', required: true },
           nodeName: { type: 'string', required: true },
@@ -3190,6 +3359,7 @@ function apply(ctx) {
         return [{
           type: 'text',
           text: [
+            v.targetWarning ? `⚠️ **先说这件事**：${v.targetWarning}` : '',
             `【今天这一个动作】${v.nodeName}　[${v.domain}]`,
             ``,
             `做什么　${v.nodeName}（${v.competency ? `比赛能力 ${v.competency}` : `地图节点 ${v.node}`}）`,
@@ -3244,6 +3414,7 @@ function apply(ctx) {
         // （additionalProperties: false + required:true）要求每个出口同形，
         // 缺一个 verify-shape 那一关就会红。
         pendingRecorded: false, pendingReplaced: false, targetAligned: false, competencies: [],
+        targetWarning: '',
       })
 
       // ① 游标认不认得。「没设」和「打错」分开提示，别让模型去猜。
@@ -3397,6 +3568,7 @@ function apply(ctx) {
         deliverable, why, mapStamp: stamp, selfTarget: node === cursor,
         pendingRecorded, pendingReplaced: replacedPending,
         targetAligned: targetRoute.targetAligned, competencies: targetRoute.competencyIds,
+        targetWarning: route.targetWarning || '',
         blocks: [
           // 讲解段排在最前面，`kind: teach` —— 卷面上看得见，
           // 它才不会变成"讲完就忘了排"的那个动作
@@ -3413,6 +3585,125 @@ function apply(ctx) {
             { kind: 'rewrite', label: '重写', minutes: 10 },
           ] : []),
         ],
+      }
+    },
+  }))
+
+  // ── coach_lesson：短回合教学记录 ───────────────────────────────
+  // 只记学生回应和结果；讲解深浅由教练根据当下回应决定。
+  ctx.tools.register(defineTool({
+    name: 'coach_lesson',
+    description: '记录一节互动课：先用一句人话讲核心并停下，依据学生回应决定补例子、练习或收课。advance 记真实回应；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断写简短续课笔记。独立完成必须在 end 提供具体证据。单纯概念问答不必开课时。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['start', 'advance', 'correct', 'end', 'status'] },
+      node: { type: 'string', description: 'start 必填：地图节点 id' },
+      problem: { type: 'string', description: 'start 可选：这节课用的题号或题面线索' },
+      evidence: { type: 'string', description: 'advance 必填：学生这轮的原话、手算或卡点；correct 必填：上一条回应的准确更正；end 填简短收课判断，若报 independent 必须包含独立尝试的题目和结果' },
+      outcome: { type: 'string', enum: ['independent', 'hinted', 'failed', 'unknown'], description: 'end 必填：独立做出 / 带提示 / 没做出来 / 未核实' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
+      action: { type: 'string', required: true }, active: { type: 'boolean', required: true },
+      node: { type: 'string', required: true }, nodeName: { type: 'string', required: true },
+      stage: { type: 'string', required: true }, stageIndex: { type: 'integer', required: true },
+      next: { type: 'string', required: true }, outcome: { type: 'string', required: true },
+      evidenceCount: { type: 'integer', required: true }, startedAt: { type: 'string', required: true },
+      text: { type: 'string', required: true },
+    } }, render: (_a, v) => strategyText(v) },
+    execute: (args = {}) => {
+      const action = String(args?.action ?? 'status')
+      const empty = { ok: false, reject: '', action, active: false, node: '', nodeName: '', stage: '', stageIndex: 0,
+        next: '', outcome: '', evidenceCount: 0, startedAt: '', text: '' }
+      const deny = (reject) => ({ ...empty, reject })
+      try {
+        const p = loadProgress()
+        const { byId } = loadMap()
+        const view = (lesson) => {
+          if (!lesson) return { ...empty, ok: true, text: '当前没有进行中的课时。' }
+          const name = byId.get(lesson.node)?.name ?? lesson.node
+          const latest = lesson.evidence?.findLast((item) => item?.stage === 'response')?.text
+          return { ...empty, ok: true, active: true, node: lesson.node, nodeName: name,
+            stage: 'active', stageIndex: 0, next: LESSON_NEXT,
+            evidenceCount: Array.isArray(lesson.evidence) ? lesson.evidence.length : 0,
+            startedAt: String(lesson.startedAt || ''),
+            text: `【教学模式】正在教「${name}」。先用一句话讲核心，保留必要的适用条件，然后停下来听他怎么理解。\n${LESSON_NEXT}` +
+              (latest ? `\n最近学生回应（教练记录，原话未核对）：${String(latest).replace(/\s+/g, ' ').slice(0, 180)}` : '') +
+              (lesson.problem ? `\n题：${lesson.problem}` : '') }
+        }
+        if (action === 'status') return view(p.lesson)
+        if (action === 'start') {
+          if (p.lesson) return deny(`已经在教「${p.lesson.node}」；先继续或 end，不要叠课。`)
+          const node = String(args?.node ?? '').trim()
+          if (!byId.has(node)) return deny(`地图里没有「${node}」这个知识点。`)
+          const nowIso = new Date().toISOString()
+          p.lesson = { node, problem: String(args?.problem ?? '').trim().slice(0, 200), stage: 'active',
+            startedAt: nowIso, updatedAt: nowIso, evidence: [] }
+          saveProgress(p)
+          return view(p.lesson)
+        }
+        if (action === 'advance') {
+          if (!p.lesson) return deny('还没有开始课时。先用 action=start。')
+          const evidence = String(args?.evidence ?? '').trim()
+          if (evidence.length < 2) return deny('需要学生证据：记下他的原话、手算或卡住的位置，再决定下一句。')
+          p.lesson.evidence = Array.isArray(p.lesson.evidence) ? p.lesson.evidence : []
+          p.lesson.evidence.push({ stage: 'response', at: new Date().toISOString(), text: evidence.slice(0, 500) })
+          if (p.lesson.evidence.length > 20) p.lesson.evidence = p.lesson.evidence.slice(-20)
+          p.lesson.stage = 'active'
+          p.lesson.updatedAt = new Date().toISOString()
+          saveProgress(p)
+          return view(p.lesson)
+        }
+        if (action === 'correct') {
+          if (!p.lesson) return deny('还没有进行中的课时，无法更正课堂回应。')
+          const evidence = String(args?.evidence ?? '').trim()
+          if (evidence.length < 2) return deny('请提供上一条课堂回应的准确更正。')
+          const entries = Array.isArray(p.lesson.evidence) ? p.lesson.evidence : []
+          const index = entries.findLastIndex((item) => item?.stage === 'response')
+          if (index < 0) return deny('还没有课堂回应可更正。')
+          entries[index] = { ...entries[index], text: evidence.slice(0, 500), correctedAt: new Date().toISOString() }
+          p.lesson.evidence = entries
+          p.lesson.updatedAt = new Date().toISOString()
+          saveProgress(p)
+          return view(p.lesson)
+        }
+        if (action === 'end') {
+          if (!p.lesson) return deny('没有进行中的课时。')
+          const outcome = String(args?.outcome ?? '').trim()
+          if (!['independent', 'hinted', 'failed', 'unknown'].includes(outcome)) return deny('end 必须给 outcome：independent/hinted/failed/unknown。')
+          const lesson = p.lesson
+          const evidence = String(args?.evidence ?? '').trim()
+          lesson.evidence = Array.isArray(lesson.evidence) ? lesson.evidence : []
+          if (outcome === 'independent' && evidence.length < 2) {
+            return deny('记为 independent 需要本次独立尝试的题目和结果；只说听懂了还不能算。')
+          }
+          if (evidence.length >= 2) lesson.evidence.push({ stage: 'end', at: new Date().toISOString(), text: evidence.slice(0, 500) })
+          const name = byId.get(lesson.node)?.name ?? lesson.node
+          const responses = lesson.evidence.filter((item) => item?.stage === 'response')
+            .slice(-3).map((item) => String(item.text ?? '').replace(/\s+/g, ' '))
+          const result = outcome === 'unknown' ? '独立做题未核实' : outcome === 'independent' ? '独立尝试已记录' :
+            outcome === 'hinted' ? '有提示的尝试' : '本次未做出'
+          const hasSummary = responses.length > 0 || evidence.length >= 2
+          if (hasSummary) {
+            const summary = `课时结果：${result}。${evidence ? `教练小结：${evidence}` :
+              `课堂回应（教练记录，原话未核对）：${responses.slice(-2).join('；')}`}`
+            const record = p.nodes[lesson.node] || {}
+            p.nodes[lesson.node] = { ...record, lessonNotes: [...(Array.isArray(record.lessonNotes) ? record.lessonNotes : []), {
+              at: new Date().toISOString(), summary: summary.slice(0, 1000),
+              nextStep: outcome === 'unknown' ? '独立做题尚未核实；下次根据当前目标判断是否需要实作验证。' :
+                '下次根据这节课的记录和训练目标决定练习或复习。', studentEvidence: null,
+            }] }
+          }
+          p.lesson = null
+          saveProgress(p)
+          return { ...empty, ok: true, action, active: false, outcome,
+            text: `课时已收：${name} · 结果 ${outcome}` +
+              (outcome === 'unknown' ? '\n独立做题尚未核实。' : '') +
+              (hasSummary ? '\n课堂记录已记入续课笔记。' : '\n本次无课堂回应，未写续课笔记。') +
+              '\n有做题事实再用 coach_log 记。' }
+        }
+        return deny('action 只能是 start/advance/correct/end/status。')
+      } catch (err) {
+        return deny(`课时账本写入失败：${String(err?.message || err)}`)
       }
     },
   }))
@@ -3436,6 +3727,8 @@ function apply(ctx) {
           // 让"讲过没"对教练**可查** —— 判据跟 coach_test 开卷时用的同一个
           // 函数（taughtEvidence），不另写一份。需求 #5 的验收 ③。
           cursorTaught: { type: 'string', required: true },
+          // 目标和课程对不上时的一句话；空串 = 一致或没有课程。
+          targetMismatch: { type: 'string', required: true },
           teachingContext: { type: 'string', required: true },
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
@@ -3601,6 +3894,7 @@ function apply(ctx) {
                 : `　⚠️ **还没有教学记录** —— 现在开卷会被拒，先讲`)
               : ''),
           v.teachingContext,
+          v.targetMismatch ? `⚠️ ${v.targetMismatch}` : '',
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
           v.pendingNode
@@ -3671,6 +3965,13 @@ function apply(ctx) {
     async execute() {
       const { byId, nodes } = loadMap()
       const p = loadProgress()
+      // 目标和课程是不是还对应。只提醒，不拦任何工具 —— 课程读不出来时
+      // 这一项留空，状态工具照常工作。
+      let targetMismatch = ''
+      try {
+        const plan = curriculum.snapshot()
+        targetMismatch = plan.targetState === 'stale' || plan.targetState === 'missing' ? plan.targetNote : ''
+      } catch { /* 坏文件由 coach_curriculum 报，别把状态工具一起拖下水 */ }
       const verified = [], learned = [], studying = []
       for (const [id, rec] of Object.entries(p.nodes)) {
         const s = rec?.status
@@ -3751,6 +4052,7 @@ function apply(ctx) {
         cursor: p.cursor,
         cursorName: byId.get(p.cursor)?.name ?? '',
         cursorTaught: taughtEvidence(p, p.cursor)?.first ?? '',
+        targetMismatch,
         teachingContext: teaching.context(p),
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
@@ -4383,14 +4685,15 @@ function apply(ctx) {
         const uid = trainerId(db)
         if (uid == null) return deny(`训练库里找不到训练员账号（${TRAINER}）。`)
 
-        const m = matchTags(db, node)
+        const aliases = loadMap().byId.get(node)?.tags ?? []
+        const m = matchTags(db, node, aliases)
         if (m.kind === 'none') {
           return deny(`内置题库没有「${node}」的标签，无法自动分档。` +
             '仍可从真实题面和题解挑三道已核实、未做过的题，用 coach_test 的 source=web 开卷；' +
             '每道必须写 verified、title、url，不能凭标签或题号猜解法。')
         }
 
-        const { hits } = nodePool(db, node)
+        const { hits } = nodePool(db, node, aliases)
         // 已核实的题（需求 #1）：**在候选行上标出来** —— 不然教练没法知道
         // 哪几道核实过了，只能靠"试着开卷看放行还是被拒"去反推。
         const ledger = loadProgress().verified_problems ?? {}
@@ -4434,6 +4737,9 @@ function apply(ctx) {
         if (ranked.length < BANDS.length) {
           return deny(`「${node}」的池子里只剩 ${ranked.length} 道可用的未做题，` +
             '凑不出 易/中/难 三档；可核实外部题面后用 source=web。')
+        }
+        if (m.kind === 'alias') {
+          warnings.push(`标签按节点别名匹配（${m.tags.join(' / ')}），不是逐字同名 —— 挑题时看标题确认考的就是这个点`)
         }
         if (m.kind === 'substring') {
           warnings.push(`标签是**子串**匹配到的（${m.tags.join(' / ')}），` +
@@ -5542,10 +5848,15 @@ function apply(ctx) {
       '一天一天，把他标的忙事和已经排好的块按时间列成一条轴。\n' +
       '**不给「还剩多少小时」这种汇总数** —— 排多少是你的判断，' +
       '工具只把事实摆开：你照着这条轴自己看哪段能塞、哪两件事之间只有 30 分钟放不下块。\n' +
-      '排块之前先调这个，不要凭印象说「你今晚有两小时」，他的时间每天都在变。',
+      '排块之前先调这个，不要凭印象说「你今晚有两小时」，他的时间每天都在变。' +
+      '也可设置固定上课时段：action=set_class_window，给 fromTime、toTime 和可选 weekdays（周日=0）；不填星期则每天。action=clear_class_window 可清除。',
     parameters: {
+      action: { type: 'string', enum: ['read', 'set_class_window', 'clear_class_window'], description: '默认 read；设置或清除固定上课时段' },
       days: { type: 'integer', description: `看几天，默认 ${SCHED_WINDOW}（今天-3 ~ 今天+6）` },
       from: { type: 'string', description: '从哪天开始，YYYY-MM-DD，默认今天-3（回顾期开头）' },
+      fromTime: { type: 'string', description: '设置固定上课时段的开始时间 HH:MM（本机时间）' },
+      toTime: { type: 'string', description: '设置固定上课时段的结束时间 HH:MM（本机时间）' },
+      weekdays: { type: 'array', items: { type: 'integer' }, description: '上课星期，周日=0、周一=1……周六=6；省略则每天' },
     },
     output: {
       schema: {
@@ -5558,6 +5869,10 @@ function apply(ctx) {
           windowFrom: { type: 'string', required: true },
           windowTo: { type: 'string', required: true },
           planTo: { type: 'string', required: true },
+          classWindow: { type: 'object', additionalProperties: false, properties: {
+            from: { type: 'string', required: true }, to: { type: 'string', required: true },
+            weekdays: { type: 'array', required: true, items: { type: 'integer' } },
+          } },
           blockKinds: {
             type: 'array', required: true,
             items: {
@@ -5651,6 +5966,9 @@ function apply(ctx) {
         if (!v.ok) return [{ type: 'text', text: `❌ 读不到日程：${v.reject}` }]
         const L = [
           `【日程】${v.windowFrom} ~ ${v.windowTo}　今天 ${v.today}，能排到 ${v.planTo}`,
+          v.classWindow
+            ? `固定上课：${v.classWindow.weekdays.map((day) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day]).join('、')} ${v.classWindow.from}–${v.classWindow.to}（本机时间）`
+            : '固定上课：未设置',
           '块型：' + v.blockKinds.map((b) => `${b.kind} ${b.minutes}min（${b.name}）`).join('／'),
         ]
         for (const d of v.days) {
@@ -5740,6 +6058,26 @@ function apply(ctx) {
     },
     async execute(args) {
       try {
+        const action = String(args?.action ?? 'read')
+        if (action === 'set_class_window') {
+          const from = hmMin(args?.fromTime), to = hmMin(args?.toTime)
+          const weekdays = args?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]
+          const window = {
+            from: from === null ? '' : `${pad2(Math.floor(from / 60))}:${pad2(from % 60)}`,
+            to: to === null ? '' : `${pad2(Math.floor(to / 60))}:${pad2(to % 60)}`,
+            weekdays,
+          }
+          if (!validClassWindow(window)) throw new Error('上课时段无效：请给同一天内的起止时间，以及不重复的星期 0–6。')
+          const s = loadSchedule()
+          s.classWindow = window
+          saveSchedule(s)
+        } else if (action === 'clear_class_window') {
+          const s = loadSchedule()
+          s.classWindow = null
+          saveSchedule(s)
+        } else if (action !== 'read') {
+          throw new Error('action 只能是 read/set_class_window/clear_class_window。')
+        }
         const r = scheduleOverview(args?.days, args?.from)
         return { ok: true, reject: '', ...r }
       } catch (err) {

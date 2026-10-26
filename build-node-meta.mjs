@@ -62,7 +62,7 @@ function main() {
     let tooThin = 0
 
     for (const n of nodes) {
-      const { kind, hits } = coachApi.nodePool(db, n.name)
+      const { kind, hits } = coachApi.nodePool(db, n.name, n.tags ?? [])
       if (kind === 'none') { noPool++; continue }
       const rs = hits
         .map((r) => toRating(r.platform, r.difficulty))

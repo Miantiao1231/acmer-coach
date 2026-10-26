@@ -117,5 +117,23 @@ test('untimed actual work is distinguishable from a day with no actual work', ()
   assert.equal(day.actualMinutes, 0)
   assert.equal(day.actualEntries, 1)
   assert.equal(day.untimedActualEntries, 1)
+  // 汇总不能把「没计时」写成 0 小时。
+  assert.equal(log.totals.timedActualEntries, 0)
+  assert.match(log.totals.recorded.text, /有 1 条未计时/)
+  assert.doesNotMatch(log.totals.recorded.text, /^0/)
+})
+
+test('the summary reports recorded minutes only, never a guessed total', () => {
+  const log = buildTrainingLog({ today: '2026-10-15', days: 1, byId,
+    schedule: { days: { '2026-10-15': { actual: [
+      { node: 'dp', actualMin: 40, solved: true },
+      { node: 'graph', solved: false },
+    ] } } },
+  })
+  assert.equal(log.totals.timedActualEntries, 1)
+  assert.equal(log.totals.untimedActualEntries, 1)
+  assert.equal(log.totals.recorded.text, '40 分钟')
+  const empty = buildTrainingLog({ today: '2026-10-15', days: 1, byId })
+  assert.equal(empty.totals.recorded.text, '—')
 })
 

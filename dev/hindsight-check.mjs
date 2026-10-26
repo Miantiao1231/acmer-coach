@@ -7,12 +7,13 @@ import { spawnSync } from 'node:child_process'
 
 const user = text => ({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] })
 const enter = messages => async () => ({ kind: 'enter', messages })
-async function fixture(t, run, { enabled = true, bank = 'fixture-coach', response } = {}) {
+async function fixture(t, run, { enabled = true, bank = 'fixture-coach', response, env = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-hindsight-'))
-  const keys = ['COACH_HINDSIGHT', 'HINDSIGHT_URL', 'HINDSIGHT_BANK', 'HINDSIGHT_API_KEY', 'DSH_HOME', 'COACH_DATA_DIR', 'COACH_DB']
+  const keys = ['COACH_HINDSIGHT', 'HINDSIGHT_URL', 'HINDSIGHT_BANK', 'HINDSIGHT_API_KEY', 'DSH_HOME', 'COACH_DATA_DIR', 'COACH_DB',
+    'COACH_RECALL_BUDGET_MS', 'COACH_RECALL_BACKOFF_MS']
   const previous = Object.fromEntries(keys.map(k => [k, process.env[k]]))
   Object.assign(process.env, { COACH_HINDSIGHT: enabled ? '1' : '0', HINDSIGHT_URL: 'http://127.0.0.1:18888',
-    HINDSIGHT_BANK: bank, DSH_HOME: dir, COACH_DATA_DIR: join(dir, 'knowledge'), COACH_DB: join(dir, 'unused.db') })
+    HINDSIGHT_BANK: bank, DSH_HOME: dir, COACH_DATA_DIR: join(dir, 'knowledge'), COACH_DB: join(dir, 'unused.db') }, env)
   delete process.env.HINDSIGHT_API_KEY
   const calls = [], hooks = new Map(), tools = new Map()
   const fetch = t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
@@ -112,9 +113,28 @@ test('unavailable service still injects clock and can recover on a later turn', 
     down = false
     const recovered = await pre({ messages, step: 1 }, enter(messages))
     assert.equal(recovered.messages.length, 3)
-  }, { response: request => {
+  }, { env: { COACH_RECALL_BACKOFF_MS: '0' }, response: request => {
     if (down) throw new DOMException('fixture timeout', 'TimeoutError')
     return new Response(JSON.stringify(request.url.endsWith('/recall') ? { results: [{ text: '已恢复' }] } : {}))
+  } })
+})
+
+test('one failed recall backs off instead of blocking every turn for the full timeout', async t => {
+  let requests = 0
+  await fixture(t, async ({ ctx, hooks, tick }) => {
+    const { applyHindsight } = await import('../lib/hindsight.js')
+    applyHindsight(ctx); await tick()
+    const pre = hooks.get('agent/pre-step')[0], messages = [user('需要核对记忆')]
+    const first = await pre({ messages, step: 1 }, enter(messages))
+    assert.equal(first.messages.length, 2, '失败时只注入时钟，不塞记忆')
+    const before = requests
+    const second = await pre({ messages, step: 1 }, enter(messages))
+    assert.equal(second.messages.length, 2, '退避期内仍然注入时钟，但不再等召回')
+    assert.equal(requests, before, '退避期内一个请求都不发（连 bank 探测也不重试）')
+  }, { env: { COACH_RECALL_BACKOFF_MS: '60000', COACH_RECALL_BUDGET_MS: '200' },
+  response: () => {
+    requests++
+    throw new DOMException('fixture timeout', 'TimeoutError')
   } })
 })
 

@@ -83,8 +83,8 @@ nodes:
   构造: { tier: core, why: "共识高频；区域赛签到/中档题主力" }
   二分: { tier: core }
   排序: { tier: core }
-  前缀和 & 差分: { tier: core }
-  递归 & 分治: { tier: core }
+  前缀和 & 差分: { tier: core, tags: ["前缀和", "差分", "差分/前缀和"] }
+  递归 & 分治: { tier: core, tags: ["分治", "递归"] }
   倍增: { tier: core }
   复杂度: { tier: core, role: integrated, why: "不会算复杂度等于不会判断解法能不能过" }
   排序相关 STL: { tier: core, role: integrated }
@@ -126,23 +126,23 @@ nodes:
 
   # ══ 图论 ══════════════════════════════════════════════════
   # 共识「次高频、覆盖最全面」。基础全是 core；高阶匹配/特殊图 rare。
-  图的存储: { tier: core }
+  图的存储: { tier: core, role: integrated, why: "所有图题的地基，没有「存一个图」这种题" }
   图论相关概念: { tier: core, role: integrated }
-  BFS（图论）: { tier: core }
-  DFS（图论）: { tier: core }
+  BFS（图论）: { tier: core, tags: ["广度优先搜索(BFS)", "广度优先搜索 BFS", "图的遍历", "图遍历"] }
+  DFS（图论）: { tier: core, tags: ["深度优先搜索(DFS)", "深度优先搜索 DFS", "图的遍历", "图遍历"] }
   拓扑排序: { tier: core }
   连通性相关: { tier: core, role: integrated }
   最短路: { tier: core }
-  最小生成树: { tier: core }
+  最小生成树: { tier: core, tags: ["生成树"] }
   最近公共祖先: { tier: core }
   二分图: { tier: core }
   树的直径: { tier: core }
   树的重心: { tier: core }
   树基础: { tier: core, role: integrated }
   强连通分量: { tier: core }
-  割点和桥: { tier: core }
+  割点和桥: { tier: core, tags: ["双连通分量"] }
   双连通分量: { tier: core }
-  有向无环图: { tier: core }
+  有向无环图: { tier: core, tags: ["拓扑排序"] }
   欧拉图: { tier: normal }
   差分约束: { tier: normal }
   2-SAT: { tier: normal, why: "区域赛偶见，且是「条件→图」建模的经典套路" }
@@ -194,10 +194,10 @@ nodes:
   # 但**平衡树家族要狠狠往下压**——除 Treap/Splay 外，区域赛基本用不到，
   # 实现了也是靠库或模板，不是"学会"。
   栈: { tier: core }
-  队列: { tier: core }
-  链表: { tier: core }
+  队列: { tier: core, role: integrated, why: "队列的模式在 BFS 与单调队列里教，不单独开章节" }
+  链表: { tier: core, role: integrated, why: "区域赛很少单独考，指针与数组模拟随题带过" }
   堆: { tier: core }
-  二叉堆: { tier: core }
+  二叉堆: { tier: core, role: integrated, why: "比赛默认用 priority_queue，不手写堆；只有对顶堆/可并堆/结构题才需要知道内部" }
   并查集: { tier: core }
   哈希表: { tier: core }
   ST 表: { tier: core }
@@ -265,10 +265,10 @@ nodes:
   素数: { tier: core }
   筛法: { tier: core }
   数论基础: { tier: core, role: integrated }
-  乘法逆元: { tier: core }
+  乘法逆元: { tier: core, tags: ["逆元"] }
   欧拉函数: { tier: core }
-  欧拉定理 & 费马小定理: { tier: core }
-  裴蜀定理: { tier: core }
+  欧拉定理 & 费马小定理: { tier: core, role: integrated, why: "嵌在降幂与求逆元里用，单独出卷会变成背定理" }
+  裴蜀定理: { tier: core, role: integrated, why: "嵌在同余方程与可行性判断里，不单独出卷" }
   排列组合: { tier: core }
   容斥原理: { tier: core }
   高精度计算: { tier: normal, why: "区域赛直接考得少，但大数题绕不开" }
@@ -372,8 +372,8 @@ nodes:
   # ══ 字符串 ══════════════════════════════════════════════
   # 共识「中频，匹配与自动机为主」。基础哈希/KMP 是 core，自动机以上 rare。
   字符串基础: { tier: core, role: integrated }
-  字符串哈希: { tier: core, why: "区域赛字符串题的万能钥匙，性价比极高" }
-  前缀函数与 KMP 算法: { tier: core }
+  字符串哈希: { tier: core, tags: ["字符串hash"], why: "区域赛字符串题的万能钥匙，性价比极高" }
+  前缀函数与 KMP 算法: { tier: core, tags: ["KMP 算法"] }
   字典树 (Trie): { tier: normal }
   字符串匹配: { tier: normal }
   Z 函数（扩展 KMP）: { tier: normal }
@@ -414,8 +414,8 @@ nodes:
 
   # ══ 搜索 ══════════════════════════════════════════════
   # ICPC 全部测试点必须过（不像 CF 有部分分），所以剪枝比 OI 更重要。
-  DFS（搜索）: { tier: core }
-  BFS（搜索）: { tier: core }
+  DFS（搜索）: { tier: core, tags: ["深度优先搜索(DFS)", "深度优先搜索 DFS", "搜索减枝"] }
+  BFS（搜索）: { tier: core, tags: ["广度优先搜索(BFS)", "广度优先搜索 BFS"] }
   回溯法: { tier: normal }
   双向搜索: { tier: normal }
   迭代加深搜索: { tier: rare }

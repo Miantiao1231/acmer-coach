@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { parseArgs, prepareEvaluation, runEvaluation, inspectTurn } from './teaching-eval.mjs'
+import { parseArgs, prepareEvaluation, runEvaluation, inspectTurn, CASES, RUBRICS } from './teaching-eval.mjs'
 import { nativePermissionArgs, evaluationPolicy } from './teaching-eval-guard.mjs'
 
 test('教学验收默认只显示帮助；付费运行需要明确模式且限制场次', () => {
@@ -13,6 +13,14 @@ test('教学验收默认只显示帮助；付费运行需要明确模式且限�
   assert.deepEqual(parseArgs(['--run', 'prepared', '--case', 'repair']), { mode: 'run', directory: 'prepared', caseId: 'repair' })
   assert.deepEqual(parseArgs(['--run', 'prepared', '--case', 'contest']), { mode: 'run', directory: 'prepared', caseId: 'contest' })
   for (const args of [['--run'], ['--case', 'unknown'], ['--prepare', '--run', 'x'], ['--unknown']]) assert.throws(() => parseArgs(args))
+})
+
+test('每个教学场景都有独立判分项，且只能从合法场次进入', () => {
+  assert.deepEqual(CASES, ['continuity', 'repair', 'replan', 'contest', 'decide', 'retarget', 'integrate', 'gap'])
+  for (const id of CASES) {
+    assert.ok(Array.isArray(RUBRICS[id]) && RUBRICS[id].length === 4, `${id}: rubric required`)
+    assert.deepEqual(parseArgs(['--run', 'prepared', '--case', id]).caseId, id)
+  }
 })
 
 test('真实已有junction不能把run内写入穿透到外部；直接HTTP不得绕过bank门禁', () => {
@@ -139,6 +147,10 @@ test('公开prepare/run经原生RPC形状的离线夹具验证新会话续课，
     Object.assign(process.env, { DSH_EVAL_CLI: cli, DSH_APP_NODE_MODULES: modules, DEEPSEEK_API_KEY: 'fixture-model-key', HINDSIGHT_URL: 'http://127.0.0.1:1' })
     const prepared = await prepareEvaluation(root)
     const profile = JSON.parse(readFileSync(join(prepared, 'continuity/home/profiles/web/package.json'), 'utf8'))
+    assert.ok(existsSync(join(prepared, 'decide/home/knowledge/TARGET.yaml')), '拍板场景需要目标夹具')
+    assert.ok(existsSync(join(prepared, 'decide/home/knowledge/CURRICULUM.yaml')), '拍板场景需要课程夹具')
+    assert.ok(existsSync(join(prepared, 'retarget/home/knowledge/CURRICULUM.yaml')), '目标变更场景需要课程夹具')
+    assert.ok(!existsSync(join(prepared, 'integrate/home/knowledge/CURRICULUM.yaml')), '融合场景不该有课程夹具')
     assert.equal(typeof profile.version, 'string', '原生DeepSeek包清单扩展要求profile有version')
     try { await runEvaluation(prepared, 'continuity') }
     catch (error) { throw new Error(`${error.message}\n${readFileSync(join(prepared, 'continuity/server.log'), 'utf8')}`) }

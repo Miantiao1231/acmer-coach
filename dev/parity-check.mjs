@@ -72,7 +72,7 @@ const onlyA = namesA.filter((n) => !namesB.includes(n))
 check('开源版没有丢掉任何原有工具', onlyB.length === 0, onlyB.join(',') || '（没丢）')
 // 新增的只能是「搭环境 / 拉数据 / 查知识 / 长期课程」这几类 —— 它们补的正是
 // 开源版缺的那些基础设施（原版靠本地已有的库和 skill，别人没有）。
-const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum', 'coach_note', 'coach_target', 'coach_focus', 'coach_scope', 'coach_postmortem', 'coach_vp_import', 'coach_vp_connect', 'coach_vp_sync', 'coach_vp_contests', 'coach_vp_replay'])
+const EXPECTED_NEW = new Set(['coach_setup', 'coach_wiki', 'coach_import', 'coach_curriculum', 'coach_note', 'coach_target', 'coach_focus', 'coach_postmortem', 'coach_vp_import', 'coach_vp_connect', 'coach_vp_sync', 'coach_vp_contests', 'coach_vp_replay'])
 check('新增的都在预期内（搭建 / 检索 / 课程 / 比赛 / VP）',
   onlyA.every((n) => EXPECTED_NEW.has(n)), onlyA.join(',') || '（无新增）')
 // 对照副本可能也已经升级到 20/21 个工具；检查原工具集合，不能拿固定数量拒绝新版。

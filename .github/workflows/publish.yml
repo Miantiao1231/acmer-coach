@@ -27,5 +27,12 @@ jobs:
         with:
           node-version: '24'
       - run: npm install --ignore-scripts --no-package-lock
+      - name: 标签必须和 package.json 版本一致
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          node -e "const p=require('./package.json'); if (process.env.GITHUB_REF_NAME !== 'v'+p.version) { console.error('标签 ' + process.env.GITHUB_REF_NAME + ' 与 package.json ' + p.version + ' 不一致'); process.exit(1) }"
       - run: npm test
+      - run: node verify-shape.mjs
+      - name: 安装副本烟测（tarball，不是源码）
+        run: node dev/pack-smoke.mjs
       - run: npm publish --provenance --access public

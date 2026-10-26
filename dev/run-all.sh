@@ -82,6 +82,13 @@ run "grading"       node --test dev/grading-check.mjs
 run "training"      node --test dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
+run "VP-unify"      node --test dev/vp-sync-unify-check.mjs
+run "ledger"        node --test dev/ledger-conflict-check.mjs
+run "target-drift"  node --test dev/target-drift-check.mjs
+run "map-upgrade"   node --test dev/map-upgrade-check.mjs
+run "node-alias"    node --test dev/node-alias-check.mjs
+run "first-run"     node --test dev/first-run-check.mjs
+run "lesson"        node --test dev/lesson-check.mjs
 run "VP-race"       node --test dev/vp-race-check.mjs
 run "storage"       node --test dev/storage-check.mjs
 run "migration"     node --test dev/workspace-migration-check.mjs

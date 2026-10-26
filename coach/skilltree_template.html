@@ -146,6 +146,7 @@ body[data-filters="closed"] .stage{margin-left:32px}
 .today-card button{margin-top:9px;padding:7px 13px;border:0;border-radius:var(--radius-pill);background:var(--brand-fill);color:#fff;font:inherit;font-size:12px;font-weight:600}
 .today-card button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .today-card .today-feedback{color:var(--wa-text);min-height:0}
+.today-card .today-warn{color:var(--wa-text);font-size:12px;line-height:1.5;margin:4px 0 0}
 /* 面板里的知识点名是可以复制的，别一起禁了 */
 .panel, .panel *{user-select:text; -webkit-user-select:text}
 #cv{display:block;transform-origin:0 0;will-change:transform}
@@ -653,6 +654,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <button class="icon-btn" id="schedNext" title="窗口往后挪 3 天" data-ico="fwd"></button>
   </div>
   <p class="schedhelp">拖选一段时间，告诉小鲸你有什么安排；已有计划可在时间轴上查看。</p>
+  <p class="schedhelp" id="classWindowSummary">固定上课时段：未设置。告诉小鲸上课时间即可保存。</p>
   <div class="card" tabindex="0" role="region" aria-label="10 天日程，可横向滚动"><div class="sgrid" id="schedGrid"></div></div>
   <div class="legend2">
     <span><i class="busy"></i>有事（拖一段标出来）</span>
@@ -815,11 +817,13 @@ function renderToday(log) {
   const title = action?.deliverable || (exam ? `完成「${byId(exam.node)?.name || exam.node}」检测` : "请小鲸确定今天的训练");
   const reason = action?.why || (exam ? "已有检测卷待提交结果，先收口再开新课。" : phase.outcome ? `当前阶段目标：${phase.outcome}。让小鲸据此拍板下一步。` : "让小鲸核对目标和最近表现后拍板下一步。");
   const minutes = Number(action?.totalMinutes || exam?.totalMinutes || 0);
+  const targetNote = ["stale", "missing"].includes(log?.curriculum?.target?.state) ? log.curriculum.target.note : "";
   const label = action ? (older ? `历史待确认 · ${action.at}` : "待继续") : exam ? "检测待完成" : "待安排";
   const otherCurrent = phase.id ? actions.filter(([, item]) => item?.curriculum?.phaseId === phase.id).length - Number(Boolean(action)) : actions.length - Number(Boolean(action));
   const otherOld = phase.id ? actions.length - otherCurrent - Number(Boolean(action)) : 0;
   const otherLabels = [otherCurrent ? `另有 ${otherCurrent} 件待确认` : "", otherOld ? `旧阶段 ${otherOld} 件待确认` : ""].filter(Boolean).join(" · ");
-  card.innerHTML = `<div class="eyebrow">今天这一件 · ${esc(label)}</div><h2>${esc(title)}</h2><p>${esc(reason)}</p>` +
+  card.innerHTML = `<div class="eyebrow">今天这一件 · ${esc(label)}</div>` +
+    (targetNote ? `<p class="today-warn">⚠ ${esc(targetNote)}</p>` : "") + `<h2>${esc(title)}</h2><p>${esc(reason)}</p>` +
     `<div class="today-meta">${action ? esc(byId(key)?.name || key) + " · " : ""}${minutes ? `${minutes} 分钟` : "时长待小鲸确定"}${otherLabels ? ` · ${otherLabels}` : ""}</div>` +
     `<button id="todayCoach" type="button">${action || exam ? "继续和小鲸聊" : "让小鲸安排今天"} →</button><p id="todayFeedback" class="today-feedback" role="status"></p>`;
   $("#todayCoach").onclick = () => {
@@ -1559,6 +1563,11 @@ function renderMd(value) {
 }
 
 function renderSched() {
+  const w = sched.classWindow;
+  const weekday = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  $("#classWindowSummary").textContent = w
+    ? `固定上课时段：${w.weekdays.map(day => weekday[day]).join("、")} ${w.from}–${w.to}。时段外以练习或原定休息为主。`
+    : "固定上课时段：未设置。告诉小鲸上课时间即可保存。";
   const start = schedStart(), today = ymdToday();
   const days = [];
   for (let i = 0; i < WINDOW_DAYS; i++) {
@@ -1826,7 +1835,7 @@ async function loadSchedule() {
     const r = await fetch("./api/schedule");
     const j = await r.json();
     if (!j.ok) throw new Error(j.reject || "读日程失败");
-    sched = { days: j.days || {} };
+    sched = { days: j.days || {}, classWindow: j.classWindow || null };
   } catch (e) {
     // 读不到就明说，别退回"全空"装作没事 —— 那看着像"你没标过"
     setNote(`<b>日程读不到</b>：${e.message}`, true);
@@ -1848,9 +1857,10 @@ function renderTrainingLog() {
   if (!trainingLog) return;
   const totals = trainingLog.totals || {};
   $("#logSpan").textContent = `${trainingLog.from} ～ ${trainingLog.to}`;
-  const hours = (Number(totals.actualMinutes || 0) / 60).toFixed(1);
+  // 「已记录」不是「实际投入」：没填分钟的练习、讲课、检测都不在这里。
+  const recorded = totals.recorded || { text: "—" };
   $("#logSummary").innerHTML = [
-    [hours + " h", "实际训练时长"],
+    [recorded.text, "已记录的训练分钟"],
     [String(totals.loggedDays || 0), "有实际记录的天数"],
     [String(totals.activeDays || 0), "有活动的天数"],
     [((Number(totals.plannedMinutes || 0) / 60).toFixed(1)) + " h", "计划投入"],

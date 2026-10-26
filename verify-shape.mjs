@@ -197,8 +197,6 @@ const cases = [
   ['coach_vp_replay', { contestId: 1 }],
   ['coach_postmortem', { eventId: 'shape-vp', competencies: ['contest-reading'], rootCauses: ['测试复盘'], nextActions: ['测试动作'] }],
   ['coach_focus', {}],
-  ['coach_scope', { id: 'contest-reading' }],
-  ['coach_scope', { id: '不存在的能力' }],
   // 无课程的读取 / 无课程的推进拒绝，不建立课程以免改变后续旧工具夹具。
   ['coach_curriculum', { action: 'read' }],
   ['coach_curriculum', { action: 'assess' }],
@@ -222,6 +220,10 @@ const cases = [
   ['coach_next', { cursor: '并不存在' }],              // 打错字
   ['coach_next', {}],                                  // 游标空 → 读夹具
   ['coach_status', {}],
+  ['coach_lesson#status', { action: 'status' }],
+  ['coach_lesson#start', { action: 'start', node: 'A' }],
+  ['coach_lesson#advance-rejected', { action: 'advance' }],
+  ['coach_lesson#end-rejected', { action: 'end' }],
   ['coach_note#read', { action: 'read', node: 'B' }],
   ['coach_note#write', { action: 'write', node: 'B', summary: '已说明状态需要保留哪些历史；还没收到学生回应。', nextStep: '接着核对能否区分两段未来不同的历史。' }],
   ['coach_note#read-saved', { action: 'read', node: 'B', limit: 5 }],

@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/NODE_SCOPES.yaml', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
@@ -3023,7 +3023,14 @@ const enter = (extra = {}) => async () => ({
 })
 const textOf32 = (d) => d.messages.at(-1)?.content?.[0]?.text ?? ''
 
-// ① 没有游标的空进度 —— 不该注入（空状态块只是白烧 token）
+// ① 首次使用（连 PROGRESS.yaml 都还没有）—— 给一条可执行入口，不猜水平
+const d_first = await pre32({ messages: [], step: 1 }, enter())
+check('首次使用给唯一下一步（先体检，别先讲知识点）',
+  d_first.messages.length === 2 && /coach_setup status/.test(textOf32(d_first)),
+  `${d_first.messages.length} 条：${textOf32(d_first).slice(0, 40)}`)
+
+// ①′ 账本存在但还是空的 —— 不该注入（空状态块只是白烧 token）
+writeFileSync(path.join(tmp32, 'PROGRESS.yaml'), 'version: 1\ncursor: ""\nnodes: {}\n')
 const d_empty = await pre32({ messages: [], step: 1 }, enter())
 check('空进度不注入（三样都没有就闭嘴，别白烧 token）',
   d_empty.messages.length === 1, `${d_empty.messages.length} 条`)

@@ -10,6 +10,7 @@
 #   parent   分类归属，**只用于分组显示，不是前置**。
 #            「树上问题」是抽屉不是知识点 —— 它不参与任何依赖计算。
 #   tier     这个知识点重不重要：core/normal/rare/skip。
+#   role     integrated = 随具体题型教学和验收，不单独开章节卷；缺省 = 可独立考核。
 #            来自 knowledge/NODE_META.yaml（人手维护），本文件只做合并。
 #   entry    题池的 p25，≈「什么水平开始学得起」。**只有有题池的节点才有**。
 #            来自 knowledge/NODE_ENTRY.yaml（机器算，跑 build-node-meta.mjs）。
@@ -62,12 +63,14 @@ nodes:
     domain: 动态规划
     depends: [动态规划基础]
     tier: normal
+    role: integrated
 
   - id: 其它 DP 方法
     name: 其它 DP 方法
     domain: 动态规划
     depends: [动态规划基础]
     tier: rare
+    role: integrated
 
   - id: 动态 DP
     name: 动态 DP
@@ -82,6 +85,7 @@ nodes:
     domain: 动态规划
     depends: [递归 & 分治, 枚举]
     tier: core
+    role: integrated
 
   - id: 区间 DP
     name: 区间 DP
@@ -147,7 +151,7 @@ nodes:
     depends: [递归 & 分治]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 209        # entry 是拿这么多道题算出来的
+    pool: 214        # entry 是拿这么多道题算出来的
 
   - id: 单调队列/单调栈优化
     name: 单调队列/单调栈优化
@@ -185,20 +189,24 @@ nodes:
     domain: 图论
     depends: [强连通分量]
     tier: normal
-    entry: 2300      # 题池 p25（≈入门段位），机器算
-    pool: 25        # entry 是拿这么多道题算出来的
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 27        # entry 是拿这么多道题算出来的
 
   - id: BFS（图论）
     name: BFS（图论）
     domain: 图论
     depends: [图的存储, 队列]
     tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 729        # entry 是拿这么多道题算出来的
 
   - id: DFS（图论）
     name: DFS（图论）
     domain: 图论
     depends: [图的存储, 递归 & 分治]
     tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 1022        # entry 是拿这么多道题算出来的
 
   - id: LGV 引理
     name: LGV 引理
@@ -234,7 +242,7 @@ nodes:
     depends: [图的存储]
     tier: core
     entry: 1700      # 题池 p25（≈入门段位），机器算
-    pool: 230        # entry 是拿这么多道题算出来的
+    pool: 245        # entry 是拿这么多道题算出来的
 
   - id: 同余最短路
     name: 同余最短路
@@ -265,6 +273,7 @@ nodes:
     domain: 图论
     depends: [图论相关概念]
     tier: core
+    role: integrated
 
   - id: 图的着色
     name: 图的着色
@@ -277,6 +286,7 @@ nodes:
     domain: 图论
     depends: []
     tier: core
+    role: integrated
 
   - id: 差分约束
     name: 差分约束
@@ -312,7 +322,7 @@ nodes:
     depends: [有向无环图]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 221        # entry 是拿这么多道题算出来的
+    pool: 235        # entry 是拿这么多道题算出来的
 
   - id: 支配树
     name: 支配树
@@ -349,6 +359,8 @@ nodes:
     domain: 图论
     depends: [并查集, 排序]
     tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 273        # entry 是拿这么多道题算出来的
 
   - id: 最小直径生成树
     name: 最小直径生成树
@@ -362,13 +374,15 @@ nodes:
     depends: [二叉堆, BFS（图论）]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 748        # entry 是拿这么多道题算出来的
+    pool: 780        # entry 是拿这么多道题算出来的
 
   - id: 有向无环图
     name: 有向无环图
     domain: 图论
     depends: [图的存储]
     tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 235        # entry 是拿这么多道题算出来的
 
   - id: 树上问题
     name: 树上问题
@@ -409,6 +423,7 @@ nodes:
     domain: 图论
     depends: [图的存储]
     tier: core
+    role: integrated
 
   - id: 一般图最大匹配
     name: 一般图最大匹配
@@ -445,7 +460,7 @@ nodes:
     depends: [图的匹配]
     tier: rare
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 80        # entry 是拿这么多道题算出来的
+    pool: 82        # entry 是拿这么多道题算出来的
 
   - id: 增广路
     name: 增广路
@@ -475,7 +490,7 @@ nodes:
     depends: [倍增, DFS（图论）]
     tier: core
     entry: 1700      # 题池 p25（≈入门段位），机器算
-    pool: 265        # entry 是拿这么多道题算出来的
+    pool: 285        # entry 是拿这么多道题算出来的
 
   - id: 树上启发式合并
     name: 树上启发式合并
@@ -500,7 +515,7 @@ nodes:
     depends: [DFS（图论）]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 25        # entry 是拿这么多道题算出来的
+    pool: 29        # entry 是拿这么多道题算出来的
 
   - id: 树哈希
     name: 树哈希
@@ -515,6 +530,7 @@ nodes:
     parent: 树上问题
     depends: [图的存储]
     tier: core
+    role: integrated
 
   - id: 树的直径
     name: 树的直径
@@ -541,7 +557,7 @@ nodes:
     depends: [DFS（图论）, 线段树]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 273        # entry 是拿这么多道题算出来的
+    pool: 283        # entry 是拿这么多道题算出来的
 
   - id: 虚树
     name: 虚树
@@ -550,7 +566,7 @@ nodes:
     depends: [最近公共祖先]
     tier: normal
     entry: 2600      # 题池 p25（≈入门段位），机器算
-    pool: 47        # entry 是拿这么多道题算出来的
+    pool: 50        # entry 是拿这么多道题算出来的
 
   - id: 上下界网络流
     name: 上下界网络流
@@ -574,8 +590,8 @@ nodes:
     parent: 网络流
     depends: [网络流]
     tier: normal
-    entry: 2600      # 题池 p25（≈入门段位），机器算
-    pool: 61        # entry 是拿这么多道题算出来的
+    entry: 2300      # 题池 p25（≈入门段位），机器算
+    pool: 73        # entry 是拿这么多道题算出来的
 
   - id: 费用流
     name: 费用流
@@ -584,7 +600,7 @@ nodes:
     depends: [网络流]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 111        # entry 是拿这么多道题算出来的
+    pool: 119        # entry 是拿这么多道题算出来的
 
   - id: 割点和桥
     name: 割点和桥
@@ -592,6 +608,8 @@ nodes:
     parent: 连通性相关
     depends: [连通性相关, DFS（图论）]
     tier: core
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 48        # entry 是拿这么多道题算出来的
 
   - id: 双连通分量
     name: 双连通分量
@@ -673,6 +691,8 @@ nodes:
     domain: 字符串
     depends: [字符串匹配]
     tier: core
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 60        # entry 是拿这么多道题算出来的
 
   - id: 后缀平衡树
     name: 后缀平衡树
@@ -721,12 +741,15 @@ nodes:
     domain: 字符串
     depends: [字符串基础]
     tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 70        # entry 是拿这么多道题算出来的
 
   - id: 字符串基础
     name: 字符串基础
     domain: 字符串
     depends: []
     tier: core
+    role: integrated
 
   - id: 广义后缀自动机
     name: 广义后缀自动机
@@ -758,7 +781,7 @@ nodes:
     depends: [字符串基础]
     tier: skip
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 233        # entry 是拿这么多道题算出来的
+    pool: 242        # entry 是拿这么多道题算出来的
 
   - id: 最优原地后缀排序算法
     name: 最优原地后缀排序算法
@@ -787,12 +810,16 @@ nodes:
     domain: 搜索
     depends: [队列]
     tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 630        # entry 是拿这么多道题算出来的
 
   - id: DFS（搜索）
     name: DFS（搜索）
     domain: 搜索
     depends: [递归 & 分治]
     tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 948        # entry 是拿这么多道题算出来的
 
   - id: Dancing Links
     name: Dancing Links
@@ -814,7 +841,7 @@ nodes:
     depends: [DFS（搜索）]
     tier: skip
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 4599        # entry 是拿这么多道题算出来的
+    pool: 4619        # entry 是拿这么多道题算出来的
 
   - id: 双向搜索
     name: 双向搜索
@@ -866,8 +893,8 @@ nodes:
     domain: 数学
     depends: []
     tier: core
-    entry: 1500      # 题池 p25（≈入门段位），机器算
-    pool: 504        # entry 是拿这么多道题算出来的
+    entry: 1300      # 题池 p25（≈入门段位），机器算
+    pool: 572        # entry 是拿这么多道题算出来的
 
   - id: 傅里叶-莫茨金消元法
     name: 傅里叶-莫茨金消元法
@@ -881,7 +908,7 @@ nodes:
     depends: []
     tier: normal
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 417        # entry 是拿这么多道题算出来的
+    pool: 441        # entry 是拿这么多道题算出来的
 
   - id: 复数
     name: 复数
@@ -919,7 +946,7 @@ nodes:
     depends: [倍增]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 350        # entry 是拿这么多道题算出来的
+    pool: 389        # entry 是拿这么多道题算出来的
 
   - id: 数值算法
     name: 数值算法
@@ -933,7 +960,7 @@ nodes:
     depends: [数论基础]
     tier: normal
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 1130        # entry 是拿这么多道题算出来的
+    pool: 1150        # entry 是拿这么多道题算出来的
 
   - id: 杨氏矩阵
     name: 杨氏矩阵
@@ -961,7 +988,7 @@ nodes:
     depends: []
     tier: rare
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 267        # entry 是拿这么多道题算出来的
+    pool: 275        # entry 是拿这么多道题算出来的
 
   - id: 线性规划
     name: 线性规划
@@ -977,7 +1004,7 @@ nodes:
     depends: []
     tier: normal
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 1021        # entry 是拿这么多道题算出来的
+    pool: 1091        # entry 是拿这么多道题算出来的
 
   - id: 置换和排列
     name: 置换和排列
@@ -1082,7 +1109,7 @@ nodes:
     depends: [复数]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 196        # entry 是拿这么多道题算出来的
+    pool: 206        # entry 是拿这么多道题算出来的
 
   - id: 快速数论变换
     name: 快速数论变换
@@ -1091,7 +1118,7 @@ nodes:
     depends: [快速傅里叶变换, 原根]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 215        # entry 是拿这么多道题算出来的
+    pool: 225        # entry 是拿这么多道题算出来的
 
   - id: 快速沃尔什变换
     name: 快速沃尔什变换
@@ -1100,7 +1127,7 @@ nodes:
     depends: [快速傅里叶变换, 位运算]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 116        # entry 是拿这么多道题算出来的
+    pool: 118        # entry 是拿这么多道题算出来的
 
   - id: 指数生成函数
     name: 指数生成函数
@@ -1137,7 +1164,7 @@ nodes:
     depends: [多项式与生成函数]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 10        # entry 是拿这么多道题算出来的
+    pool: 11        # entry 是拿这么多道题算出来的
 
   - id: 数值积分
     name: 数值积分
@@ -1160,7 +1187,7 @@ nodes:
     depends: [矩阵]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 107        # entry 是拿这么多道题算出来的
+    pool: 110        # entry 是拿这么多道题算出来的
 
   - id: Meissel–Lehmer 算法
     name: Meissel–Lehmer 算法
@@ -1204,7 +1231,7 @@ nodes:
     depends: [线性同余方程]
     tier: normal
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 14        # entry 是拿这么多道题算出来的
+    pool: 16        # entry 是拿这么多道题算出来的
 
   - id: 乘法逆元
     name: 乘法逆元
@@ -1212,6 +1239,8 @@ nodes:
     parent: 数论
     depends: [欧拉定理 & 费马小定理, 线性同余方程]
     tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 240        # entry 是拿这么多道题算出来的
 
   - id: 二次剩余
     name: 二次剩余
@@ -1219,8 +1248,8 @@ nodes:
     parent: 数论
     depends: [乘法逆元]
     tier: rare
-    entry: 2600      # 题池 p25（≈入门段位），机器算
-    pool: 8        # entry 是拿这么多道题算出来的
+    entry: 2000      # 题池 p25（≈入门段位），机器算
+    pool: 9        # entry 是拿这么多道题算出来的
 
   - id: 二次域
     name: 二次域
@@ -1243,7 +1272,7 @@ nodes:
     depends: [同余方程]
     tier: rare
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 57        # entry 是拿这么多道题算出来的
+    pool: 60        # entry 是拿这么多道题算出来的
 
   - id: 升幂引理
     name: 升幂引理
@@ -1304,6 +1333,7 @@ nodes:
     parent: 数论
     depends: []
     tier: core
+    role: integrated
 
   - id: 最大公约数
     name: 最大公约数
@@ -1321,7 +1351,7 @@ nodes:
     depends: [莫比乌斯反演, 数论分块]
     tier: rare
     entry: 2600      # 题池 p25（≈入门段位），机器算
-    pool: 17        # entry 是拿这么多道题算出来的
+    pool: 18        # entry 是拿这么多道题算出来的
 
   - id: 欧拉函数
     name: 欧拉函数
@@ -1330,7 +1360,7 @@ nodes:
     depends: [分解质因数, 同余方程]
     tier: core
     entry: 1700      # 题池 p25（≈入门段位），机器算
-    pool: 70        # entry 是拿这么多道题算出来的
+    pool: 76        # entry 是拿这么多道题算出来的
 
   - id: 欧拉定理 & 费马小定理
     name: 欧拉定理 & 费马小定理
@@ -1338,6 +1368,7 @@ nodes:
     parent: 数论
     depends: [欧拉函数]
     tier: core
+    role: integrated
 
   - id: 洲阁筛
     name: 洲阁筛
@@ -1360,7 +1391,7 @@ nodes:
     depends: [素数]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 116        # entry 是拿这么多道题算出来的
+    pool: 133        # entry 是拿这么多道题算出来的
 
   - id: 类欧几里德算法
     name: 类欧几里德算法
@@ -1392,7 +1423,7 @@ nodes:
     depends: [容斥原理, 欧拉函数]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 131        # entry 是拿这么多道题算出来的
+    pool: 136        # entry 是拿这么多道题算出来的
 
   - id: 裴蜀定理
     name: 裴蜀定理
@@ -1400,6 +1431,7 @@ nodes:
     parent: 数论
     depends: [最大公约数]
     tier: core
+    role: integrated
 
   - id: 连分数
     name: 连分数
@@ -1494,7 +1526,7 @@ nodes:
     depends: [线性代数]
     tier: core
     entry: 1700      # 题池 p25（≈入门段位），机器算
-    pool: 333        # entry 是拿这么多道题算出来的
+    pool: 347        # entry 是拿这么多道题算出来的
 
   - id: 线性基
     name: 线性基
@@ -1503,7 +1535,7 @@ nodes:
     depends: [位运算]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 79        # entry 是拿这么多道题算出来的
+    pool: 84        # entry 是拿这么多道题算出来的
 
   - id: 线性映射
     name: 线性映射
@@ -1611,7 +1643,7 @@ nodes:
     depends: [组合数学]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 249        # entry 是拿这么多道题算出来的
+    pool: 250        # entry 是拿这么多道题算出来的
 
   - id: 斐波那契数列
     name: 斐波那契数列
@@ -1656,8 +1688,8 @@ nodes:
     parent: 群论
     depends: [置换和排列]
     tier: rare
-    entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 13        # entry 是拿这么多道题算出来的
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 24        # entry 是拿这么多道题算出来的
 
   # ── 数据结构 ──
   - id: K-D Tree
@@ -1700,7 +1732,7 @@ nodes:
     depends: [Splay 树]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 113        # entry 是拿这么多道题算出来的
+    pool: 116        # entry 是拿这么多道题算出来的
 
   - id: 区间最值操作 & 区间历史最值
     name: 区间最值操作 & 区间历史最值
@@ -1729,8 +1761,8 @@ nodes:
     domain: 数据结构
     depends: [线段树]
     tier: normal
-    entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 36        # entry 是拿这么多道题算出来的
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 45        # entry 是拿这么多道题算出来的
 
   - id: 哈希表
     name: 哈希表
@@ -1760,7 +1792,7 @@ nodes:
     depends: []
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 640        # entry 是拿这么多道题算出来的
+    pool: 683        # entry 是拿这么多道题算出来的
 
   - id: 手指树
     name: 手指树
@@ -1773,8 +1805,8 @@ nodes:
     domain: 数据结构
     depends: [线段树]
     tier: normal
-    entry: 2600      # 题池 p25（≈入门段位），机器算
-    pool: 38        # entry 是拿这么多道题算出来的
+    entry: 2400      # 题池 p25（≈入门段位），机器算
+    pool: 40        # entry 是拿这么多道题算出来的
 
   - id: 析合树
     name: 析合树
@@ -1788,7 +1820,7 @@ nodes:
     depends: []
     tier: core
     entry: 1500      # 题池 p25（≈入门段位），机器算
-    pool: 290        # entry 是拿这么多道题算出来的
+    pool: 299        # entry 是拿这么多道题算出来的
 
   - id: 树套树
     name: 树套树
@@ -1804,7 +1836,7 @@ nodes:
     depends: [前缀和 & 差分, 倍增]
     tier: core
     entry: 1700      # 题池 p25（≈入门段位），机器算
-    pool: 667        # entry 是拿这么多道题算出来的
+    pool: 697        # entry 是拿这么多道题算出来的
 
   - id: 线段树
     name: 线段树
@@ -1812,7 +1844,7 @@ nodes:
     depends: [递归 & 分治]
     tier: core
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 1563        # entry 是拿这么多道题算出来的
+    pool: 1626        # entry 是拿这么多道题算出来的
 
   - id: 跳表
     name: 跳表
@@ -1825,16 +1857,18 @@ nodes:
     domain: 数据结构
     depends: []
     tier: core
+    role: integrated
     entry: 1500      # 题池 p25（≈入门段位），机器算
-    pool: 76        # entry 是拿这么多道题算出来的
+    pool: 81        # entry 是拿这么多道题算出来的
 
   - id: 队列
     name: 队列
     domain: 数据结构
     depends: []
     tier: core
+    role: integrated
     entry: 1500      # 题池 p25（≈入门段位），机器算
-    pool: 290        # entry 是拿这么多道题算出来的
+    pool: 298        # entry 是拿这么多道题算出来的
 
   - id: 霍夫曼树
     name: 霍夫曼树
@@ -1932,8 +1966,8 @@ nodes:
     parent: 二叉搜索树 & 平衡树
     depends: [二叉搜索树 & 平衡树, 单调栈]
     tier: rare
-    entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 44        # entry 是拿这么多道题算出来的
+    entry: 1700      # 题池 p25（≈入门段位），机器算
+    pool: 46        # entry 是拿这么多道题算出来的
 
   - id: 红黑树
     name: 红黑树
@@ -1998,7 +2032,7 @@ nodes:
     depends: [线段树]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 140        # entry 是拿这么多道题算出来的
+    pool: 142        # entry 是拿这么多道题算出来的
 
   - id: Sqrt Tree
     name: Sqrt Tree
@@ -2013,6 +2047,7 @@ nodes:
     parent: 块状数据结构
     depends: [前缀和 & 差分]
     tier: normal
+    role: integrated
 
   - id: 块状数组
     name: 块状数组
@@ -2041,6 +2076,7 @@ nodes:
     parent: 堆
     depends: [堆]
     tier: core
+    role: integrated
 
   - id: 左偏树
     name: 左偏树
@@ -2048,6 +2084,8 @@ nodes:
     parent: 堆
     depends: [二叉堆]
     tier: rare
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 9        # entry 是拿这么多道题算出来的
 
   - id: 配对堆
     name: 配对堆
@@ -2174,14 +2212,16 @@ nodes:
     domain: 杂项
     depends: [排序]
     tier: core
+    role: integrated
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 277        # entry 是拿这么多道题算出来的
+    pool: 290        # entry 是拿这么多道题算出来的
 
   - id: 离线算法
     name: 离线算法
     domain: 杂项
     depends: [排序]
     tier: normal
+    role: integrated
 
   - id: 约瑟夫问题
     name: 约瑟夫问题
@@ -2223,7 +2263,7 @@ nodes:
     depends: [二分]
     tier: normal
     entry: 2300      # 题池 p25（≈入门段位），机器算
-    pool: 44        # entry 是拿这么多道题算出来的
+    pool: 46        # entry 是拿这么多道题算出来的
 
   - id: 莫队算法
     name: 莫队算法
@@ -2261,6 +2301,7 @@ nodes:
     parent: 随机化
     depends: [随机化]
     tier: normal
+    role: integrated
 
   # ── 算法基础 ──
   - id: 二分
@@ -2269,7 +2310,7 @@ nodes:
     depends: [排序, 复杂度]
     tier: core
     entry: 1600      # 题池 p25（≈入门段位），机器算
-    pool: 1470        # entry 是拿这么多道题算出来的
+    pool: 1536        # entry 是拿这么多道题算出来的
 
   - id: 倍增
     name: 倍增
@@ -2277,19 +2318,22 @@ nodes:
     depends: [二分]
     tier: core
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 285        # entry 是拿这么多道题算出来的
+    pool: 296        # entry 是拿这么多道题算出来的
 
   - id: 前缀和 & 差分
     name: 前缀和 & 差分
     domain: 算法基础
     depends: [枚举]
     tier: core
+    entry: 1500      # 题池 p25（≈入门段位），机器算
+    pool: 1441        # entry 是拿这么多道题算出来的
 
   - id: 复杂度
     name: 复杂度
     domain: 算法基础
     depends: []
     tier: core
+    role: integrated
 
   - id: 排序
     name: 排序
@@ -2297,7 +2341,7 @@ nodes:
     depends: []
     tier: core
     entry: 1200      # 题池 p25（≈入门段位），机器算
-    pool: 1160        # entry 是拿这么多道题算出来的
+    pool: 1218        # entry 是拿这么多道题算出来的
 
   - id: 构造
     name: 构造
@@ -2305,7 +2349,7 @@ nodes:
     depends: [枚举]
     tier: core
     entry: 1500      # 题池 p25（≈入门段位），机器算
-    pool: 972        # entry 是拿这么多道题算出来的
+    pool: 1111        # entry 是拿这么多道题算出来的
 
   - id: 枚举
     name: 枚举
@@ -2313,7 +2357,7 @@ nodes:
     depends: []
     tier: core
     entry: 1200      # 题池 p25（≈入门段位），机器算
-    pool: 2952        # entry 是拿这么多道题算出来的
+    pool: 3061        # entry 是拿这么多道题算出来的
 
   - id: 模拟
     name: 模拟
@@ -2321,7 +2365,7 @@ nodes:
     depends: []
     tier: core
     entry: 800      # 题池 p25（≈入门段位），机器算
-    pool: 2791        # entry 是拿这么多道题算出来的
+    pool: 2869        # entry 是拿这么多道题算出来的
 
   - id: 贪心
     name: 贪心
@@ -2329,13 +2373,15 @@ nodes:
     depends: [排序]
     tier: core
     entry: 1300      # 题池 p25（≈入门段位），机器算
-    pool: 2852        # entry 是拿这么多道题算出来的
+    pool: 3035        # entry 是拿这么多道题算出来的
 
   - id: 递归 & 分治
     name: 递归 & 分治
     domain: 算法基础
     depends: []
     tier: core
+    entry: 1600      # 题池 p25（≈入门段位），机器算
+    pool: 1266        # entry 是拿这么多道题算出来的
 
   - id: tim排序
     name: tim排序
@@ -2399,6 +2445,7 @@ nodes:
     parent: 排序
     depends: [排序]
     tier: core
+    role: integrated
 
   - id: 插入排序
     name: 插入排序
@@ -2459,6 +2506,7 @@ nodes:
     domain: 计算几何
     depends: [向量, 弧度制与坐标系]
     tier: normal
+    role: integrated
 
   - id: 凸包
     name: 凸包
@@ -2466,7 +2514,7 @@ nodes:
     depends: [二维计算几何基础]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 152        # entry 是拿这么多道题算出来的
+    pool: 158        # entry 是拿这么多道题算出来的
 
   - id: 半平面交
     name: 半平面交
@@ -2474,7 +2522,7 @@ nodes:
     depends: [二维计算几何基础]
     tier: rare
     entry: 2400      # 题池 p25（≈入门段位），机器算
-    pool: 27        # entry 是拿这么多道题算出来的
+    pool: 28        # entry 是拿这么多道题算出来的
 
   - id: 反演变换
     name: 反演变换
@@ -2494,7 +2542,7 @@ nodes:
     depends: [二维计算几何基础]
     tier: normal
     entry: 2000      # 题池 p25（≈入门段位），机器算
-    pool: 264        # entry 是拿这么多道题算出来的
+    pool: 281        # entry 是拿这么多道题算出来的
 
   - id: 旋转卡壳
     name: 旋转卡壳

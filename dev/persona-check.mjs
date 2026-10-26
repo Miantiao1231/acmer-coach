@@ -145,7 +145,11 @@ test('persona is read once into static sections, never messages or training ledg
   const f = await fixture(t)
   fs.writeFileSync(join(f.dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: [{id: fixture-node, name: 测试节点}]\n')
   fs.writeFileSync(join(f.dir, 'PROGRESS.yaml'), 'version: 1\ncursor: fixture-node\nnodes: {}\npending: null\n')
-  const snapshot = () => fs.readdirSync(f.dir).sort().map(name => [name, fs.readFileSync(join(f.dir, name), 'utf8')])
+  // 只盯训练账本：这条测的是「人设加载不许写账本 / 消息」，
+  // 随包地图升级会写自己的报告文件，那不是账本，由 map-upgrade-check 单独覆盖。
+  const LEDGERS = ['MAP.yaml', 'PROGRESS.yaml', 'SCHEDULE.yaml', 'CURRICULUM.yaml', 'TARGET.yaml', 'VP_EVENTS.yaml']
+  const snapshot = () => LEDGERS.filter(name => fs.existsSync(join(f.dir, name)))
+    .map(name => [name, fs.readFileSync(join(f.dir, name), 'utf8')])
   const before = snapshot()
   const reads = []
   const restore = denyReads(t, path => {

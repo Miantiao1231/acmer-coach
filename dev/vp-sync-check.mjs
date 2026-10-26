@@ -65,17 +65,20 @@ async function fixture(run) {
 
 function json(value) { return { ok: true, json: async () => value } }
 
-test('public VP sync exposes two-page continuation and distinguishes page rows from cumulative cache', async () => {
+test('public VP sync exposes two-page continuation and distinguishes page rows from cumulative totals', async () => {
   await fixture(async ({ call, calls, mode }) => {
     const first = await call('coach_vp_sync')
     assert.equal(first.ok, true, first.reject)
     assert.equal(first.hasMore, true)
     assert.deepEqual(first.pageCounts, { submissions: 1, events: 0, contests: 1 })
+    assert.deepEqual(first.totals, { contests: 1, submissions: 1, events: 0 })
+    assert.equal(first.summary.length, 1, '只给比赛级摘要，不把累计提交塞给模型')
     const second = await call('coach_vp_sync')
     assert.equal(second.ok, true, second.reject)
     assert.equal(second.hasMore, false)
     assert.deepEqual(second.pageCounts, { submissions: 1, events: 0, contests: 1 })
-    assert.equal(second.submissions.length, 2)
+    assert.deepEqual(second.totals, { contests: 1, submissions: 2, events: 0 })
+    assert.equal(second.summary[0].solved, 1)
     assert.deepEqual(calls, [0, 1])
     assert.equal(second.nextCursor.submission_id, 2)
     assert.match(second.text, /缓存累计/)
@@ -83,7 +86,7 @@ test('public VP sync exposes two-page continuation and distinguishes page rows f
     mode('duplicate')
     const repeated = await call('coach_vp_sync')
     assert.equal(repeated.ok, true, repeated.reject)
-    assert.equal(repeated.submissions.length, 2)
+    assert.deepEqual(repeated.totals, { contests: 1, submissions: 2, events: 0 })
     assert.deepEqual(repeated.pageCounts, { submissions: 1, events: 0, contests: 1 })
     assert.match(repeated.text, /缓存累计/)
     assert.doesNotMatch(repeated.text, /新增训练证据/)

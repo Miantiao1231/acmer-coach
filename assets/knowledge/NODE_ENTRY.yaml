@@ -53,16 +53,24 @@ nodes:
     median: 1700
   记忆化搜索:
     entry: 1600
-    pool: 209
+    pool: 214
     median: 1700
   斜率优化:
     entry: 2300
     pool: 58
     median: 2600
   2-SAT:
-    entry: 2300
-    pool: 25
+    entry: 2000
+    pool: 27
     median: 2600
+  BFS（图论）:
+    entry: 1500
+    pool: 729
+    median: 1600
+  DFS（图论）:
+    entry: 1500
+    pool: 1022
+    median: 1600
   LGV 引理:
     entry: 2600
     pool: 8
@@ -73,7 +81,7 @@ nodes:
     median: 2600
   二分图:
     entry: 1700
-    pool: 230
+    pool: 245
     median: 2000
   差分约束:
     entry: 1700
@@ -85,11 +93,19 @@ nodes:
     median: 2600
   拓扑排序:
     entry: 1600
-    pool: 221
+    pool: 235
     median: 1700
+  最小生成树:
+    entry: 1600
+    pool: 273
+    median: 2000
   最短路:
     entry: 1600
-    pool: 748
+    pool: 780
+    median: 1700
+  有向无环图:
+    entry: 1600
+    pool: 235
     median: 1700
   矩阵树定理:
     entry: 2600
@@ -101,11 +117,11 @@ nodes:
     median: 2400
   图匹配:
     entry: 1600
-    pool: 80
+    pool: 82
     median: 2000
   最近公共祖先:
     entry: 1700
-    pool: 265
+    pool: 285
     median: 2000
   树上启发式合并:
     entry: 2000
@@ -113,7 +129,7 @@ nodes:
     median: 2600
   树分治:
     entry: 2000
-    pool: 25
+    pool: 29
     median: 2400
   树的直径:
     entry: 1700
@@ -125,23 +141,27 @@ nodes:
     median: 2600
   树链剖分:
     entry: 2000
-    pool: 273
+    pool: 283
     median: 2400
   虚树:
     entry: 2600
-    pool: 47
+    pool: 50
     median: 2600
   上下界网络流:
     entry: 2600
     pool: 13
     median: 2600
   最小割:
-    entry: 2600
-    pool: 61
+    entry: 2300
+    pool: 73
     median: 2600
   费用流:
     entry: 2000
-    pool: 111
+    pool: 119
+    median: 2400
+  割点和桥:
+    entry: 2000
+    pool: 48
     median: 2600
   双连通分量:
     entry: 2000
@@ -163,41 +183,57 @@ nodes:
     entry: 1600
     pool: 21
     median: 2400
+  前缀函数与 KMP 算法:
+    entry: 1700
+    pool: 60
+    median: 2000
+  字符串哈希:
+    entry: 1600
+    pool: 70
+    median: 2000
   自动机:
     entry: 2000
-    pool: 233
+    pool: 242
     median: 2400
   A*:
     entry: 1700
     pool: 22
     median: 2000
+  BFS（搜索）:
+    entry: 1500
+    pool: 630
+    median: 1600
+  DFS（搜索）:
+    entry: 1500
+    pool: 948
+    median: 1600
   IDA*:
     entry: 2000
     pool: 10
     median: 2000
   优化:
     entry: 1600
-    pool: 4599
+    pool: 4619
     median: 2000
   启发式搜索:
     entry: 2000
     pool: 8
     median: 2000
   位运算:
-    entry: 1500
-    pool: 504
+    entry: 1300
+    pool: 572
     median: 1600
   博弈论:
     entry: 1600
-    pool: 417
+    pool: 441
     median: 1700
   快速幂:
     entry: 1600
-    pool: 350
+    pool: 389
     median: 1600
   数论:
     entry: 1600
-    pool: 1130
+    pool: 1150
     median: 1700
   概率论:
     entry: 2000
@@ -205,7 +241,7 @@ nodes:
     median: 2000
   线性代数:
     entry: 1600
-    pool: 267
+    pool: 275
     median: 2000
   线性规划:
     entry: 2600
@@ -213,7 +249,7 @@ nodes:
     median: 2600
   组合数学:
     entry: 1600
-    pool: 1021
+    pool: 1091
     median: 2000
   群论:
     entry: 2600
@@ -221,35 +257,39 @@ nodes:
     median: 2600
   快速傅里叶变换:
     entry: 2400
-    pool: 196
+    pool: 206
     median: 2600
   快速数论变换:
     entry: 2400
-    pool: 215
+    pool: 225
     median: 2600
   快速沃尔什变换:
     entry: 2400
-    pool: 116
+    pool: 118
     median: 2400
   拉格朗日插值:
     entry: 2400
-    pool: 10
+    pool: 11
     median: 2400
   高斯消元:
     entry: 2000
-    pool: 107
+    pool: 110
     median: 2400
   中国剩余定理:
     entry: 1600
-    pool: 14
+    pool: 16
     median: 2400
+  乘法逆元:
+    entry: 1600
+    pool: 240
+    median: 2000
   二次剩余:
-    entry: 2600
-    pool: 8
+    entry: 2000
+    pool: 9
     median: 2600
   剩余:
     entry: 2000
-    pool: 57
+    pool: 60
     median: 2400
   卢卡斯定理:
     entry: 2000
@@ -265,15 +305,15 @@ nodes:
     median: 2000
   杜教筛:
     entry: 2600
-    pool: 17
+    pool: 18
     median: 2600
   欧拉函数:
     entry: 1700
-    pool: 70
+    pool: 76
     median: 2000
   筛法:
     entry: 1600
-    pool: 116
+    pool: 133
     median: 1600
   素数:
     entry: 1500
@@ -281,7 +321,7 @@ nodes:
     median: 1700
   莫比乌斯反演:
     entry: 2000
-    pool: 131
+    pool: 136
     median: 2400
   向量:
     entry: 2000
@@ -289,11 +329,11 @@ nodes:
     median: 2600
   矩阵:
     entry: 1700
-    pool: 333
+    pool: 347
     median: 2000
   线性基:
     entry: 2000
-    pool: 79
+    pool: 84
     median: 2400
   行列式:
     entry: 2600
@@ -313,16 +353,16 @@ nodes:
     median: 1700
   排列组合:
     entry: 1600
-    pool: 249
+    pool: 250
     median: 2000
   斯特林数:
     entry: 2400
     pool: 9
     median: 2400
   置换群:
-    entry: 2400
-    pool: 13
-    median: 2400
+    entry: 1600
+    pool: 24
+    median: 2000
   K-D Tree:
     entry: 2600
     pool: 23
@@ -333,7 +373,7 @@ nodes:
     median: 2000
   动态树:
     entry: 2400
-    pool: 113
+    pool: 116
     median: 2600
   单调栈:
     entry: 1700
@@ -344,9 +384,9 @@ nodes:
     pool: 147
     median: 1700
   可持久化数据结构:
-    entry: 2000
-    pool: 36
-    median: 2400
+    entry: 1600
+    pool: 45
+    median: 2000
   哈希表:
     entry: 1500
     pool: 23
@@ -357,15 +397,15 @@ nodes:
     median: 1700
   并查集:
     entry: 1600
-    pool: 640
+    pool: 683
     median: 1700
   李超线段树:
-    entry: 2600
-    pool: 38
+    entry: 2400
+    pool: 40
     median: 2600
   栈:
     entry: 1500
-    pool: 290
+    pool: 299
     median: 1700
   树套树:
     entry: 2300
@@ -373,28 +413,32 @@ nodes:
     median: 2600
   树状数组:
     entry: 1700
-    pool: 667
+    pool: 697
     median: 2000
   线段树:
     entry: 2000
-    pool: 1563
-    median: 2300
+    pool: 1626
+    median: 2000
   链表:
     entry: 1500
-    pool: 76
-    median: 1700
+    pool: 81
+    median: 1600
   队列:
     entry: 1500
-    pool: 290
+    pool: 298
     median: 1600
   笛卡尔树:
-    entry: 2000
-    pool: 44
+    entry: 1700
+    pool: 46
     median: 2300
   可持久化线段树:
     entry: 2000
-    pool: 140
-    median: 2600
+    pool: 142
+    median: 2400
+  左偏树:
+    entry: 1600
+    pool: 9
+    median: 2000
   分数规划:
     entry: 2000
     pool: 28
@@ -405,7 +449,7 @@ nodes:
     median: 1200
   离散化:
     entry: 1600
-    pool: 277
+    pool: 290
     median: 2000
   随机化:
     entry: 2000
@@ -413,7 +457,7 @@ nodes:
     median: 2600
   整体二分:
     entry: 2300
-    pool: 44
+    pool: 46
     median: 2600
   模拟退火:
     entry: 2000
@@ -421,43 +465,51 @@ nodes:
     median: 2600
   二分:
     entry: 1600
-    pool: 1470
+    pool: 1536
     median: 1700
   倍增:
     entry: 2000
-    pool: 285
+    pool: 296
     median: 2300
+  前缀和 & 差分:
+    entry: 1500
+    pool: 1441
+    median: 1600
   排序:
     entry: 1200
-    pool: 1160
+    pool: 1218
     median: 1500
   构造:
     entry: 1500
-    pool: 972
+    pool: 1111
     median: 1700
   枚举:
     entry: 1200
-    pool: 2952
+    pool: 3061
     median: 1600
   模拟:
     entry: 800
-    pool: 2791
-    median: 1300
+    pool: 2869
+    median: 1200
   贪心:
     entry: 1300
-    pool: 2852
+    pool: 3035
     median: 1600
+  递归 & 分治:
+    entry: 1600
+    pool: 1266
+    median: 2000
   凸包:
     entry: 2000
-    pool: 152
+    pool: 158
     median: 2600
   半平面交:
     entry: 2400
-    pool: 27
+    pool: 28
     median: 2400
   扫描线:
     entry: 2000
-    pool: 264
+    pool: 281
     median: 2400
   旋转卡壳:
     entry: 2600

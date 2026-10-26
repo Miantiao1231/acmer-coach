@@ -193,15 +193,12 @@ test('confirmed gaps are counted once per recent event and old edits do not refr
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-test('target profiles and exact node scopes retain sources without claiming an exam syllabus', () => {
+test('target profiles retain sources and limits without claiming an exam syllabus', () => {
   const { dir, store } = fixture()
   try {
-    writeFileSync(join(dir, 'NODE_SCOPES.yaml'), 'version: 1\nnodes:\n  - id: 最短路\n    title: 最短路识别\n    sources: [{title: 原始资料, url: "https://oi-wiki.org/graph/shortest-path/"}]\n    appliesTo: [路径代价]\n    notFor: [负权直接套Dijkstra]\n')
     writeFileSync(join(dir, 'CONTEST_PROFILES.yaml'), 'version: 1\nprofiles:\n  - id: regional-sample\n    title: 区域赛样本\n    status: provisional\n    scope: 样本范围\n    sources: []\n    competencyIds: [graph-modeling]\n    selectionGuidance: [先诊断]\n    limitations: [不是西安预测]\n')
     const scoped = createStrategyStore({ dataDir: dir, competenciesPath: join(process.cwd(), 'assets', 'knowledge', 'COMPETENCIES.yaml'),
-      nodeScopesPath: join(dir, 'NODE_SCOPES.yaml'), contestProfilesPath: join(dir, 'CONTEST_PROFILES.yaml') })
-    assert.equal(scoped.scope('最短路').id, '最短路')
-    assert.equal(scoped.scope('最短路').sources.length, 1)
+      contestProfilesPath: join(dir, 'CONTEST_PROFILES.yaml') })
     const saved = scoped.target('set', { expectedRevision: 0, contest: '西安', date: '2026-10-17', result: '稳定发挥', weeklyHours: 25,
       profileId: 'regional-sample', priorities: [{ id: 'graph-modeling', weight: 10 }] })
     assert.equal(saved.ok, true)
@@ -262,26 +259,6 @@ test('VP postmortem preserves a factual contest decision snapshot', () => {
     assert.equal(store.postmortem({ eventId: 'decision', competencies: ['contest-decision'],
       decisionSnapshot: { ...decisionSnapshot, remainingMinutes: -1 } }).ok, false)
     assert.deepEqual(store.loadVp().postmortems[0].decisionSnapshot, decisionSnapshot)
-  } finally { rmSync(dir, { recursive: true, force: true }) }
-})
-
-test('scope refuses unknown knowledge instead of inventing applicability', () => {
-  const { dir, store } = fixture()
-  try {
-    const v = store.scope('不存在的知识点')
-    assert.equal(v.ok, false)
-    assert.equal(v.found, false)
-  } finally { rmSync(dir, { recursive: true, force: true }) }
-})
-
-test('packaged ST table scope states when overlapping blocks are valid', () => {
-  const { dir, store } = fixture()
-  try {
-    const scope = store.scope('ST 表')
-    assert.equal(scope.ok, true)
-    assert.match(scope.appliesTo.join(' '), /可重复贡献/)
-    assert.match(scope.notFor.join(' '), /区间和/)
-    assert.equal(scope.sources[0].url, 'https://oi-wiki.org/ds/sparse-table/')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

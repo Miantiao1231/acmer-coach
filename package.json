@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
   "description": "dsh 小鲸算法教练：目标驱动的长期训练、VP回放、证据验收与可选Hindsight记忆桥。随包提供人设和预设，记忆桥配置自己的服务与bank后启用。",
-  "version": "2.9.8",
+  "version": "2.9.9",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"
@@ -23,7 +23,7 @@
     "@deepseek-ai/dsh-tools": "0.2.1-rc.2"
   },
   "scripts": {
-    "test": "node --import ./dev/test-env.mjs --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs dev/hindsight-check.mjs dev/teaching-eval-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/vp-race-check.mjs dev/persona-check.mjs dev/pages-check.mjs dev/vp-ui-check.mjs dev/map-ui-check.mjs dev/training-log-check.mjs dev/storage-check.mjs",
+    "test": "node --import ./dev/test-env.mjs --test dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs dev/hindsight-check.mjs dev/teaching-eval-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/vp-race-check.mjs dev/persona-check.mjs dev/pages-check.mjs dev/vp-ui-check.mjs dev/map-ui-check.mjs dev/training-log-check.mjs dev/storage-check.mjs dev/vp-sync-unify-check.mjs dev/ledger-conflict-check.mjs dev/target-drift-check.mjs dev/map-upgrade-check.mjs dev/node-alias-check.mjs dev/first-run-check.mjs dev/lesson-check.mjs",
     "eval:teaching": "node dev/teaching-eval.mjs"
   },
   "dsh": {
