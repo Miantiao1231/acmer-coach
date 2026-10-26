@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -41,7 +41,7 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     const { apply } = await import(`../index.js?hindsight-${Math.random()}`)
     apply(ctx); await tick()
     assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
-    assert.equal((hooks.get('agent/pre-step') || []).length, enabled ? 2 : 1)
+    assert.equal((hooks.get('agent/pre-step') || []).length, 2)
     assert.equal(tools.size, 32)
     assert.equal(tools.has('coach_recall'), true)
     if (!enabled) {
@@ -52,6 +52,60 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     }
   }, { enabled })
 })
+
+test('persistent settings keep recall working when the desktop launch omits environment variables', async t => fixture(t, async ({ ctx, calls, hooks, tools, dir, tick }) => {
+  const data = join(dir, 'data', 'acmer-coach')
+  mkdirSync(data, { recursive: true })
+  writeFileSync(join(data, 'hindsight.json'), JSON.stringify({ enabled: true, url: 'http://127.0.0.1:18888', bank: 'saved-coach' }))
+  for (const key of ['COACH_HINDSIGHT', 'HINDSIGHT_URL', 'HINDSIGHT_BANK']) delete process.env[key]
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  assert.equal(applyHindsight(ctx), true)
+  await tick()
+  const messages = [user('上节课卡在哪里？')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  assert.match(result.messages.at(-2).content[0].text, /当前时间/)
+  assert.match(result.messages.at(-1).content[0].text, /hindsight_memories/)
+  assert.ok(calls.every(call => call.url.includes('/banks/saved-coach')))
+  assert.equal((await tools.get('coach_recall').execute({ query: '继续上节课' })).ok, true)
+}))
+
+test('disabled memory still injects time without making a network request', async t => fixture(t, async ({ ctx, calls, hooks, tools }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  assert.equal(applyHindsight(ctx), false)
+  const messages = [user('今天练什么？')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  assert.equal(result.messages.length, 2)
+  assert.match(result.messages[1].content[0].text, /当前时间/)
+  assert.equal((await tools.get('coach_recall').execute({ query: '旧课' })).ok, false)
+  assert.equal(calls.length, 0)
+}, { enabled: false }))
+
+test('explicit environment disable overrides saved settings', async t => fixture(t, async ({ ctx, calls, hooks, tools, dir }) => {
+  const data = join(dir, 'data', 'acmer-coach')
+  mkdirSync(data, { recursive: true })
+  writeFileSync(join(data, 'hindsight.json'), JSON.stringify({ enabled: true, url: 'http://127.0.0.1:18888', bank: 'saved-coach' }))
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  assert.equal(applyHindsight(ctx), false)
+  const messages = [user('今天练什么？')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  assert.match(result.messages.at(-1).content[0].text, /当前时间/)
+  assert.equal((await tools.get('coach_recall').execute({ query: '旧课' })).ok, false)
+  assert.equal(calls.length, 0)
+}, { enabled: false }))
+
+test('malformed saved settings fail closed while time injection survives', async t => fixture(t, async ({ ctx, calls, hooks, tools, dir }) => {
+  const data = join(dir, 'data', 'acmer-coach')
+  mkdirSync(data, { recursive: true })
+  writeFileSync(join(data, 'hindsight.json'), '{bad json')
+  delete process.env.COACH_HINDSIGHT
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  assert.equal(applyHindsight(ctx), false)
+  const messages = [user('今天练什么？')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  assert.match(result.messages.at(-1).content[0].text, /当前时间/)
+  assert.match((await tools.get('coach_recall').execute({ query: '旧课' })).reject, /配置无效/)
+  assert.equal(calls.length, 0)
+}))
 
 test('recall uses only real user text, first step, typed plugin messages, and preserves existing bank settings', async t => fixture(t, async ({ ctx, calls, hooks, tick }) => {
   const { applyHindsight } = await import('../lib/hindsight.js')
@@ -147,11 +201,13 @@ test('only a missing bank is created; bootstrap contains no personal user or ban
 }, { response: request => new Response('{}', { status: request.method === 'GET'
   ? request.url.endsWith('/config') ? 404 : 405 : 200 }) }))
 
-test('missing or traversal bank fails closed without network or hooks', async t => {
+test('missing or traversal bank fails closed without network or retention hooks', async t => {
   for (const bank of ['', '../someone-else', 'a/b']) await fixture(t, async ({ ctx, calls, hooks, tools }) => {
     const { applyHindsight } = await import('../lib/hindsight.js')
     assert.equal(applyHindsight(ctx), false)
-    assert.equal(calls.length, 0); assert.equal(hooks.size, 0)
+    assert.equal(calls.length, 0)
+    assert.equal(hooks.get('session/event')?.length || 0, 0)
+    assert.equal(hooks.get('agent/pre-step')?.length || 0, 1)
     assert.ok(tools.has('coach_recall'))
     const result = await tools.get('coach_recall').execute({ query: '检查桥状态' })
     assert.equal(result.ok, false)

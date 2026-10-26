@@ -1,7 +1,7 @@
 {
   "name": "acmer-coach",
   "description": "dsh 小鲸算法教练：目标驱动的长期训练、VP回放、证据验收与可选Hindsight记忆桥。随包提供人设和预设，记忆桥配置自己的服务与bank后启用。",
-  "version": "2.9.10",
+  "version": "2.9.11",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miantiao1231/acmer-coach.git"

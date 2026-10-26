@@ -415,7 +415,17 @@ docker run -d --name acmer-coach-hindsight --shm-size=1g `
 
 本地 API 地址是 `http://127.0.0.1:18888`，管理界面是 `http://127.0.0.1:19999`。数据保存在 Docker volume 中。首次启动需要等模型与服务就绪；完整部署步骤见 [官方 Quick Start](https://hindsight.vectorize.io/developer/api/quickstart)。Hindsight 的提炼会调用你配置的模型，可能产生模型费用，安装桥并不包含这些服务。
 
-### 3. 在启动 dsh 的环境里启用
+### 3. 配置记忆桥
+
+**桌面版推荐用本地配置文件**：在 `$DSH_HOME/data/acmer-coach/hindsight.json` 写入以下内容；未设置 `DSH_HOME` 时路径是 `~/.dsh/data/acmer-coach/hindsight.json`。
+
+```json
+{"enabled":true,"url":"http://127.0.0.1:18888","bank":"my-training"}
+```
+
+完全退出并重开 dsh 后生效。配置保存在本机，不随 npm 包发布；桌面启动器没继承环境变量也能读取。`enabled` 设为 `false` 可停用。JSON 写坏或 bank 不合法时桥不会联网，`coach_recall` 会返回诊断；时间注入仍可用。
+
+也可在启动 dsh 的环境里配置，适合临时测试：
 
 PowerShell：
 
@@ -436,7 +446,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 
 如果服务启用了 Bearer 鉴权，再设置 `HINDSIGHT_API_KEY`。这是**访问 Hindsight 服务的凭据**，和后端的 `HINDSIGHT_API_LLM_API_KEY`、dsh 聊天模型 Key 是不同配置。
 
-**Windows 桌面版**：在「编辑账户的环境变量」中添加上面三个变量，完全退出 dsh，再重新打开；若新进程未继承变量，注销 Windows 后重新登录。只在某个 PowerShell 窗口里设置变量，不会影响已经打开的桌面进程。启用范围是该 dsh 进程的会话，不限于小鲸预设；对话文本会发给你配置的 Hindsight 服务，桥不会在发送前自动脱敏。
+进程中明确设置的 `COACH_HINDSIGHT=1` 或 `0` 优先于配置文件；`0` 会关闭桥。使用环境变量启用时，URL 和 bank 也从环境变量读取，避免把两套配置混用。如果服务启用了 Bearer 鉴权，`HINDSIGHT_API_KEY` 仍只能通过进程环境提供，不写进 JSON。启用范围是该 dsh 进程的会话，不限于小鲸预设；对话文本会发给你配置的 Hindsight 服务，桥不会在发送前自动脱敏。
 
 ### 4. 确认生效与停用
 
@@ -451,7 +461,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 | `retain-accepted` | 后端已接收归档请求；异步提炼完成后才能召回 |
 | `bank-fail` / `recall-fail` / `retain-fail` | 检查服务状态、地址或鉴权；小鲸仍可继续对话 |
 
-停用：把 `COACH_HINDSIGHT` 设为 `0` 或删除该变量，重启 dsh。已有远端记忆保留。测试时指定新 bank 和独立 `DSH_HOME`，不要复用自己的正式 bank。仓库及 npm 包不包含任何人的 bank、服务密钥或记忆内容。
+停用：把本地配置的 `enabled` 改为 `false`，或在启动进程中明确设置 `COACH_HINDSIGHT=0`，再重启 dsh。只删除环境变量会重新启用有效的本地配置。已有远端记忆保留。测试时指定新 bank 和独立 `DSH_HOME`，不要复用自己的正式 bank。仓库及 npm 包不包含任何人的 bank、服务密钥或记忆内容。
 
 ## 文件
 
