@@ -133,6 +133,19 @@ test('recall uses only real user text, first step, typed plugin messages, and pr
   assert.equal(calls.length, before)
 }))
 
+test('automatic recall has eight seconds while explicit lookup keeps fifteen seconds', async t => fixture(t, async ({ ctx, hooks, tools, tick }) => {
+  const timeout = AbortSignal.timeout
+  const budgets = []
+  t.mock.method(AbortSignal, 'timeout', ms => { budgets.push(ms); return timeout(ms) })
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const messages = [user('复习上节课')]
+  await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  await tools.get('coach_recall').execute({ query: '复习上节课' })
+  assert.ok(budgets.includes(8000), `自动召回预算：${budgets.join(', ')}`)
+  assert.ok(budgets.includes(15000), `主动深查预算：${budgets.join(', ')}`)
+}))
+
 test('completed turns retain native final replies and separate interleaved sessions; failed turns do not retain', async t => fixture(t, async ({ ctx, hooks, calls, tick }) => {
   const { applyHindsight } = await import('../lib/hindsight.js')
   applyHindsight(ctx); await tick()

@@ -150,11 +150,8 @@ try { profilePatch = readFileSync(PROFILE_PATCH, 'utf8') } catch { /* 没有 = �
 check('★ profile 那边**没有**重复的 acmer-coach insert 行（否则双挂）',
   !/^\s*-?\s*id:\s*acmer-coach\s*$/.test(profilePatch))
 
-// 版本号躺在两个文件里（index.js 的 VERSION 和 package.json 的 version），
-// 对齐过一次 —— 之前是 0.4.0 vs 0.1.0，两份真相差了四个版本。
-// 探针报的是 index.js 那个，装包系统看的是 package.json 那个：
-// 不校验的话，报出来的版本号永远有一半是假的。
-check('两处版本号一致（index.js VERSION vs package.json）',
+// 探针从 package.json 读取版本；安装副本仍需核对，防止部署旧代码。
+check('探针版本与 package.json 一致',
   pkg.version === mod.VERSION, `package.json=${pkg.version} index.js=${mod.VERSION}`)
 
 // ── apply() 的桩上下文 ──────────────────────────────────────────────
