@@ -149,6 +149,25 @@ test('today card selects existing pending work and keeps an empty state without 
   assert.match(card.innerHTML, /旧阶段 1 件待确认/)
 })
 
+test('today card starts closed, opens on request, and closes without covering the map', () => {
+  assert.match(template, /id="todayToggle"[^>]*aria-expanded="false"/)
+  assert.match(template, /id="todayCard"[^>]*hidden/)
+  const start = template.indexOf('function setTodayOpen(')
+  assert.ok(start >= 0)
+  const source = template.slice(start, template.indexOf('async function loadToday()', start))
+  const card = { hidden: true }, attrs = {}, toggle = {
+    setAttribute: (name, value) => { attrs[name] = value }, focus: () => { toggle.focused = true },
+  }, close = {}
+  vm.runInNewContext(source, { $: selector => ({ '#todayCard': card, '#todayToggle': toggle, '#todayClose': close })[selector] })
+  toggle.onclick()
+  assert.equal(card.hidden, false)
+  assert.equal(attrs['aria-expanded'], 'true')
+  close.onclick()
+  assert.equal(card.hidden, true)
+  assert.equal(attrs['aria-expanded'], 'false')
+  assert.equal(toggle.focused, true)
+})
+
 test('coach handoff only accepts the active iframe and preserves an occupied composer', () => {
   const h = clientHarness(null)
   assert.equal(typeof h.api.handoffPrompt, 'function')

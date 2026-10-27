@@ -139,11 +139,14 @@ body[data-filters="closed"] .stage{margin-left:32px}
 .stage.dragging{cursor:grabbing}
 .stage.dragging *{cursor:grabbing !important}
 .today-card{position:absolute;z-index:12;top:16px;left:16px;width:min(350px,calc(100% - 32px));padding:16px 18px;background:var(--bg-1);border:1px solid var(--stroke-strong);border-radius:var(--radius-m);box-shadow:var(--shadow-2);cursor:default;touch-action:auto;user-select:text;-webkit-user-select:text}
+.today-card[hidden]{display:none}
 .today-card .eyebrow{color:var(--brand-text);font-size:11px;font-weight:700;letter-spacing:.04em}
 .today-card h2{margin:6px 0;font-size:17px;line-height:1.35;color:var(--text-1)}
 .today-card p{margin:5px 0;color:var(--text-3);font-size:12px;line-height:1.55}
 .today-card .today-meta{font-size:11px;color:var(--text-4)}
 .today-card button{margin-top:9px;padding:7px 13px;border:0;border-radius:var(--radius-pill);background:var(--brand-fill);color:#fff;font:inherit;font-size:12px;font-weight:600}
+.today-card .today-close{position:absolute;top:10px;right:10px;width:28px;height:28px;margin:0;padding:0;border:1px solid var(--stroke-strong);background:var(--bg-1);color:var(--text-3);font-size:18px;line-height:1}
+.today-card .today-close:hover{color:var(--text-1);background:var(--fill-1)}
 .today-card button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .today-card .today-feedback{color:var(--wa-text);min-height:0}
 .today-card .today-warn{color:var(--wa-text);font-size:12px;line-height:1.5;margin:4px 0 0}
@@ -598,6 +601,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
 <div class="mapbar">
   <div class="pagehead"><h1 id="viewTitle">知识地图</h1><small id="hdrCount"></small></div>
   <div class="tree-tools">
+    <button class="icon-btn filter-btn" id="todayToggle" type="button" aria-controls="todayCard" aria-expanded="false">今日安排</button>
     <button class="icon-btn filter-btn" id="sideToggle" aria-controls="filters" aria-expanded="true">筛选</button>
     <div class="seg" id="modeSeg" role="group" aria-label="着色模式">
       <button data-mode="domain" aria-pressed="true">按学科</button>
@@ -621,7 +625,10 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
 </aside>
 
 <main class="stage" id="stage">
-  <section class="today-card" id="todayCard" aria-label="今天这一件" aria-live="polite"><div class="eyebrow">今天这一件</div><p>正在读取待完成动作…</p></section>
+  <section class="today-card" id="todayCard" aria-label="今天这一件" hidden>
+    <button class="today-close" id="todayClose" type="button" aria-label="收起今日安排" title="收起今日安排">×</button>
+    <div id="todayContent" aria-live="polite"><div class="eyebrow">今天这一件</div><p>正在读取待完成动作…</p></div>
+  </section>
   <svg id="cv">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
@@ -806,7 +813,7 @@ function showStatus() {
 }
 
 function renderToday(log) {
-  const card = $("#todayCard");
+  const card = $("#todayContent");
   const phase = log?.curriculum?.current || {};
   if (progressError) { card.innerHTML = `<div class="eyebrow">今天这一件</div><p>进度读不到：${esc(progressError)}</p>`; return; }
   const actions = Object.entries(progress.pendingActions || {}).sort((a, b) => String(a[1]?.at || "").localeCompare(String(b[1]?.at || "")));
@@ -831,6 +838,13 @@ function renderToday(log) {
     window.parent.postMessage({ type: "acmer-coach:handoff", kind: "today" }, location.origin);
   };
 }
+
+function setTodayOpen(open) {
+  $("#todayCard").hidden = !open;
+  $("#todayToggle").setAttribute("aria-expanded", String(open));
+}
+$("#todayToggle").onclick = () => setTodayOpen($("#todayCard").hidden);
+$("#todayClose").onclick = () => { setTodayOpen(false); $("#todayToggle").focus(); };
 
 async function loadToday() {
   try {
