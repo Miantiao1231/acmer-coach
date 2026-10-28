@@ -140,6 +140,14 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 
 详见 [长期课程机制](docs/长期课程机制.md)。
 
+### 2.10.0：训练事实对齐
+
+- `coach_log` 可保存一次练习的开始、结束时间与最后一发 AC 的提交 ID；`coach_status` 的最近记录据此显示该轮完整提交链、总发数和失败发数。旧记录或数据库尚未同步时明确显示“提交链未关联”，不会把一次 AC 当成全部提交。同一天同题的两轮可用不同提交 ID 分开记录。
+- Codeforces 同步现在按平台提交 ID 去重；重复运行只补新提交。判因中的单发 AC 不再误报“还没 AC”，提交间隔不单独推断“不认真”。
+- `coach_note read` 返回笔记 ID；写错时用 `coach_note { action: "revise", noteId, summary, nextStep }` 原位更正。默认只看生效内容，`includeHistory: true` 可查看旧版本。
+- `coach_verify` 原有的批量核题继续可用。错标签用 `status: "rejected"` 和 `reason` 按知识点排除；同一题在另一个知识点仍可单独核验。`coach_log` 的 `focusCompetency` 可记录练习暴露的能力细项，不另开地图节点或重复计时。
+- Hindsight 仍负责过去经历与偏好的召回；每日日志只辅助还原某天事实。教练要主动给下一步，也要在提交链缺失时承认未知。
+
 ### 2.9.18：小鲸的默认声线
 
 - 人设在普通讲课、纠错和复盘中保持可见的鲸鱼娘语气与颜文字；玩笑只针对当次操作，严肃请求仍按学生要求处理。小鲸仍以同一份 `coach:persona` 为人设来源，不向教练规则或个人账本复制提示词。
@@ -280,7 +288,7 @@ VP 回放、知识地图和日程沿用 CompetitionWhale VP v5 的深蓝／浅�
 
 `coach_note` 只做一件事：把一个知识点的教学判断和接续点留在现有
 `PROGRESS.yaml` 的 `nodes.<id>.lessonNotes`。`read` 查看最近笔记，`write` 保存
-`summary` 与 `nextStep`；不新增课程状态机、聊天数据库或另一份掌握记录。
+`summary` 与 `nextStep`；2.10.0 起 `revise` 按笔记 ID 更正并保留旧版本。不新增课程状态机、聊天数据库或另一份掌握记录。
 `coach_status` 的 `teachingContext` 和每轮首步状态会带上短笔记，需要原话时再查原生会话。
 未指定节点时，读取优先显示最近有笔记的未完动作，再看游标；没有游标则看最近笔记。
 写入默认使用游标，显式 `node` 优先，不会为了写笔记移动游标。

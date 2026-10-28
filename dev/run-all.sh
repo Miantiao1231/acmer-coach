@@ -81,6 +81,9 @@ run "map-UI"        node --test dev/map-ui-check.mjs
 run "training-log"  node --test dev/training-log-check.mjs
 run "grading"       node --test dev/grading-check.mjs
 run "training"      node --test dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs
+run "submissions"   node --test dev/submission-chain-check.mjs
+run "verification"  node --test dev/problem-verification-check.mjs
+run "CF-sync"       node --test dev/setup-sync-check.mjs
 run "VP-client"     node dev/vp-client-check.mjs
 run "VP-sync"       node --test dev/vp-sync-check.mjs
 run "VP-unify"      node --test dev/vp-sync-unify-check.mjs

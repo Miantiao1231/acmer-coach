@@ -37,6 +37,8 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
 import { buildTrainingLog } from './lib/training-log.js'
+import { readSubmissionChain } from './lib/submission-chain.js'
+import { scopedProblemKey, verifiedProblemForNode, rejectedProblemForNode, recordProblemRejection, clearProblemRejection } from './lib/problem-verification.js'
 import { bindStamp, textStamp, writeLedger } from './lib/ledger.js'
 import { syncPackagedMap, MAP_BACKUP_FILE, MAP_REPORT_FILE } from './lib/map-upgrade.js'
 
@@ -259,6 +261,8 @@ function loadProgress() {
     // （这条规则在 pending 上面写着，我第一版还是漏了，测试当场抓住。）
     verified_problems: (doc?.verified_problems && typeof doc.verified_problems === 'object'
       && !Array.isArray(doc.verified_problems)) ? doc.verified_problems : null,
+    rejected_problems: (doc?.rejected_problems && typeof doc.rejected_problems === 'object'
+      && !Array.isArray(doc.rejected_problems)) ? doc.rejected_problems : null,
     // 押着的训练动作（需求 #6）。coach_assign 布置时写、coach_log 落地时销、
     // coach_unassign 撤销时销。**和 pending / verified_problems 是同一个坑**：
     // 这个函数只返回它认识的字段，漏一个就等着一写就把它冲掉 —— 而且静默：
@@ -332,6 +336,7 @@ function saveProgress(p) {
   if (p.verified_problems && Object.keys(p.verified_problems).length) {
     out.verified_problems = p.verified_problems
   }
+  if (p.rejected_problems && Object.keys(p.rejected_problems).length) out.rejected_problems = p.rejected_problems
   // 押着的训练动作（需求 #6）：同一个白名单，理由也一样 ——
   // 漏了的话 coach_assign 写进去、下一次 saveProgress（比如 coach_log 记一条）
   // 就把它抹掉，症状是"当场查得到、干点别的就没了"，而且不报错。
@@ -1233,8 +1238,8 @@ async function loadMech(problem, platform) {
        WHERE platform = ? AND problem_id = ? LIMIT 1`).get(platform, problem)
 
     // 「最后一次卡了多久才 AC」：从最后一个 AC 往回找最近的失败。
-    // 这个数字是判因最有用的一条机械指纹 —— 23 秒修好和卡 20 分钟，
-    // 是两种完全不同的病，而 verdict 列本身分不出来。
+    // 这个数字只描述提交间隔。短间隔不等于不认真，长间隔也不等于不会；
+    // 判因仍要结合代码、题意和训练员的实际过程。
     let lastWaToAcSec = -1
     const acIdx = subs.map((s) => s.verdict).lastIndexOf('AC')
     if (acIdx > 0) {
@@ -1248,10 +1253,9 @@ async function loadMech(problem, platform) {
     }
 
     let note
-    if (lastWaToAcSec < 0) note = `${subs.length} 次提交，还没 AC`
-    else if (lastWaToAcSec <= 120) note = `最后卡了 ${lastWaToAcSec} 秒就过了 —— 秒级修好，是「不认真」的机械指纹`
-    else if (lastWaToAcSec >= 900) note = `最后卡了 ${Math.round(lastWaToAcSec / 60)} 分钟才过 —— 更像思路不顺，而不是手滑`
-    else note = `最后一次失败到 AC 隔了 ${Math.round(lastWaToAcSec / 60)} 分钟`
+    if (acIdx < 0) note = `${subs.length} 次提交，库内尚无 AC`
+    else if (lastWaToAcSec < 0) note = `${subs.length} 次提交，已有 AC；没有可计算的失败到 AC 间隔`
+    else note = `最后一次失败到 AC 隔了 ${lastWaToAcSec} 秒；间隔本身不能判定错误原因`
 
     return {
       found: true, problem, platform,
@@ -1362,6 +1366,28 @@ function trainerId(db) {
     ? db.prepare('SELECT id FROM users WHERE cf_handle = ? OR handle = ? LIMIT 1').get(TRAINER, TRAINER)
     : db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get()
   return u?.id ?? null
+}
+
+function submissionProblem(problemId, explicitPlatform = '') {
+  const shown = String(problemId ?? '').trim()
+  const platform = String(explicitPlatform ?? '').trim().toLowerCase()
+  if (!platform && /^CF\d+[A-Z]\d*$/i.test(shown)) return { platform: 'codeforces', problemId: shown.slice(2) }
+  if (!platform && /^P\d+$/i.test(shown)) return { platform: 'luogu', problemId: shown }
+  if (!platform && /^NC\d+$/i.test(shown)) return { platform: 'nowcoder', problemId: normId('nowcoder', shown) }
+  if (['codeforces', 'luogu', 'nowcoder'].includes(platform) && shown) {
+    return { platform, problemId: normId(platform, platform === 'codeforces' && /^CF\d+[A-Z]\d*$/i.test(shown) ? shown.slice(2) : shown) }
+  }
+  return null
+}
+
+async function currentTrainerHandle() {
+  let db
+  try {
+    db = await openDb()
+    const id = trainerId(db)
+    return id == null ? '' : String(db.prepare('SELECT handle FROM users WHERE id = ?').get(id)?.handle ?? '')
+  } catch { return '' }
+  finally { try { db?.close() } catch { /* read-only lookup */ } }
 }
 
 // 节点名 → 题库标签。**两级匹配，且如实报告用了哪一级。**
@@ -2192,21 +2218,32 @@ function apply(ctx) {
     getSessionQuery: () => ctx.get?.('sessionQuery') })
   ctx.tools.register(defineTool({
     name: 'coach_note',
-    description: '读取或保存简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。复用节点进度账本；不改掌握状态或自动决定下一课。' +
+    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课。' +
       'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
     parameters: {
-      action: { type: 'string', enum: ['read', 'write'], description: '默认 read；write 追加一条笔记。' },
+      action: { type: 'string', enum: ['read', 'write', 'revise'], description: '默认 read；write 新增，revise 按 noteId 更正原笔记。' },
+      noteId: { type: 'string', description: 'revise 必填；从 read 的笔记中取得。' },
+      includeHistory: { type: 'boolean', description: 'read 时显式查看旧版本；默认只显示当前生效文本。' },
       node: { type: 'string', description: '地图节点 id。写入默认游标；读取默认最近有笔记的未完动作，其次游标，无游标时读最近笔记。显式指定始终优先。' },
       limit: { type: 'integer', description: '读取最近几条，默认 5，最多 20。' },
-      summary: { type: 'string', description: 'write 必填，实际讲授位置和教练判断，最多 1000 字；区分观察与推测。' },
-      nextStep: { type: 'string', description: 'write 必填，下次续课建议，最多 500 字；后续教练可据新表现调整。' },
+      summary: { type: 'string', description: 'write/revise 必填，实际讲授位置和教练判断，最多 1000 字；区分观察与推测。' },
+      nextStep: { type: 'string', description: 'write/revise 必填，下次续课建议，最多 500 字；后续教练可据新表现调整。' },
       studentQuote: { type: 'string', description: '可选，当前会话学生实际发过的一段原话，最多 1500 字；不需要手输消息 id。' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
       node: { type: 'string', required: true }, total: { type: 'integer', required: true },
       notes: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
-        at: { type: 'string', required: true }, summary: { type: 'string', required: true }, nextStep: { type: 'string', required: true },
+        noteId: { type: 'string', required: true }, at: { type: 'string', required: true }, summary: { type: 'string', required: true }, nextStep: { type: 'string', required: true },
+        revisedAt: { type: 'string' },
+        revisions: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+          at: { type: 'string', required: true }, summary: { type: 'string', required: true }, nextStep: { type: 'string', required: true },
+          supersededAt: { type: 'string', required: true },
+          studentEvidence: { type: 'object', additionalProperties: false, properties: {
+            sessionId: { type: 'string', required: true }, seq: { type: 'integer', required: true },
+            messageId: { type: 'string', required: true }, quote: { type: 'string', required: true },
+          } },
+        } } },
         studentEvidence: { type: 'object', additionalProperties: false, properties: {
           sessionId: { type: 'string', required: true }, seq: { type: 'integer', required: true },
           messageId: { type: 'string', required: true }, quote: { type: 'string', required: true },
@@ -2214,15 +2251,18 @@ function apply(ctx) {
       } } },
     } }, render: (_args, v) => [{ type: 'text', text: !v.ok ? `❌ ${v.reject}` : v.notes.length
       ? `续课笔记 · ${v.node}（最近 ${v.notes.length} / 共 ${v.total} 条）\n` + v.notes.map(note =>
-        `${note.at}\n教练记录：${note.summary}\n续课建议：${note.nextStep}\n` +
+        `${note.at}${note.revisedAt ? '（已更正）' : ''} · ${note.noteId}\n教练记录：${note.summary}\n续课建议：${note.nextStep}\n` +
         (note.studentEvidence ? `学生原话：「${note.studentEvidence.quote}」（存在已核对，理解程度仍由教练判断）`
-          : '学生原话未核对；这条是教练记录。')).join('\n\n')
+          : '学生原话未核对；这条是教练记录。') +
+        (note.revisions?.length ? '\n历史更正：' + note.revisions.map((old) =>
+          `\n  ${old.supersededAt} 前：${old.summary}；接续：${old.nextStep}`).join('') : '')).join('\n\n')
       : `「${v.node || '当前节点'}」尚无续课笔记。` }] },
     execute: async (args = {}, exec) => {
       const action = args.action ?? 'read'
       if (action === 'read') return teaching.read(args)
       if (action === 'write') return teaching.write(args, exec)
-      return { ok: false, reject: 'action 只能是 read 或 write。', node: '', notes: [], total: 0 }
+      if (action === 'revise') return teaching.revise(args, exec)
+      return { ok: false, reject: 'action 只能是 read、write 或 revise。', node: '', notes: [], total: 0 }
     },
   }))
 
@@ -3867,6 +3907,17 @@ function apply(ctx) {
                 date: { type: 'string', required: true },
                 // 老记录没有题号 → 空串（别拿它当"这道题叫空"）
                 problemId: { type: 'string', required: true },
+                focusCompetency: { type: 'string' },
+                note: { type: 'string' },
+                submissionChain: { type: 'object', required: true, additionalProperties: false, properties: {
+                  status: { type: 'string', required: true }, reason: { type: 'string', required: true },
+                  attempts: { type: 'integer' }, failed: { type: 'integer' }, accepted: { type: 'integer' },
+                  unresolved: { type: 'integer' }, verdicts: { type: 'string', required: true },
+                  submissions: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+                    submissionId: { type: 'string', required: true }, verdict: { type: 'string', required: true },
+                    submittedAt: { type: 'string', required: true },
+                  } } },
+                } },
                 solved: { type: 'boolean', required: true },
                 independent: { type: 'boolean' },
                 minutes: { type: 'integer' },
@@ -3980,7 +4031,11 @@ function apply(ctx) {
             ? `做完记录 ${v.passTotal} 条 / ${v.problemTotal} 题（做出来 ${v.problemSolved} 题，其中**独立做出 ${v.problemIndependent}**），最近：` +
               v.recentPasses.slice(0, 4).map((x) =>
                 `${x.date.slice(5)} ${x.nodeName}${x.problemId ? ` ${x.problemId}` : ''}` +
-              `${x.solved ? (x.independent === true ? '独立✓' : x.independent === false ? '有帮助✓' : '独立性未知✓') : '✗'}`)
+              `${x.solved ? (x.independent === true ? '独立✓' : x.independent === false ? '有帮助✓' : '独立性未知✓') : '✗'}` +
+              `${x.focusCompetency ? ` · 能力 ${x.focusCompetency}` : ''}${x.note ? ` · ${x.note.slice(0, 80)}${x.note.length > 80 ? '…' : ''}` : ''}` +
+              (x.submissionChain.status === 'linked'
+                ? ` · 提交 ${x.submissionChain.attempts} 发，失败 ${x.submissionChain.failed} 发（${x.submissionChain.verdicts}）`
+                : x.problemId ? ' · 提交链尚未关联，不能据此断言没有失败提交' : ''))
                 .join('　·　')
             : '',
           v.updated ? `进度最后更新：${v.updated}` : '',
@@ -4041,11 +4096,15 @@ function apply(ctx) {
       for (const [id, rec] of Object.entries(p.nodes ?? {})) {
         const name = byId.get(id)?.name ?? id
         for (const x of (Array.isArray(rec?.passes) ? rec.passes : [])) {
+          const shownProblemId = String(x?.problemId ?? '')
           allPasses.push({
             node: id, nodeName: name,
             date: String(x?.date ?? ''),
             // 老记录没有题号 → 空串（下面按「一道未知题」单独算）
-            problemId: String(x?.problemId ?? ''),
+            problemId: shownProblemId,
+            ...(x?.focusCompetency ? { focusCompetency: String(x.focusCompetency) } : {}),
+            ...(x?.note ? { note: String(x.note) } : {}),
+            _submission: x,
             solved: x?.solved === true,
             ...(typeof x?.independent === 'boolean' ? { independent: x.independent } : {}),
             ...(typeof x?.minutes === 'number' ? { minutes: x.minutes } : {}),
@@ -4056,7 +4115,20 @@ function apply(ctx) {
       const byDateDesc = (a, b) => b.date.localeCompare(a.date)
       allChecks.sort(byDateDesc)
       allDiags.sort(byDateDesc)
-      allPasses.sort(byDateDesc)
+      allPasses.sort((a, b) => String(b._submission?.completedAt || b.date).localeCompare(String(a._submission?.completedAt || a.date)))
+      const recentPasses = allPasses.slice(0, 8).map(({ _submission: x, ...pass }) => {
+        const chain = x?.platform && x?.traceProblemId && x?.trainerHandle && x?.startedAt && x?.completedAt
+          ? readSubmissionChain({ dbPath: DB_PATH(), trainerHandle: x.trainerHandle, platform: x.platform,
+            problemId: x.traceProblemId, startedAt: x.startedAt, completedAt: x.completedAt,
+            anchorSubmissionId: x.anchorSubmissionId })
+          : { status: 'unknown', reason: 'not-linked' }
+        return { ...pass, submissionChain: { status: chain.status, reason: chain.reason,
+          verdicts: chain.submissions?.map((s) => s.verdict).join(' → ') ?? '',
+          submissions: (chain.submissions ?? []).map((s) => ({ submissionId: String(s.submissionId ?? ''),
+            verdict: String(s.verdict), submittedAt: String(s.submittedAt) })),
+          ...(chain.status === 'linked' ? { attempts: chain.attempts, failed: chain.failed,
+            accepted: chain.accepted, unresolved: chain.unresolved } : {}) } }
+      })
 
       // 条目 ≠ 题（需求 #2）。有题号的按「节点+题号」归并；**没有题号的老条目
       // 按「节点+日期」各算一道，绝不并进任何一道有题号的题里** ——
@@ -4101,7 +4173,7 @@ function apply(ctx) {
         problemTotal,
         problemSolved,
         problemIndependent,
-        recentPasses: allPasses.slice(0, 8),
+        recentPasses,
         // 押着的那张卷（没有就是空串 / 0）
         pendingNode: String(p.pending?.node ?? ''),
         pendingNodeName: byId.get(String(p.pending?.node ?? ''))?.name ?? '',
@@ -4724,7 +4796,9 @@ function apply(ctx) {
         const { hits } = nodePool(db, node, aliases)
         // 已核实的题（需求 #1）：**在候选行上标出来** —— 不然教练没法知道
         // 哪几道核实过了，只能靠"试着开卷看放行还是被拒"去反推。
-        const ledger = loadProgress().verified_problems ?? {}
+        const progress = loadProgress()
+        const ledger = progress.verified_problems ?? {}
+        const rejected = progress.rejected_problems ?? {}
         const toRating = ratingFn(db)
 
         // ⚠️ 走 acSet()，**不要在这里再抄一遍 SQL**。
@@ -4742,11 +4816,13 @@ function apply(ctx) {
           const prev = seen.get(k)
           if (!prev || String(r.problem_id).length > String(prev.problem_id).length) seen.set(k, r)
         }
-        const fresh = [...seen.values()]
+        const unique = [...seen.values()]
+        const fresh = unique.filter((r) =>
+          !rejectedProblemForNode(rejected, `${r.platform}|${normId(r.platform, r.problem_id)}`, node))
         // 两个数分开算 —— 之前用 `hits - fresh` 会把他做过的题和重复行混成一个数，
         // 报出去就成了"12 道他做过的"，其实只有 9 道。数字撒谎比没有数字更坏。
         const solvedExcluded = hits.length - notSolved.length
-        const dupRemoved = notSolved.length - fresh.length
+        const dupRemoved = notSolved.length - unique.length
 
         // 同一份 rating 查询收在 ratingOf 里 —— 这里原来内联了一份一模一样的 SQL
         const trainerRating = ratingOf(db, uid)
@@ -4754,6 +4830,8 @@ function apply(ctx) {
         const warnings = []
         if (solvedExcluded) warnings.push(`${solvedExcluded} 道他做过的题已剔除`)
         if (dupRemoved) warnings.push(`${dupRemoved} 行是重复题号（牛客 NC 前缀那套），已并掉`)
+        const rejectedCount = unique.length - fresh.length
+        if (rejectedCount) warnings.push(`${rejectedCount} 道题已核实不适合「${node}」，从此节点题池排除`)
         const usable = fresh
           .map((r) => ({ ...r, cfRating: toRating(r.platform, r.difficulty) }))
           .sort((a, b) => a.cfRating - b.cfRating ||
@@ -4811,7 +4889,7 @@ function apply(ctx) {
           return {
             band, anchorRating: anchor,
             candidates: cands.map((p) => {
-              const led = ledger[`${p.platform}|${normId(p.platform, p.problem_id)}`]
+              const led = verifiedProblemForNode(ledger, `${p.platform}|${normId(p.platform, p.problem_id)}`, node)
               return {
                 platform: p.platform, problemId: String(p.problem_id),
                 title: String(p.title ?? ''), difficulty: Number(p.difficulty ?? 0),
@@ -5034,14 +5112,16 @@ function apply(ctx) {
         const verifyOf = (platform, problemId, writtenRaw) => {
           const written = String(writtenRaw ?? '').trim()
           const key = `${platform}|${normId(platform, problemId)}`
-          const prev = prog.verified_problems?.[key]
+          const rejected = rejectedProblemForNode(prog.rejected_problems, key, node)
+          if (rejected) return { ok: false, reject: `「${problemId}」已从「${node}」题池排除：${rejected.reason}。先用 coach_verify 重新核实。` }
+          const prev = verifiedProblemForNode(prog.verified_problems, key, node)
           if (written.length >= 12) {
             return {
               ok: true, verified: written, key, verifiedReused: false,
               verifiedAt: localStamp(new Date()).slice(0, 10),
             }
           }
-          if (prev?.gist) {
+          if (prev) {
             return {
               ok: true, verified: String(prev.gist), key, verifiedReused: true,
               verifiedAt: String(prev.at ?? ''),
@@ -5066,6 +5146,7 @@ function apply(ctx) {
             const title = String(p?.title ?? '').trim()
             const url = String(p?.url ?? '').trim()
             if (!vv.ok) {
+              if (vv.reject) return deny(vv.reject)
               return deny(`「${asked}」标了网上找的，但 verified 写不清（现在 ${String(p?.verified ?? '').trim().length} 字）。` +
                 '要写「你在哪儿看到的 + 它的正解用的是什么」—— 标签像不算数，得你真看过。')
             }
@@ -5105,6 +5186,7 @@ function apply(ctx) {
           // 核实解法的通道。核实过的题号进台账，下次不用重写。
           const vv = verifyOf(platform, hit.problemId, p?.verified)
           if (!vv.ok) {
+            if (vv.reject) return deny(vv.reject)
             return deny(`「${hit.problemId}」没写 verified —— 题库里的题**同样**要你先打开看过。` +
               '题面链接在 coach_pool 的候选里（每道题下面那行）。' +
               '写清「这题的实际解法确实用了这个算法」的依据（题面/题解里哪句）。' +
@@ -5156,8 +5238,9 @@ function apply(ctx) {
         for (const x of picked) {
           if (String(x.verified ?? '').trim().length < 12) continue
           const k = `${x.platform}|${normId(x.platform, x.problemId)}`
-          if (led[k]?.gist === x.verified) continue      // 同样的结论别覆盖掉原日期
-          led[k] = { at: localStamp(new Date()).slice(0, 10), gist: x.verified, node }
+          const scoped = scopedProblemKey(k, node)
+          if (led[scoped]?.gist === x.verified) continue
+          led[scoped] = { at: localStamp(new Date()).slice(0, 10), gist: x.verified, node }
         }
         if (Object.keys(led).length) prog.verified_problems = led
         prog.pending = {
@@ -5200,7 +5283,7 @@ function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'coach_verify',
     description:
-      '把「这道题我核实过正解」写进核实台账 —— **不用开卷**就能记。\n' +
+      '批量核实题目是否适合指定知识点；贴错标签的题用 status=rejected + reason 排除此节点的题池，不影响其他节点。\n' +
       '默认会抓一次题面页、把页面标题和题库标题对一遍（对不上说明链接指的不是这道题，' +
       '会拒）。要是站点抓不到（挡 IP / 要 cookie / 超时），**不拒** —— ' +
       '你附上自己的核实 gist 就落账，只是台账里会记成「自报」。\n' +
@@ -5215,10 +5298,9 @@ function apply(ctx) {
           properties: {
             platform: { type: 'string', required: true, description: 'codeforces / luogu / nowcoder / atcoder …' },
             problemId: { type: 'string', required: true, description: '题号，如 P2880 / 14607 / 1548B' },
-            gist: {
-              type: 'string', required: true,
-              description: '核实依据：你在哪儿看到的、这题的正解用的是什么（≥12 字）',
-            },
+            gist: { type: 'string', description: 'status=verified 时必填：在哪里看到的、正解是什么（≥12 字）' },
+            status: { type: 'string', enum: ['verified', 'rejected'], description: '默认 verified；rejected 表示这题不适合该知识点。' },
+            reason: { type: 'string', description: 'status=rejected 时必填，说明它实际考什么或为什么不适合。' },
             node: { type: 'string', description: '这题是为哪个知识点核实的（可选，默认用当前游标）' },
           },
         },
@@ -5265,11 +5347,11 @@ function apply(ctx) {
           `（自动核对 ${v.autoChecked} / 自报 ${v.manualRecorded}）。`,
         ]
         for (const e of v.entries) {
-          lines.push(`  ${e.how === 'auto' ? '✓ 已核对' : '· 自报'}  ${e.platform} ${e.problemId}` +
+          lines.push(`  ${e.how === 'rejected' ? '× 已排除' : e.how === 'auto' ? '✓ 已核对' : '· 自报'}  ${e.platform} ${e.problemId}` +
             `${e.title ? `　${e.title}` : ''}`)
           if (e.warn) lines.push(`　　　⚠️ ${e.warn}`)
         }
-        lines.push('', `台账里现在 ${v.ledgerTotal} 道题。以后 coach_test 挑到它们不用再写依据。`)
+        lines.push('', `正面核实台账现有 ${v.ledgerTotal} 条；只对核实过的知识点有效。`)
         if (v.manualRecorded) {
           lines.push('⚠️ 「自报」那几条**没被抓到的页面标题印证过** —— ' +
             '是你自己的判断，不是工具核的。下次页面能抓到时会自动升成「已核对」。')
@@ -5293,6 +5375,7 @@ function apply(ctx) {
       try {
         const prog = loadProgress()
         const led = { ...(prog.verified_problems ?? {}) }
+        let rejected = { ...(prog.rejected_problems ?? {}) }
         const cursor = String(prog.cursor ?? '')
         const entries = []
 
@@ -5300,9 +5383,14 @@ function apply(ctx) {
           const platform = String(p?.platform ?? '').trim()
           const asked = String(p?.problemId ?? '').trim()
           const gist = String(p?.gist ?? '').trim()
+          const status = String(p?.status ?? 'verified').trim()
+          const reason = String(p?.reason ?? '').trim()
           const nodeWanted = String(p?.node ?? '').trim() || cursor
           if (!platform || !asked) return deny('每道题都要给 platform 和 problemId。')
-          if (gist.length < 12) {
+          if (!byId.has(nodeWanted)) return deny(`地图里没有「${nodeWanted}」这个知识点，不能记题目核验。`)
+          if (status !== 'verified' && status !== 'rejected') return deny('status 只能是 verified 或 rejected。')
+          if (status === 'rejected' && reason.length < 8) return deny(`「${asked}」的排除理由太短，至少写清它实际考什么。`)
+          if (status === 'verified' && gist.length < 12) {
             return deny(`「${asked}」的 gist 写不清（现在 ${gist.length} 字）—— ` +
               '要写「你在哪儿看到的 + 正解用的是什么」。写不出依据就别记进来，' +
               '台账里躺一条空依据比没有更坏。')
@@ -5318,6 +5406,12 @@ function apply(ctx) {
           const key = `${platform}|${normId(platform, canonical)}`
           const url = hit.found ? hit.url : problemUrl(platform, canonical, '')
           const title = hit.found ? hit.title : ''
+          const at = localStamp(new Date()).slice(0, 10)
+          if (status === 'rejected') {
+            rejected = recordProblemRejection(rejected, key, nodeWanted, reason, at)
+            entries.push({ key, platform, problemId: canonical, title, how: 'rejected', warn: reason, at })
+            continue
+          }
 
           let how = 'manual'
           let warn = ''
@@ -5342,21 +5436,24 @@ function apply(ctx) {
             warn = '这次没起网络核对（check=false），按你的自报记。'
           }
 
-          const prev = led[key]
+          const scoped = scopedProblemKey(key, nodeWanted)
+          const prev = verifiedProblemForNode(led, key, nodeWanted)
           // 一样的结论别覆盖掉原日期：那条记录是"什么时候核的"，值钱。
           // 但**自报升成已核对**要覆盖 —— 那是信息变多了。
           const upgraded = prev?.how === 'manual' && how === 'auto'
           if (prev?.gist === gist && !upgraded) {
+            rejected = clearProblemRejection(rejected, key, nodeWanted)
             entries.push({ key, platform, problemId: canonical, title,
               how: prev.how ?? how, warn: '（台账里已经有这条，没动）', at: String(prev.at ?? '') })
             continue
           }
-          const at = localStamp(new Date()).slice(0, 10)
-          led[key] = { at, gist, node: nodeWanted, how, ...(title ? { title } : {}) }
+          led[scoped] = { at, gist, node: nodeWanted, how, ...(title ? { title } : {}) }
+          rejected = clearProblemRejection(rejected, key, nodeWanted)
           entries.push({ key, platform, problemId: canonical, title, how, warn, at })
         }
 
         prog.verified_problems = led
+        prog.rejected_problems = rejected
         saveProgress(prog)
         return {
           ok: true, reject: '', recorded: entries.length,
@@ -6405,6 +6502,11 @@ function apply(ctx) {
         description: '做的哪道题，如 "P2880" / "CF1548B"（可选）。' +
           '填了它，同一天同一知识点才能分开记两道题；不填就按老规矩「一天一节点一条」。',
       },
+      focusCompetency: { type: 'string', description: '节点练习暴露出的比赛能力细项，如 dp-modeling；只作诊断标签，不另记一次训练或自动提升掌握度。' },
+      platform: { type: 'string', description: '可选，仅在提交链题号不能唯一识别平台时填写 codeforces/luogu/nowcoder。' },
+      startedAt: { type: 'string', description: '可选：本次练习开始时间，带时区的完整 ISO 时间；与 completedAt 一起界定提交链。没有可靠来源就省略。' },
+      completedAt: { type: 'string', description: '可选：本次练习结束时间，带时区的完整 ISO 时间；没有可靠来源就省略。' },
+      anchorSubmissionId: { type: 'string', description: '可选：本次练习最后一发 AC 的平台提交 ID。' },
       actualMin: { type: 'number', description: '学生明确报告的实际分钟数；未报告则省略，不用计划时长代填。' },
       studentQuote: { type: 'string', description: '原生会话必填：本次练习完整报告的学生原话，最多1500字。同一消息有两题时分别引用各题报告，不改写、不只截取有利部分。' },
       solved: {
@@ -6491,6 +6593,7 @@ function apply(ctx) {
       const node = String(args?.node ?? '').trim()
       const d = String(args?.date ?? '').trim() || ymdToday()
       const competency = String(args?.competency ?? '').trim()
+      const focusCompetency = String(args?.focusCompetency ?? '').trim()
       const identity = trainingIdentity(node, competency)
       const actualMin = args?.actualMin === undefined ? undefined : Math.round(Number(args.actualMin))
       const solved = args?.solved === true
@@ -6498,6 +6601,8 @@ function apply(ctx) {
       const note = String(args?.note ?? '').trim()
       // （需求 #2）：题号。空串 = 没给 = 老行为。
       const problemId = String(args?.problemId ?? '').trim()
+      const hasTraceInput = args?.startedAt !== undefined || args?.completedAt !== undefined || args?.anchorSubmissionId !== undefined
+      const traceProblem = submissionProblem(problemId, args?.platform)
       const deny = (reject) => ({
         ok: false, reject, date: d, node, nodeName: byId.get(node)?.name ?? '',
         plannedMin: 0, actualMin: 0, deviation: 0, solved: false, independent: false,
@@ -6509,6 +6614,15 @@ function apply(ctx) {
         return deny(`日期要 YYYY-MM-DD 格式，收到「${d}」。`)
       }
       if (!identity.ok) return deny(identity.reject)
+      if (hasTraceInput && (!traceProblem || !args?.startedAt || !args?.completedAt ||
+        !/(?:Z|[+-]\d{2}:\d{2})$/i.test(args.startedAt) || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(args.completedAt) ||
+        !Number.isFinite(Date.parse(args.startedAt)) || !Number.isFinite(Date.parse(args.completedAt)) ||
+        Date.parse(args.startedAt) > Date.parse(args.completedAt))) {
+        return deny('提交链必须有可识别的平台题号及带时区的开始、结束时间；时间来源不明就省略。')
+      }
+      if (focusCompetency && (competency || !strategy.loadCompetencies().some((item) => item.id === focusCompetency))) {
+        return deny('focusCompetency 只能附在地图节点的练习上，并且必须是已有比赛能力 id；先查 coach_focus。')
+      }
       if (!competency && !byId.has(node)) {
         const near = suggest(node, [...byId.values()])
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
@@ -6564,9 +6678,12 @@ function apply(ctx) {
       const sameSource = r => studentEvidence && r?.studentEvidence?.sessionId === studentEvidence.sessionId
         && r.studentEvidence.messageId === studentEvidence.messageId
         && r.studentEvidence.start < studentEvidence.end && studentEvidence.start < r.studentEvidence.end
+      const sameRound = r => studentEvidence ? sameSource(r)
+        : String(r?.problemId ?? '') === problemId && (args.anchorSubmissionId === undefined
+          ? !r?.anchorSubmissionId : String(r?.anchorSubmissionId ?? '') === String(args.anchorSubmissionId))
       const idx = list.findIndex((r) =>
         (competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency)
-        && (studentEvidence ? sameSource(r) : String(r?.problemId ?? '') === problemId))
+        && sameRound(r))
       // 需求 #8：`plannedMin` 不再写进这条记录（见上面那段注释）
       const entry = { node, solved, ...(actualMin === undefined ? {} : { actualMin }),
         ...(independent === undefined ? {} : { independent }) }
@@ -6581,6 +6698,7 @@ function apply(ctx) {
         entry.kind = pendingAction?.kind ?? 'diagnostic'
       }
       if (problemId) entry.problemId = problemId
+      if (args.anchorSubmissionId !== undefined) entry.anchorSubmissionId = String(args.anchorSubmissionId)
       if (note) entry.note = note
       const replaced = idx >= 0
       if (replaced) list[idx] = entry
@@ -6604,6 +6722,7 @@ function apply(ctx) {
       let recorded = false
       let actionCleared = false
       let passCount = 0
+      const trainerHandle = hasTraceInput ? await currentTrainerHandle() : ''
       try {
         const prog = loadProgress()
         if (!competency) {
@@ -6613,12 +6732,18 @@ function apply(ctx) {
             ...(actualMin === undefined ? {} : { minutes: actualMin }) }
           if (studentEvidence) { e.studentEvidence = studentEvidence; e.eventId = entry.eventId }
           if (problemId) e.problemId = problemId
+          if (focusCompetency) e.focusCompetency = focusCompetency
           if (note) e.note = note
           // 去重键和 SCHEDULE 那边**必须一致**（日期 + 节点 + 题号）：
           // 两边口径分家的话，`coach_status` 的条目数和 `coach_next` 的计划
           // 会对不上同一件事 —— 这个项目反复在治的就是这个病。
-          const pi = passes.findIndex((p) => studentEvidence ? sameSource(p)
-            : String(p?.date ?? '') === d && String(p?.problemId ?? '') === problemId)
+          const pi = passes.findIndex((p) => String(p?.date ?? '') === d && sameRound(p))
+          if (hasTraceInput && trainerHandle) Object.assign(e, { trainerHandle, platform: traceProblem.platform,
+            traceProblemId: traceProblem.problemId, startedAt: args.startedAt, completedAt: args.completedAt,
+            ...(args.anchorSubmissionId === undefined ? {} : { anchorSubmissionId: String(args.anchorSubmissionId) }) })
+          else if (pi >= 0) for (const key of ['trainerHandle', 'platform', 'traceProblemId', 'startedAt', 'completedAt', 'anchorSubmissionId']) {
+            if (passes[pi][key] !== undefined) e[key] = passes[pi][key]
+          }
           if (pi >= 0 && passes[pi].eventId) { e.eventId = passes[pi].eventId; entry.eventId = e.eventId }
           if (pi >= 0) passes[pi] = e
           else passes.push(e)

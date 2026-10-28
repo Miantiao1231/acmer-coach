@@ -147,7 +147,8 @@ console.log('── 6. 规则进 system prompt（不是消息流）──')
   check('order 是有限的数', Number.isFinite(s?.order), String(s?.order))
   check('排在人设之后、通用策略之前（0 < order < 500）',
     s?.order > 0 && s?.order < 500, String(s?.order))
-  check('规则正文非空且含九条硬规则', (s?.text?.length ?? 0) > 2000 && s.text.includes('coach_next'),
+  check('规则正文非空且含赛场判断和证据边界', (s?.text?.length ?? 0) > 2000 &&
+    s.text.includes('区域赛是限时团队赛') && s.text.includes('Hindsight 召回'),
     `${s?.text?.length ?? 0} 字符`)
   // 同样断言**结构性性质**：规则里不该出现绝对路径，也不该出现本机用户名
   // （用户名从 homedir() 现取 —— 源码里不写任何一个具体的名字）。

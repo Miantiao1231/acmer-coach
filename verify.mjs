@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json', 'assets/rules/coach-rules.md']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'lib/submission-chain.js', 'lib/problem-verification.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
@@ -623,6 +623,12 @@ check('★ 机械证据从提交记录算出来（2 次提交）',
   d1.mech.found === true && d1.mech.attempts === 2, JSON.stringify(d1.mech))
 // 20:09:45 WA → 20:10:54 AC = 69 秒。秒级修好 = 「不认真」的机械指纹。
 check('★ WA→AC 间隔算得对（69 秒）', d1.mech.lastWaToAcSec === 69, String(d1.mech.lastWaToAcSec))
+const singleAcDb = new DatabaseSync(dbFile)
+singleAcDb.exec("INSERT INTO unified_submissions VALUES (3, 1, 'codeforces', '1015E', 'AC', 31, 'GNU C++17', '2026-09-11T21:00:00+08:00')")
+singleAcDb.close()
+const singleAc = await diag.execute({ code: CODE, problem: '1015E', category: '不熟', node: 'A',
+  evidence: EV_BAD, summary: '单发通过只说明没有先前失败提交，不能说尚未 AC' }, undefined)
+check('单发 AC 不误报还没 AC', singleAc.mech.found && !singleAc.mech.note.includes('还没 AC'), singleAc.mech.note)
 check('题目元信息带上了（难度 1600 / 标签）',
   d1.mech.difficulty === 1600 && d1.mech.tags.includes('greedy'), JSON.stringify(d1.mech.tags))
 
@@ -1131,6 +1137,7 @@ const barePool = [
 // ⚠️ 判据走 progressApi 读**数据**，不用 grep 文件文本：文件头那段说明里
 //    就写着 verified_problems 这个词，grep 会永远为真（假绿）。
 const p5api = mod5.progressApi
+const verifiedKey5 = (id) => `luogu|${id}|${encodeURIComponent('区间 DP')}`
 check('★ 21c 那张卷的核实结论已经写进台账（开卷即落盘）',
   Boolean(p5api.load().verified_problems?.['luogu|P1']?.gist),
   JSON.stringify(Object.keys(p5api.load().verified_problems ?? {})))
@@ -1154,9 +1161,9 @@ check('写了 verified → 放行', okV.ok === true, okV.reject)
 check('★ 卷面把核实写出来（他要能复核为什么是这道题）',
   test.output.render({}, okV)[0].text.includes('已核实'),
   (test.output.render({}, okV)[0].text.match(/.*已核实.*/) ?? ['（没有）'])[0].slice(0, 60))
-check('★ 台账落盘：平台|归一题号 → 核实结论',
-  Boolean(p5api.load().verified_problems?.['luogu|P1']?.gist &&
-    p5api.load().verified_problems?.['luogu|P6']?.gist),
+check('★ 台账落盘：平台|归一题号|知识点 → 核实结论',
+  Boolean(p5api.load().verified_problems?.[verifiedKey5('P1')]?.gist &&
+    p5api.load().verified_problems?.[verifiedKey5('P6')]?.gist),
   JSON.stringify(Object.keys(p5api.load().verified_problems ?? {})))
 check('★ 新核实的 verifiedReused=false（这次真核了，不是沿用）',
   okV.problems.every((x) => x.verifiedReused === false && x.verifiedAt),
@@ -1238,8 +1245,8 @@ const v1 = await vf([{ platform: 'luogu', problemId: 'P1', gist: V }])
 check('★ 页面标题对得上 → 落账，记成 auto（工具核过的）',
   v1.ok === true && v1.entries[0]?.how === 'auto' && v1.autoChecked === 1, JSON.stringify(v1.entries))
 check('★ 台账真落盘了，而且 how 一起存住（字段白名单那个坑的回归闸）',
-  p5api.load().verified_problems?.['luogu|P1']?.how === 'auto',
-  JSON.stringify(p5api.load().verified_problems?.['luogu|P1']))
+  p5api.load().verified_problems?.[verifiedKey5('P1')]?.how === 'auto',
+  JSON.stringify(p5api.load().verified_problems?.[verifiedKey5('P1')]))
 check('★ 渲染说得清"自动核对"和"自报"的区别',
   verifyTool.output.render({}, v1)[0].text.includes('已核对'),
   verifyTool.output.render({}, v1)[0].text.split('\n')[0])
@@ -1251,7 +1258,7 @@ check('★ 抓不到页面标题 → **不拒**，按自报落账（记 how=manu
 check('★ 拒绝理由里说清"是抓不到，不是没核实"',
   String(v2.entries[0]?.warn ?? '').includes('没抓成页面标题'), String(v2.entries[0]?.warn))
 check('★ 自报和自动核对**分开存**，不混着读',
-  p5api.load().verified_problems?.['luogu|P6']?.how === 'manual')
+  p5api.load().verified_problems?.[verifiedKey5('P6')]?.how === 'manual')
 
 // 对不上 → 拒（这是这条口子的入场券）
 PAGE_TITLE = 'P4 完全不相干的题 - 假站点'

@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createTeachingNotes } from '../lib/teaching.js'
+import { buildTrainingLog } from '../lib/training-log.js'
 
 const AT = '2026-10-11T10:00:00.000Z'
 const EXEC = { agent: { session: { id: 'session-1' } } }
@@ -42,11 +43,98 @@ test('续课笔记留在既有节点账本，重建后可读且不改变掌握�
   const result = await f.create().write({ summary: '状态含义还需检查', nextStep: '用三个物品的小例子让学生解释状态' })
   assert.equal(result.ok, true)
   assert.equal(result.node, 'dp')
-  assert.deepEqual(result.notes, [{ at: AT, summary: '状态含义还需检查', nextStep: '用三个物品的小例子让学生解释状态' }])
+  assert.deepEqual(result.notes, [{ noteId: result.notes[0].noteId, at: AT, summary: '状态含义还需检查', nextStep: '用三个物品的小例子让学生解释状态' }])
+  assert.match(result.notes[0].noteId, /^note:/)
   assert.deepEqual(f.create().read(), result)
   const expected = structuredClone(f.initial)
   expected.nodes.dp.lessonNotes = [{ ...result.notes[0], studentEvidence: null }]
   assert.deepEqual(f.loadProgress(), expected)
+})
+
+test('按笔记 ID 更正时保留原文，但续课和训练日志只使用生效版本', async (t) => {
+  const f = fixture(t)
+  const notes = f.create()
+  const written = await notes.write({ summary: '学生已掌握状态定义', nextStep: '直接开下一节' })
+  const noteId = written.notes[0].noteId
+  const revised = await notes.revise({ noteId, summary: '学生只说出状态含义，独立实现尚未验证', nextStep: '先让学生独立写出转移' })
+  assert.equal(revised.ok, true, revised.reject)
+  assert.equal(revised.total, 1, '更正不能算作新的一次教学')
+  assert.equal(revised.notes[0].noteId, noteId)
+  assert.equal(revised.notes[0].summary, '学生只说出状态含义，独立实现尚未验证')
+  assert.doesNotMatch(notes.context(f.loadProgress()), /已掌握|直接开下一节/)
+  assert.match(notes.context(f.loadProgress()), /独立实现尚未验证/)
+  const saved = f.loadProgress().nodes.dp.lessonNotes
+  assert.equal(saved.length, 1)
+  assert.equal(saved[0].revisions.length, 1)
+  assert.equal(saved[0].revisions[0].summary, '学生已掌握状态定义')
+  const log = buildTrainingLog({ progress: f.loadProgress(), today: '2026-10-11', days: 1 })
+  const lessonEvents = log.days[0].events.filter((event) => event.type === 'lesson')
+  assert.equal(lessonEvents.length, 1)
+  assert.match(lessonEvents[0].detail, /独立实现尚未验证/)
+  assert.doesNotMatch(lessonEvents[0].detail, /已掌握/)
+})
+
+test('旧课时笔记也能按稳定 ID 更正，历史仅在显式请求时返回', async (t) => {
+  const f = fixture(t)
+  const progress = f.loadProgress()
+  progress.nodes.dp.lessonNotes = [{ at: AT, summary: '误记：已经独立完成', nextStep: '进入新知识点', studentEvidence: null }]
+  f.saveProgress(progress)
+  const notes = f.create()
+  const noteId = notes.read({ node: 'dp' }).notes[0].noteId
+  assert.match(noteId, /^legacy:/)
+  assert.equal(f.create().read({ node: 'dp' }).notes[0].noteId, noteId)
+  const corrected = await notes.revise({ noteId, summary: '目前只有口头解释，独立做题未核实', nextStep: '找一道题独立完成' })
+  assert.equal(corrected.ok, true, corrected.reject)
+  assert.equal(corrected.total, 1)
+  assert.equal(corrected.notes[0].noteId, noteId)
+  assert.equal('revisions' in corrected.notes[0], false)
+  const history = notes.read({ node: 'dp', includeHistory: true }).notes[0].revisions
+  assert.equal(history.length, 1)
+  assert.equal(history[0].summary, '误记：已经独立完成')
+  assert.equal('studentEvidence' in history[0], false, '未核对的原话不应作为空证据返回')
+  await notes.revise({ noteId, summary: '目前只有口头解释，独立做题未核实', nextStep: '找一道题独立完成' })
+  assert.equal(notes.read({ node: 'dp', includeHistory: true }).notes[0].revisions.length, 1, '重复调用不制造新版本')
+  assert.equal((await notes.revise({ noteId: 'legacy:missing', summary: '未知', nextStep: '未知' })).ok, false)
+  assert.equal(f.loadProgress().nodes.dp.lessonNotes.length, 1)
+})
+
+test('更正未提供新学生原话时保留原有核对出处', async (t) => {
+  const f = fixture(t)
+  f.dependencies.getSessionQuery = () => ({ readSession: async () => ({ session: { id: 'session-1' }, events: [userEvent()] }) })
+  const notes = f.create()
+  const written = await notes.write({ summary: '初始判断', nextStep: '继续检查', studentQuote: QUOTE }, EXEC)
+  const originalEvidence = written.notes[0].studentEvidence
+  const revised = await notes.revise({ noteId: written.notes[0].noteId, summary: '修正判断', nextStep: '让学生独立写代码' })
+  assert.equal(revised.ok, true, revised.reject)
+  assert.deepEqual(revised.notes[0].studentEvidence, originalEvidence)
+  assert.deepEqual(f.loadProgress().nodes.dp.lessonNotes[0].studentEvidence, originalEvidence)
+})
+
+test('更正较早的笔记直接回显那条笔记，而不是最近五条', async (t) => {
+  const f = fixture(t)
+  const notes = f.create()
+  let oldId = ''
+  for (let i = 0; i < 7; i++) {
+    const added = await notes.write({ summary: `第 ${i} 次判断`, nextStep: '继续核对' })
+    if (i === 0) oldId = added.notes[0].noteId
+  }
+  const revised = await notes.revise({ noteId: oldId, summary: '最早那条已纠正', nextStep: '改按新证据推进' })
+  assert.equal(revised.ok, true, revised.reject)
+  assert.equal(revised.total, 7)
+  assert.equal(revised.notes.length, 1)
+  assert.equal(revised.notes[0].noteId, oldId)
+  assert.equal(revised.notes[0].summary, '最早那条已纠正')
+})
+
+test('读取旧笔记只输出工具契约允许的字段', (t) => {
+  const f = fixture(t)
+  const progress = f.loadProgress()
+  progress.nodes.dp.lessonNotes = [{ at: AT, summary: '当前判断', nextStep: '继续验证', internalFlag: '旧字段',
+    revisions: [{ at: AT, summary: '原判断', nextStep: '旧建议', supersededAt: AT, internalFlag: '旧字段' }] }]
+  f.saveProgress(progress)
+  const notes = f.create()
+  assert.equal('internalFlag' in notes.read({ node: 'dp' }).notes[0], false)
+  assert.equal('internalFlag' in notes.read({ node: 'dp', includeHistory: true }).notes[0].revisions[0], false)
 })
 
 test('无效知识点、空白和超长笔记不能写入账本', async (t) => {

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import fs from 'node:fs'
 import { syncBuiltinESMExports } from 'node:module'
+import { DatabaseSync } from 'node:sqlite'
 
 async function fixture(run, { cursor = 'A' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-training-'))
@@ -122,6 +123,70 @@ test('competency diagnostic works without a cursor and completes through coach_l
   assert.equal((await call('coach_assign', { competency: 'invented', kind: 'diagnostic', minutes: 15, deliverable: '提交观察' })).accepted, false)
   assert.equal((await call('coach_log', { competency: 'invented', actualMin: 15, solved: true, independent: true })).ok, false)
 }, { cursor: '' }))
+
+test('a node practice keeps its competition skill focus without counting a second session', async () => fixture(async ({ call, read }) => {
+  const logged = await call('coach_log', { node: 'A', problemId: 'CF1067A', solved: true,
+    focusCompetency: 'dp-modeling', note: '状态量选择：一维历史和滚动数组混淆', actualMin: 42 })
+  assert.equal(logged.ok, true, logged.reject)
+  assert.equal(read('PROGRESS.yaml').nodes.A.passes[0].focusCompetency, 'dp-modeling')
+  const status = await call('coach_status', {})
+  assert.equal(status.recentPasses[0].focusCompetency, 'dp-modeling')
+  assert.match(status.recentPasses[0].note, /一维历史/)
+  assert.equal(status.passTotal, 1)
+  assert.equal(read('SCHEDULE.yaml').days[logged.date].actual.length, 1)
+  assert.equal((await call('coach_log', { node: 'A', solved: true, focusCompetency: 'invented' })).ok, false)
+}))
+
+test('status links one exercise to its full MLE-WA-WA-AC-AC sequence', async () => fixture(async ({ call, read, dir }) => {
+  const db = new DatabaseSync(join(dir, 'unused.db'))
+  db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
+    CREATE TABLE unified_submissions (id INTEGER PRIMARY KEY, user_id INTEGER, platform TEXT,
+      problem_id TEXT, verdict TEXT, submitted_at TEXT, cf_sub_id INTEGER, lg_sub_id INTEGER, nc_sub_id INTEGER);
+    INSERT INTO users VALUES (1,'trainer','trainer');`)
+  const now = Date.now()
+  const at = (seconds) => new Date(now - seconds * 1000).toISOString()
+  const stmt = db.prepare(`INSERT INTO unified_submissions
+    (id,user_id,platform,problem_id,verdict,submitted_at,cf_sub_id) VALUES (?,?,?,?,?,?,?)`)
+  for (const [id, verdict, ago] of [[1,'MLE',300],[2,'WA',240],[3,'WA',180],[4,'AC',120],[5,'AC',30]]) {
+    stmt.run(id, 1, 'codeforces', '1067A', verdict, at(ago), id)
+  }
+  db.close()
+  const logged = await call('coach_log', { node: 'A', problemId: 'CF1067A', solved: true,
+    startedAt: at(360), completedAt: at(0), anchorSubmissionId: '5' })
+  assert.equal(logged.ok, true, logged.reject)
+  const pass = read('PROGRESS.yaml').nodes.A.passes[0]
+  assert.equal(pass.platform, 'codeforces')
+  assert.equal(pass.problemId, 'CF1067A')
+  assert.equal(pass.anchorSubmissionId, '5')
+  const status = await call('coach_status', {})
+  assert.equal(status.recentPasses[0].submissionChain.attempts, 5)
+  assert.equal(status.recentPasses[0].submissionChain.failed, 3)
+  assert.match(status.recentPasses[0].submissionChain.verdicts, /MLE.*WA.*WA.*AC.*AC/)
+}))
+
+test('two same-day rounds of one problem keep separate completion records when submission anchors differ', async () => fixture(async ({ call, read, dir }) => {
+  const db = new DatabaseSync(join(dir, 'unused.db'))
+  db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
+    CREATE TABLE unified_submissions (id INTEGER PRIMARY KEY, user_id INTEGER, platform TEXT,
+      problem_id TEXT, verdict TEXT, submitted_at TEXT, cf_sub_id INTEGER, lg_sub_id INTEGER, nc_sub_id INTEGER);
+    INSERT INTO users VALUES (1,'trainer','trainer');`)
+  const now = Date.now()
+  const at = (seconds) => new Date(now - seconds * 1000).toISOString()
+  db.prepare(`INSERT INTO unified_submissions
+    (id,user_id,platform,problem_id,verdict,submitted_at,cf_sub_id) VALUES (1,1,'codeforces','1067A','AC',?,1)`).run(at(500))
+  db.prepare(`INSERT INTO unified_submissions
+    (id,user_id,platform,problem_id,verdict,submitted_at,cf_sub_id) VALUES (2,1,'codeforces','1067A','AC',?,2)`).run(at(100))
+  db.close()
+  const first = await call('coach_log', { node: 'A', problemId: 'CF1067A', solved: true,
+    startedAt: at(600), completedAt: at(490), anchorSubmissionId: '1' })
+  const second = await call('coach_log', { node: 'A', problemId: 'CF1067A', solved: true,
+    startedAt: at(200), completedAt: at(90), anchorSubmissionId: '2' })
+  assert.equal(first.ok, true)
+  assert.equal(second.ok, true)
+  assert.equal(second.replaced, false)
+  assert.equal(read('PROGRESS.yaml').nodes.A.passes.length, 2)
+  assert.equal(read('SCHEDULE.yaml').days[second.date].actual.length, 2)
+}))
 
 test('competency actions bind the diagnostic phase, reject stale or other-unit work, and yield usable evidence', async () => fixture(async ({ call, read }) => {
   const phase = { id: 'read-probe', title: '读题诊断', kind: 'diagnostic', finding: 'unknown', nodes: [], competencies: ['contest-reading'],
