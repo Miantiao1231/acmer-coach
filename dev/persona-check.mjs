@@ -11,6 +11,12 @@ const personaPath = new URL('../assets/persona/xiaojing-coach.md', import.meta.u
 const rulesPath = new URL('../assets/rules/coach-rules.md', import.meta.url)
 let imports = 0
 
+test('packaged persona does not bind every user to one private student', () => {
+  const persona = fs.readFileSync(personaPath, 'utf8')
+  assert.doesNotMatch(persona, /陪\s+[A-Za-z][\w-]{3,}/)
+  assert.doesNotMatch(persona, /(?:平时|默认)叫「[A-Za-z][\w-]{3,}」/)
+})
+
 test('packaged coaching instructions stay focused on judgment, not stale contest prescriptions', () => {
   const rules = fs.readFileSync(rulesPath, 'utf8')
   assert.ok(rules.length < 7000, `static rules are ${rules.length} characters`)

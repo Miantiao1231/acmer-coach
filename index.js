@@ -2416,11 +2416,11 @@ function apply(ctx) {
             problemId: { type: 'string', required: true }, status: { type: 'string', required: true },
             readMinutes: { type: 'number' }, solveMinutes: { type: 'number', description: 'VP自动数据是从开赛到AC的经过时间，不是该题净用时。' },
             attempts: { type: 'integer' }, competencies: { type: 'array', items: { type: 'string' } }, note: { type: 'string' },
-            independent: { type: 'boolean' }, occurredAt: { type: 'string' },
+            independent: { type: 'boolean', description: '团队 VP：未用题解、队外提示或教练帮助可记 true；队友讨论仍算队伍独立。明确有队外帮助记 false，未知省略。自动同步的团队 AC 可作队伍完成基线，不证明个人独立掌握。' }, occurredAt: { type: 'string' },
           } } },
           measurements: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
             competency: { type: 'string', required: true }, metric: { type: 'string', required: true }, value: { type: 'number', required: true },
-            passed: { type: 'boolean', required: true, description: '是否对照明确条件验收通过；不能仅凭AC推断。' }, independent: { type: 'boolean' }, occurredAt: { type: 'string' },
+            passed: { type: 'boolean', required: true, description: '是否对照明确条件验收通过；不能仅凭AC推断。' }, independent: { type: 'boolean', description: '团队 VP 以队伍为单位：队内讨论不算外援；队外帮助记 false，未知可省略。' }, occurredAt: { type: 'string' },
           } } },
         } } },
     },
@@ -2511,7 +2511,7 @@ function apply(ctx) {
       const regionalSummary = strategy.contests({ details: false }).summary
       return { ...v, course, text: v.ok ? [`【训练取舍依据】长期：${course.goal || '尚未建立'}\n本次：${v.contest} · ${v.deadline} · 剩余${v.daysRemaining}天`,
         `资料目录：${regionalSummary.regionals}场区域赛，其中${regionalSummary.scoredRegionals}场有现场榜逐题统计（${regionalSummary.scoredProblems}题）。当前题解样本：${regionalSamples}场、${v.profile.coverage.reviewedSolutions}题；三种覆盖不能混同。\n样本：${v.profile.title || '未选择'}（${v.profile.status}）；适用边界：${v.profile.limitations.join('；')}`,
-        ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 独立起点${f.baselineCount} / 待确认${f.observationCount}`),
+        ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 完成基线${f.baselineCount} / 待确认${f.observationCount}`),
         course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n本周主线截至：${course.focusUntil || '未设'}${course.focusExpired ? '（已到期，先复盘）' : ''}\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
         course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
         course.exitCheckResults.length ? `验收进展：${course.exitCheckResults.map(check => `${check.target}：${check.passed ? `已满足（${check.matchedEvents}次，跨${check.distinctDays}日）` : check.missing.join('，')}`).join('；')}` : '',

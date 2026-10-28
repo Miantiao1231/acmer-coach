@@ -62,6 +62,28 @@ test('invalid target constraints and VP numbers are rejected before changing led
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('team VP results form team baselines without claiming unknown personal independence', () => {
+  const { dir, store } = fixture()
+  try {
+    const event = (eventId, teamMode, independent) => ({
+      eventId, contest: 'VP', date: '2026-10-10', teamMode,
+      problems: [{ problemId: 'A', status: 'AC', competencies: ['implementation-stability'],
+        ...(independent === undefined ? {} : { independent }) }],
+      measurements: [{ competency: 'contest-decision', metric: 'scanned', value: 1, passed: true,
+        ...(independent === undefined ? {} : { independent }) }],
+    })
+    assert.equal(store.vpImport([event('team-unknown', 'team'), event('team-assisted', 'team', false),
+      event('solo-unknown', 'solo'), event('solo-independent', 'solo', true)]).ok, true)
+    const facts = store.evidence().evidence.filter(e => e.source === 'vp')
+    const signals = id => facts.filter(e => e.eventId === id).map(e => e.signal)
+    assert.deepEqual(signals('team-unknown'), ['baseline', 'baseline'])
+    assert.deepEqual(signals('team-assisted'), ['observation', 'observation'])
+    assert.deepEqual(signals('solo-unknown'), ['observation', 'observation'])
+    assert.deepEqual(signals('solo-independent'), ['baseline', 'baseline'])
+    assert.ok(facts.filter(e => e.eventId === 'team-unknown').every(e => e.independent === undefined))
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('local training day includes morning VP evidence and computes the local deadline', () => {
   const { dir, store } = fixture({ now: () => new Date(2026, 9, 11, 0, 30) })
   try {

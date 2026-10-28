@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import { createCurriculumStore, curriculumTool } from '../lib/curriculum.js'
-import { normalizePhases, validatePlan } from '../lib/curriculum-planning.js'
+import { evaluateExitChecks, normalizePhases, validatePlan } from '../lib/curriculum-planning.js'
 import { collectEvidence } from '../lib/curriculum-evidence.js'
 
 const byId = new Map([
@@ -177,6 +177,70 @@ test('v2 courses remain unchanged on read and completed v2 phases survive explic
   assert.equal(saved.version, 3)
   assert.deepEqual(saved.phases[0], completed)
   assert.equal(saved.history.at(-1).previous.version, 2)
+})
+
+test('diagnostic review exits count fresh postmortems, not raw VP observations or training baselines', () => {
+  const check = { competency: 'contest-decision', source: 'postmortem', minEvents: 2, minDistinctDays: 2 }
+  const phase = { kind: 'diagnostic', exitChecks: [check] }
+  const entry = (id, eventId, date, source, signal) => ({
+    id, eventId, date, source, signal, node: '', competency: 'contest-decision',
+  })
+  const evidence = [
+    entry('raw-a', 'a', '2026-10-10', 'vp', 'observation'),
+    entry('review-a', 'a', '2026-10-10', 'postmortem', 'observation'),
+    entry('finding-a', 'a', '2026-10-10', 'postmortem', 'gap'),
+    entry('raw-b', 'b', '2026-10-11', 'vp', 'observation'),
+    entry('review-b', 'b', '2026-10-11', 'postmortem', 'observation'),
+  ]
+  const read = (kind, facts = evidence) => evaluateExitChecks({ ...phase, kind }, facts, [], '2026-10-09', [], '2026-10-11')[0]
+  assert.equal(read('diagnostic', evidence.filter(e => e.source === 'vp')).matchedEvents, 0)
+  assert.equal(read('diagnostic').matchedEvents, 2, 'one VP with a finding still counts once')
+  assert.equal(read('diagnostic').passed, true)
+  assert.equal(read('training').passed, false)
+  const normalized = normalizePhases([{ ...diagnostic([]), competencies: ['contest-decision'], exitChecks: [check] }], byId)
+  assert.equal(normalized[0].exitChecks[0].source, 'postmortem')
+})
+
+test('narrowing an active diagnostic exit to postmortems preserves already completed reviews', () => {
+  const f = fixture()
+  const evidence = []
+  const store = createCurriculumStore({ ...f.options, loadStrategyEvidence: () => evidence })
+  const phase = { ...diagnostic([]), competencies: ['contest-decision'],
+    exitChecks: [{ competency: 'contest-decision', minEvents: 3, minDistinctDays: 2 }] }
+  const created = f.create({ phases: [phase] })
+  assert.equal(created.ok, true, created.reject)
+  evidence.push(
+    { id: 'review-a', eventId: 'a', date: '2026-10-10', source: 'postmortem', signal: 'observation', node: '', competency: 'contest-decision' },
+    { id: 'review-b', eventId: 'b', date: '2026-10-11', source: 'postmortem', signal: 'observation', node: '', competency: 'contest-decision' },
+  )
+  f.clock.at = '2026-10-11T12:00:00+08:00'
+  const revised = store.execute({ action: 'revise', expectedRevision: 1,
+    phases: [{ ...store.load().phases[0], exitChecks: [{ ...phase.exitChecks[0], source: 'postmortem' }] }],
+    reason: '原验收要求逐场复盘，补明只数已保存的复盘记录' })
+  assert.equal(revised.ok, true, revised.reject)
+  assert.equal(revised.exitCheckResults[0].matchedEvents, 2)
+  evidence.push({ id: 'raw-c', eventId: 'c', date: '2026-10-11', source: 'vp', signal: 'observation', node: '', competency: 'contest-decision' })
+  assert.equal(store.snapshot().exitCheckResults[0].matchedEvents, 2)
+})
+
+test('postmortem-only exits reject fields that postmortem evidence cannot provide', () => {
+  for (const extra of [{ independent: true }, { maxMinutes: 60 }, { metric: 'error-count', maxValue: 0 }]) {
+    const phase = { ...diagnostic([]), competencies: ['contest-decision'],
+      exitChecks: [{ competency: 'contest-decision', source: 'postmortem', minEvents: 1, ...extra }] }
+    assert.throws(() => normalizePhases([phase], byId), /source=postmortem/)
+  }
+})
+
+test('diagnostic success thresholds reject failed observations even when values fit', () => {
+  const observation = { id: 'vp:failed', eventId: 'failed', source: 'vp', node: '',
+    competency: 'contest-reading', date: '2026-10-10', signal: 'observation',
+    independent: true, minutes: 10, metric: 'missed-reading', value: 0 }
+  for (const condition of [{ metric: 'missed-reading', maxValue: 0 }, { independent: true }, { maxMinutes: 20 }]) {
+    const phase = { kind: 'diagnostic', exitChecks: [{ competency: 'contest-reading', minEvents: 1, ...condition }] }
+    const count = facts => evaluateExitChecks(phase, facts, [], '2026-10-09', [], '2026-10-11')[0].matchedEvents
+    assert.equal(count([observation]), 0)
+    assert.equal(count([{ ...observation, id: 'vp:passed', signal: 'baseline' }]), 1)
+  }
 })
 
 test('VP metric exits require baseline facts with the exact metric and finite value', () => {
