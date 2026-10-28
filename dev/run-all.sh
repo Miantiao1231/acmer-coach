@@ -70,6 +70,7 @@ run "evidence"      node --test dev/curriculum-evidence-check.mjs
 run "strategy"      node --test dev/strategy-check.mjs
 run "catalog"       node --test dev/catalog-check.mjs
 run "coach-contract" node --test dev/coaching-contract-check.mjs
+run "regionals"     node --test dev/regional-index-check.mjs
 run "teaching"      node --test dev/teaching-check.mjs
 run "hindsight"     node --test dev/hindsight-check.mjs
 run "teaching-eval" node --test dev/teaching-eval-check.mjs

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -18,6 +18,15 @@ function shape(schema, value) {
   } else if (schema.type === 'integer') assert.ok(Number.isInteger(value))
   else assert.equal(typeof value, schema.type)
 }
+
+test('coaching rules keep a weekly outcome and batch selective review into class time', () => {
+  const rules = readFileSync(join(process.cwd(), 'assets', 'rules', 'coach-rules.md'), 'utf8')
+  assert.match(rules, /每周.*一个.*可观察/)
+  assert.match(rules, /周末.*复盘/)
+  assert.match(rules, /复习.*集中.*上课时段/)
+  assert.match(rules, /不.*每道题.*复习/)
+  assert.match(rules, /coach_target contests.*VP/)
+})
 
 test('integrated map concepts cannot be assigned or examined as standalone units', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-integrated-'))
@@ -69,7 +78,7 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     assert.ok((await call('coach_target', { action: 'profiles' })).availableProfiles.length)
     const missing = await call('coach_postmortem', { eventId: 'unknown', findings: [] })
     assert.equal(missing.ok, false)
-    const target = await call('coach_target', { action: 'set', expectedRevision: 0, contest: '样本训练', date: '2026-10-17', result: '稳定发挥', weeklyHours: 25,
+    const target = await call('coach_target', { action: 'set', expectedRevision: 0, contest: '样本训练', date: '2026-10-17', result: '稳定发挥', weeklyHours: 25, profileId: 'regional-diagnostic',
       priorities: [{ id: 'graph-modeling', weight: 10 }] })
     assert.equal(target.ok, true, target.reject)
     await call('coach_vp_import', { events: [{ eventId: 'vp-contract', contest: 'VP', date: '2026-10-10', problems: [{ problemId: 'A', status: 'WA' }] }] })
@@ -88,13 +97,16 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     const measured = await call('coach_curriculum', { action: 'assess', evidenceEventIds: ['measured-contract'] })
     assert.equal(measured.evidence.find(entry => entry.metric === 'missed-reading')?.value, 0)
     const gap = (await call('coach_curriculum', { action: 'assess', evidenceEventIds: ['vp-contract'] })).evidence.find(entry => entry.signal === 'gap')
-    const created = await call('coach_curriculum', { action: 'create', expectedRevision: 0, goal: '区域赛稳定建图', reason: '针对已经确认的建图错误，用两场零错误指标验收', phases: [{
+    const created = await call('coach_curriculum', { action: 'create', expectedRevision: 0, goal: '区域赛稳定建图', reason: '针对已经确认的建图错误，用两场零错误指标验收', focusUntil: '2026-11-04', phases: [{
       id: 'graph-measured', title: '稳定建图', kind: 'training', finding: 'gap', nodes: [], competencies: ['graph-modeling'],
       outcome: '两场不同的VP都能独立正确建模', exitCriteria: '两场独立验收无建模错误',
       basis: '对照题面和代码已确认建图方向错误', goalContribution: '减少区域赛建模题错误提交', priorityReason: '现有事实显示建模方向错误需要先修', estimatedHours: 5,
       evidenceRefs: [gap.id], uncertainty: '', diagnosticMethod: '', exitChecks: [{ competency: 'graph-modeling', minEvents: 2, independent: true, metric: 'model-errors', maxValue: 0 }],
     }] })
     assert.equal(created.ok, true, created.reject)
+    const weeklyFocus = await call('coach_focus', {})
+    assert.equal(weeklyFocus.course.focusUntil, '2026-11-04')
+    assert.match(weeklyFocus.text, /45场区域赛.*38场.*6场/)
     const now = new Date()
     const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     for (let i = 0; i < 2; i++) {

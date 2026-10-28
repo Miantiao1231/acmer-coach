@@ -1604,6 +1604,17 @@ function registerPages(ctx) {
       return sendJson(res, 200, { ok: true, ...vpClient.localStatus() })
     }
 
+    if (pathname === '/coach/api/contests' && req.method === 'GET') {
+      try {
+        const query = new URL(req.url ?? '/', 'http://dsh.internal').searchParams
+        const year = query.get('year') ?? undefined
+        const site = query.get('site') ?? ''
+        const category = query.get('category') ?? ''
+        return sendJson(res, 200, { ok: true, ...strategy.contests({ year, site, category,
+          details: Boolean(year || site) }) })
+      } catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err), contests: [] }) }
+    }
+
     if (pathname === '/coach/api/vp/contests' && req.method === 'GET') {
       try { return sendJson(res, 200, { ok: true, ...(await vpClient.contests()) }) }
       catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err), contests: [] }) }
@@ -2348,9 +2359,12 @@ function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'coach_target',
-    description: '设置或读取比赛目标；profiles 查看带来源、样本范围和限制的比赛配置，profileId 可选用。样本不是赛场预测，不自动生成奖牌线或知识点清单。目标先于知识点。',
+    description: '设置或读取比赛目标；profiles 看已核题解样本；contests 查中国区56场资料索引，其中45场区域赛、38场有可复算现场榜。可按年份/赛站查询4题与5题队逐题AC数；榜单分布不是个人可做题、奖牌预测或考纲，须结合本人VP。目标先于知识点。',
     parameters: {
-      action: { type: 'string', required: true, enum: ['read', 'profiles', 'set', 'clear'] },
+      action: { type: 'string', required: true, enum: ['read', 'profiles', 'contests', 'set', 'clear'] },
+      year: { type: 'integer', description: 'contests 可选年份；带年份或赛站时返回逐题榜单统计。' },
+      site: { type: 'string', description: 'contests 可选赛站，例如西安、香港。' },
+      category: { type: 'string', enum: ['区域赛', 'EC-Final', '邀请赛'], description: 'contests 可选类别；区域赛与邀请赛分开。' },
       expectedRevision: { type: 'integer', description: 'read 返回的 revision；首次 set 用 0。' },
       contest: { type: 'string', description: '比赛名称，例如西安区域赛' },
       date: { type: 'string', description: '比赛日期 YYYY-MM-DD' },
@@ -2370,11 +2384,21 @@ function apply(ctx) {
       updated: { type: 'string', required: true }, version: { type: 'integer', required: true },
       constraints: { type: 'object', required: true, additionalProperties: true }, text: { type: 'string', required: true },
       profileId: { type: 'string', required: true }, availableProfiles: { type: 'array', required: true },
+      availableContests: { type: 'array' }, contestSummary: { type: 'object', additionalProperties: true },
     } }, render: (_a, v) => strategyText(v) },
     execute: (args) => {
       const v = strategy.target(args?.action || 'read', args ?? {})
       return { ...v, text: v.ok
         ? args?.action === 'profiles' ? ['【比赛样本配置】', ...v.availableProfiles.map(p => `${p.id} · ${p.title}（${p.status}）\n范围：${p.scope}\n取舍：${p.selectionGuidance.join('；')}\n限制：${p.limitations.join('；')}\n来源：${p.sources.map(s => `${s.title} ${s.url}`).join('；')}`)].join('\n\n')
+          : args?.action === 'contests' ? [`【中国区比赛资料】56场候选：区域赛${v.contestSummary.regionals}、EC-Final ${v.contestSummary.ecFinals}、邀请赛${v.contestSummary.invitationals}。区域赛中${v.contestSummary.scoredRegionals}场有现场榜逐题统计，共${v.contestSummary.scoredProblems}题。其余场次只有资料入口。`,
+            ...v.availableContests.map(c => {
+              const head = `${c.year} ${c.site}（${c.category}；Excel第${c.sourceRow}行）`
+              if (!c.scoreboard) return `${head}：暂无可复算现场榜；不能推断可做题。`
+              const s = c.scoreboard
+              const body = s.problems ? `\n正式队${s.officialTeams}；做出4题${s.teamsWith4}队、5题${s.teamsWith5}队。逐题为「4题队AC / 5题队AC / 4题队尝试未AC」：${s.problems.map(p => `${p.label} ${p.solvedBy4}/${p.solvedBy5}/${p.attemptedUnsolvedBy4}`).join('，')}。\n统计来源：${s.source}\n题面候选：${c.links.statement || '缺失'}；题解候选：${c.links.officialSolution || '缺失'}`
+                : `：正式队${s.officialTeams}；做出4题${s.teamsWith4}队、5题${s.teamsWith5}队；按年份或赛站查询逐题数据。`
+              return head + body
+            }), '这些是现场队伍分布；要判断你能多做哪题，仍需核本人VP、当时读题/代码与时间。'].join('\n')
           : `【比赛目标 · revision ${v.revision}】${v.contest} / ${v.date}\n目标：${v.result}\n模式：${v.teamMode}；每周 ${v.weeklyHours} 小时\n样本配置：${v.profileId || '未选，先 profiles 核查'}\n能力重点：${v.priorities.map((p) => `${p.id}(${p.weight})`).join('、')}`
         : '' }
     },
@@ -2463,6 +2487,7 @@ function apply(ctx) {
         phaseCompetencies: { type: 'array', required: true, items: { type: 'string' } },
         goal: { type: 'string', required: true }, outcome: { type: 'string', required: true },
         exitCheckResults: { type: 'array', required: true },
+        focusUntil: { type: 'string', required: true },
         focusExpired: { type: 'boolean', required: true }, missingFreshEvidence: { type: 'array', required: true, items: { type: 'string' } },
       } },
     } }, render: (_a, v) => strategyText(v) },
@@ -2479,12 +2504,15 @@ function apply(ctx) {
         phaseTitle: String(snapshot.phaseTitle || ''), focusNodes: snapshot.focusNodes ?? [], pendingNodes: snapshot.pendingNodes ?? [],
         phaseCompetencies: snapshot.phaseCompetencies ?? [],
         goal: String(snapshot.goal || ''), outcome: String(snapshot.outcome || ''), exitCheckResults: snapshot.exitCheckResults ?? [],
+        focusUntil: String(snapshot.focusUntil || ''),
         focusExpired: Boolean(snapshot.focusExpired), missingFreshEvidence: snapshot.missingFreshEvidence ?? [],
       }
+      const regionalSamples = new Set(v.profile.samples.map(item => `${item.year}:${item.contest}`)).size
+      const regionalSummary = strategy.contests({ details: false }).summary
       return { ...v, course, text: v.ok ? [`【训练取舍依据】长期：${course.goal || '尚未建立'}\n本次：${v.contest} · ${v.deadline} · 剩余${v.daysRemaining}天`,
-        `样本：${v.profile.title || '未选择'}（${v.profile.status}）\n覆盖：${v.profile.coverage.sampledProblems}题，${v.profile.coverage.reviewedSolutions}题已核对题解，年份 ${v.profile.coverage.years.join('、') || '无'}；不是完整考纲。\n适用边界：${v.profile.limitations.join('；')}`,
+        `资料目录：${regionalSummary.regionals}场区域赛，其中${regionalSummary.scoredRegionals}场有现场榜逐题统计（${regionalSummary.scoredProblems}题）。当前题解样本：${regionalSamples}场、${v.profile.coverage.reviewedSolutions}题；三种覆盖不能混同。\n样本：${v.profile.title || '未选择'}（${v.profile.status}）；适用边界：${v.profile.limitations.join('；')}`,
         ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 独立起点${f.baselineCount} / 待确认${f.observationCount}`),
-        course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
+        course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n本周主线截至：${course.focusUntil || '未设'}${course.focusExpired ? '（已到期，先复盘）' : ''}\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
         course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
         course.exitCheckResults.length ? `验收进展：${course.exitCheckResults.map(check => `${check.target}：${check.passed ? `已满足（${check.matchedEvents}次，跨${check.distinctDays}日）` : check.missing.join('，')}`).join('；')}` : '',
         v.postponed.length ? `暂缓：${v.postponed.join('、')}` : '没有暂缓项。',

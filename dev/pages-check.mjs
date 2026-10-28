@@ -108,6 +108,22 @@ test('training-log endpoint returns a read-only joined view with a bounded range
   assert.deepEqual(readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')]), before)
 })
 
+test('regional contest endpoint serves the source index and real cohort counts without writing user data', async t => {
+  const { dir, request } = await fixture(t)
+  const before = readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')])
+  const list = await request('/coach/api/contests')
+  assert.equal(list.status, 200)
+  assert.equal(JSON.parse(String(list.body)).summary.regionals, 45)
+  const detail = await request('/coach/api/contests?year=2025&site=%E8%A5%BF%E5%AE%89')
+  assert.equal(detail.status, 200)
+  const item = JSON.parse(String(detail.body)).contests[0]
+  assert.equal(item.site, '西安')
+  assert.equal(item.scoreboard.teamsWith4, 94)
+  assert.equal(item.scoreboard.problems.find(p => p.label === 'I').solvedBy5, 76)
+  assert.equal((await request('/coach/api/contests?year=wrong')).status, 400)
+  assert.deepEqual(readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')]), before)
+})
+
 test('progress endpoint exposes existing pending work for the today card without changing the ledger', async t => {
   const { dir, request } = await fixture(t)
   const source = 'version: 1\ncursor: custom-node\nnodes: {}\npendingActions:\n  custom-node:\n    at: 2026-10-25\n    deliverable: 完成一道限时题\n    why: 本阶段缺独立限时证据\n    totalMinutes: 60\n'

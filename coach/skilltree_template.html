@@ -277,6 +277,28 @@ body[data-view="vp"] .tree-tools,body[data-view="vp"] #hdrCount{display:none}
 body[data-view="vp"] .mapbar{margin-bottom:0}
 body[data-view="vp"] .vp-view{display:flex;flex-direction:column}
 body[data-view="vp"] #stage,body[data-view="vp"] .side,body[data-view="vp"] #sched,body[data-view="vp"] #log,body[data-view="vp"] #panel{display:none!important}
+.regionals{grid-area:regionals;display:none;min-height:0;padding:24px 32px;overflow:auto;background:linear-gradient(180deg,color-mix(in srgb,var(--brand-soft) 28%,transparent),transparent 240px)}
+body[data-view="regionals"]{grid-template-columns:1fr;grid-template-areas:"hdr" "tools" "regionals"}
+body[data-view="regionals"] .tree-tools,body[data-view="regionals"] #hdrCount{display:none}
+body[data-view="regionals"] .mapbar{margin-bottom:0}
+body[data-view="regionals"] .regionals{display:flex;flex-direction:column;gap:16px}
+body[data-view="regionals"] #stage,body[data-view="regionals"] .side,body[data-view="regionals"] #sched,body[data-view="regionals"] #log,body[data-view="regionals"] #vp,body[data-view="regionals"] #panel{display:none!important}
+.regional-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.regional-head h2{font-size:18px;margin:0}.regional-head p{margin:4px 0 0;color:var(--text-3);font-size:12.5px}
+.regional-count{color:var(--brand-text);font-size:13px;font-weight:600}
+.regional-controls{display:flex;gap:10px;flex-wrap:wrap}.regional-controls label{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px}
+.regional-controls select{min-width:112px;padding:8px 11px;border:1px solid var(--stroke-strong);border-radius:var(--radius-s);background:var(--bg-1);color:var(--text-1)}
+.regional-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:14px;min-height:480px}
+.regional-list,.regional-detail{border:1px solid var(--stroke);border-radius:var(--radius-m);background:var(--bg-1);box-shadow:var(--shadow-1);min-width:0}
+.regional-list{padding:8px;max-height:70vh;overflow:auto}.regional-list button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:11px 12px;border:0;border-radius:var(--radius-s);background:none;color:var(--text-1);text-align:left}
+.regional-list button:hover{background:var(--fill-1)}.regional-list button[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand-text)}
+.regional-list small{color:var(--text-4);white-space:nowrap}.regional-detail{padding:22px 24px;overflow:auto}
+.regional-detail h3{font-size:20px;margin:0 0 3px}.regional-detail .sub{color:var(--text-3);font-size:12.5px;margin:0 0 20px}
+.regional-metrics{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}.regional-metrics span{padding:9px 12px;border-radius:var(--radius-s);background:var(--fill-1);font-size:12px;color:var(--text-2)}.regional-metrics strong{font-size:16px;color:var(--text-1)}
+.regional-problems{display:grid;gap:9px}.regional-problem{display:grid;grid-template-columns:30px minmax(130px,1fr) minmax(130px,1fr) auto;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--stroke);font-size:12px}
+.regional-problem b{font-size:14px}.regional-problem .meter{height:8px;border-radius:999px;background:var(--fill-2);overflow:hidden}.regional-problem .meter i{display:block;height:100%;background:var(--brand)}.regional-problem .five i{background:var(--ac)}
+.regional-problem .fraction{color:var(--text-3);font-variant-numeric:tabular-nums}.regional-sources{margin-top:20px;color:var(--text-3);font-size:12px;line-height:1.8}.regional-sources a{color:var(--brand-text)}
+.regional-note{font-size:12px;color:var(--text-3);line-height:1.6}
 
 /* overflow 必须是 auto 不能是 hidden —— 内容（工具栏+网格+两行图例）
    会超过视口高度，hidden 的话底下的颜色对照直接被裁掉，等于没写。
@@ -565,14 +587,15 @@ kbd{
 .panel[hidden]{display:none}
 @media(max-width:1100px){.mapbar{align-items:flex-start;flex-wrap:wrap}.pagehead{min-width:0;flex:1}.tree-tools{width:100%;margin-left:0}.search{flex:1;max-width:320px}.hdr{gap:20px}}
 @media(max-width:680px){
-  .hdr{height:60px;padding:0 16px;gap:12px}.brand{font-size:14px}.viewseg button{padding:6px 10px}.hdr .spacer{display:none}.hdr #theme{margin-left:auto}
+  .hdr{height:60px;padding:0 16px;gap:12px}.brand{font-size:14px}.viewseg{min-width:0;overflow-x:auto;scrollbar-width:none}.viewseg button{padding:6px 10px}.hdr .spacer{display:none}.hdr #theme{margin-left:auto}
   .mapbar{margin:0 16px 16px;padding:12px 0 16px;gap:14px}.pagehead h1{font-size:24px}.tree-tools{gap:6px}.seg{order:2;width:100%;justify-content:flex-start}.search{max-width:none;min-width:0}.search input{font-size:13px}
   body{grid-template-columns:0 minmax(0,1fr)}
   .stage,body[data-filters="closed"] .stage{margin:0 16px 16px}
   .side{grid-area:stage;position:absolute;inset:0 auto 16px 16px;width:min(280px,calc(100% - 32px));margin:0;z-index:25;box-shadow:var(--shadow-2)}
   .panel{top:12px;right:12px;width:calc(100% - 24px);max-height:calc(100% - 24px);padding:20px}
-  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched,.log,.vp-view{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
+  .hint{left:12px;bottom:12px;max-width:calc(100% - 24px);font-size:11px}.sched,.log,.vp-view,.regionals{padding:20px 16px}.schedbar{flex-wrap:wrap;gap:8px}.schedbar .span{font-size:11px}.sched .legend2,.legend3{gap:8px 12px}.legend2 .hint{margin-left:0}.pop{max-width:calc(100vw - 16px)}
   .log-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.phase-detail{grid-template-columns:1fr}.log-day-min{margin-left:0;width:100%}
+  .regional-layout{grid-template-columns:1fr}.regional-list{max-height:190px}.regional-detail{padding:18px}.regional-problem{grid-template-columns:24px 1fr 1fr;gap:6px}.regional-problem .fraction{grid-column:2/4}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
@@ -594,6 +617,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
     <button data-view="sched" aria-pressed="false">日程</button>
     <button data-view="log" aria-pressed="false">训练日志</button>
     <button data-view="vp" aria-pressed="false">VP 回放</button>
+    <button data-view="regionals" aria-pressed="false">赛区资料</button>
   </nav>
   <div class="spacer"></div>
   <button class="icon-btn" id="theme" title="明暗切换" aria-label="切换明暗主题" data-ico="moon"></button>
@@ -705,6 +729,16 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
   </div>
   <div class="log-days" id="logDays"></div>
   <div class="note" id="logNote" role="status" aria-live="polite">正在读取训练日志…</div>
+</section>
+
+<section class="regionals" id="regionals" aria-label="赛区资料">
+  <div class="regional-head"><div><h2>区域赛实战分布</h2><p>看同一场比赛里，做出 4 题和 5 题的正式队各做了哪些题。</p></div><span class="regional-count" id="regionalCoverage"></span></div>
+  <div class="regional-controls">
+    <label>年份 <select id="regionalYear" aria-label="筛选比赛年份"><option value="">全部</option></select></label>
+    <label>类别 <select id="regionalCategory" aria-label="筛选比赛类别"><option value="区域赛">区域赛</option><option value="EC-Final">EC-Final</option><option value="邀请赛">邀请赛</option></select></label>
+  </div>
+  <div class="regional-layout"><div class="regional-list" id="regionalList" aria-label="比赛列表"></div><div class="regional-detail" id="regionalDetail" aria-live="polite">正在读取赛区资料…</div></div>
+  <div class="regional-note">现场榜是团队总体分布，不等于你的个人可做题。小鲸还要结合你的 VP 回放、当时思路和时间来判断下一步。</div>
 </section>
 
 <!-- VP 保留自己的数据和授权脚本，但作为技能树的一个视图嵌入，切换时不离开教练工作台。 -->
@@ -1392,7 +1426,7 @@ const nextAfter = (id) => {
 addEventListener("keydown", (e) => {
   if (e.key === "Escape") { select(null); return; }
   // 在输入框里打字时不抢键
-  if (document.body.dataset.view === "sched") return;
+  if (document.body.dataset.view && document.body.dataset.view !== "tree") return;
   if (e.target?.closest?.("button,input,textarea,select,a,[contenteditable='true']")) return;
   if (!selected) return;
 
@@ -1436,6 +1470,10 @@ let trainingLog = null;
 let logLoaded = false;
 let logDays = 14;
 let vpLoaded = false;
+let regionalLoaded = false;
+let regionalData = null;
+let regionalVisible = [];
+let selectedRegionalKey = '';
 
 const HOUR_FROM = 8, HOUR_TO = 24;        // 8:00 - 24:00，16 格
 const WINDOW_BACK = 3, WINDOW_DAYS = 10;  // 前 3 回顾 + 后 7 可排（方针 §4.1）
@@ -1930,6 +1968,61 @@ async function loadTrainingLog() {
   }
 }
 
+function contestDetailHtml(c) {
+  const link = (url, label) => /^https:\/\/[^\s<>"']+$/.test(String(url || ''))
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>` : '';
+  const sources = [link(c.links?.statement, '题面候选'), link(c.links?.officialSolution, '题解候选'),
+    link(c.links?.board, '榜单候选'), link(c.scoreboard?.source, '统计来源')].filter(Boolean).join(' · ');
+  const head = `<h3>${esc(c.year)} ${esc(c.site)}</h3><p class="sub">${esc(c.category)} · 桌面资料索引第 ${esc(c.sourceRow)} 行</p>`;
+  if (!c.scoreboard) return head + '<p>这场目前只有资料入口，缺少可复算的现场榜；不展示猜出来的“可做题”。</p>' +
+    `<div class="regional-sources">${sources || '暂无可用链接'}</div>`;
+  const s = c.scoreboard;
+  const bar = (count, total, extra = '') => `<div class="cohort ${extra}"><span>${count}/${total}</span><div class="meter ${extra}"><i style="width:${total ? Math.max(0, Math.min(100, Math.round(count / total * 100))) : 0}%"></i></div></div>`;
+  const rows = s.problems.map(p => `<div class="regional-problem"><b>${esc(p.label)}</b>${bar(p.solvedBy4, s.teamsWith4)}${bar(p.solvedBy5, s.teamsWith5, 'five')}<span class="fraction">全场 ${p.officialSolved}/${s.officialTeams} AC · 4题队尝试未AC ${p.attemptedUnsolvedBy4}</span></div>`).join('');
+  return head + `<div class="regional-metrics"><span>正式队 <strong>${s.officialTeams}</strong></span><span>最终 4 题 <strong>${s.teamsWith4}</strong> 队</span><span>最终 5 题 <strong>${s.teamsWith5}</strong> 队</span></div>` +
+    '<p class="regional-note">蓝色：最终 4 题队 AC 数；绿色：最终 5 题队 AC 数。两组分母不同，按比例看。尝试未 AC 只说明交过题，不证明这题本来能做出。</p>' +
+    `<div class="regional-problems">${rows}</div><div class="regional-sources">${sources}</div>`;
+}
+
+async function loadContestDetail(c) {
+  const key = `${c.year}|${c.site}|${c.category}`;
+  selectedRegionalKey = key;
+  $("#regionalDetail").textContent = '正在读取逐题统计…';
+  try {
+    const query = new URLSearchParams({ year: String(c.year), site: c.site, category: c.category });
+    const response = await fetch(`./api/contests?${query}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.reject || '读取失败');
+    if (selectedRegionalKey === key) $("#regionalDetail").innerHTML = contestDetailHtml(data.contests[0]);
+  } catch (error) {
+    if (selectedRegionalKey === key) $("#regionalDetail").textContent = `逐题统计读不到：${error.message}`;
+  }
+}
+
+function renderRegionals() {
+  if (!regionalData) return;
+  const year = $("#regionalYear").value;
+  const category = $("#regionalCategory").value;
+  regionalVisible = regionalData.contests.filter(c => (!year || c.year === Number(year)) && c.category === category);
+  const selectedVisible = regionalVisible.some(c => `${c.year}|${c.site}|${c.category}` === selectedRegionalKey);
+  if (!selectedVisible && regionalVisible.length) selectedRegionalKey = `${regionalVisible[0].year}|${regionalVisible[0].site}|${regionalVisible[0].category}`;
+  $("#regionalCoverage").textContent = `${regionalData.summary.regionals} 场区域赛 · ${regionalData.summary.scoredRegionals} 场有榜 · ${regionalData.summary.scoredProblems} 道逐题统计`;
+  $("#regionalList").innerHTML = regionalVisible.map((c, i) => `<button type="button" data-index="${i}" aria-pressed="${selectedRegionalKey === `${c.year}|${c.site}|${c.category}`}"><span>${esc(c.year)} ${esc(c.site)}</span><small>${c.scoreboard ? '现场榜' : '仅资料'}</small></button>`).join('') || '<p class="regional-note">这个筛选下没有比赛。</p>';
+  if (!selectedVisible && regionalVisible.length) loadContestDetail(regionalVisible[0]);
+  if (!regionalVisible.length) { selectedRegionalKey = ''; $("#regionalDetail").textContent = '换个年份或类别看看。'; }
+}
+
+async function loadRegionals() {
+  try {
+    const response = await fetch('./api/contests');
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.reject || '读取失败');
+    regionalData = data;
+    $("#regionalYear").innerHTML = '<option value="">全部</option>' + [...new Set(data.contests.map(c => c.year))].sort((a, b) => b - a).map(year => `<option value="${year}">${year}</option>`).join('');
+    renderRegionals();
+  } catch (error) { $("#regionalDetail").textContent = `赛区资料读不到：${error.message}`; }
+}
+
 /* ⚠️ 视图状态要写进**地址栏**，不能只改内存。
    踩过：「点日程以后刷新，又回到技能树了」——
    原来 setView 只改 DOM，刷新就丢。地址栏是唯一真相，刷新/收藏/分享都靠它。
@@ -1937,10 +2030,10 @@ async function loadTrainingLog() {
    按一下后退跳回"上一个视图"而不是"上一页"会让人莫名其妙。） */
 function setView(v) {
   document.body.dataset.view = v;
-  $("#viewTitle").textContent = v === "sched" ? "训练日程" : v === "log" ? "训练日志" : v === "vp" ? "VP 回放" : "知识地图";
+  $("#viewTitle").textContent = v === "sched" ? "训练日程" : v === "log" ? "训练日志" : v === "vp" ? "VP 回放" : v === "regionals" ? "赛区资料" : "知识地图";
   document.querySelectorAll("#viewSeg button").forEach((b) =>
     b.setAttribute("aria-pressed", String(b.dataset.view === v)));
-  const want = v === "sched" ? "#sched" : v === "log" ? "#log" : v === "vp" ? "#vp" : "";
+  const want = v === "sched" ? "#sched" : v === "log" ? "#log" : v === "vp" ? "#vp" : v === "regionals" ? "#regionals" : "";
   if ((location.hash || "") !== want) {
     history.replaceState(null, "", want || location.pathname + location.search);
   }
@@ -1955,6 +2048,7 @@ function setView(v) {
     frame.src = "./vp.html?embed=1";
     vpLoaded = true;
   }
+  if (v === "regionals" && !regionalLoaded) { regionalLoaded = true; loadRegionals(); }
 }
 
 window.addEventListener("message", (event) => {
@@ -1972,6 +2066,16 @@ window.addEventListener("message", (event) => {
 $("#viewSeg").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-view]");
   if (b) setView(b.dataset.view);
+});
+$("#regionalYear").addEventListener("change", renderRegionals);
+$("#regionalCategory").addEventListener("change", renderRegionals);
+$("#regionalList").addEventListener("click", (event) => {
+  const button = event.target.closest('button[data-index]');
+  if (!button) return;
+  const contest = regionalVisible[Number(button.dataset.index)];
+  if (!contest) return;
+  loadContestDetail(contest);
+  $("#regionalList").querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
 });
 $("#schedPrev").onclick = () => { const s = schedStart(); s.setDate(s.getDate() - 3); schedAnchor = ymdOf(s); renderSched(); };
 $("#schedNext").onclick = () => { const s = schedStart(); s.setDate(s.getDate() + 3); schedAnchor = ymdOf(s); renderSched(); };
@@ -1994,6 +2098,7 @@ loadProgress().then(() => {
   if (location.hash === "#sched") setView("sched");
   else if (location.hash === "#log") setView("log");
   else if (location.hash === "#vp") setView("vp");
+  else if (location.hash === "#regionals") setView("regionals");
 });
 </script>
 </body>

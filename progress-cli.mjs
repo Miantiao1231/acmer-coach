@@ -20,6 +20,8 @@
 //         这样调用方不用去解析 stderr 的人话。
 //   退出码：0 = 成功；1 = 被拒或出错（调用方看 ok 字段）
 import { progressApi } from './index.js'
+import { createStrategyStore } from './lib/strategy.js'
+import { fileURLToPath } from 'node:url'
 
 const out = (o) => { process.stdout.write(JSON.stringify(o) + '\n') }
 const die = (err) => { out({ ok: false, reject: String(err) }); process.exit(1) }
@@ -57,8 +59,12 @@ try {
     const r = progressApi.setSchedule(a, b, value)
     if (!r.ok) die(r.reject)
     out({ ok: true, date: r.date, field: r.field, count: r.count, updated: r.updated })
+  } else if (cmd === 'contests') {
+    const store = createStrategyStore({ dataDir: process.env.COACH_DATA_DIR || '.',
+      competenciesPath: fileURLToPath(new URL('./assets/knowledge/COMPETENCIES.yaml', import.meta.url)) })
+    out({ ok: true, ...store.contests({ year: a || undefined, site: b || '', category: c || '', details: Boolean(a || b) }) })
   } else {
-    die(`未知命令「${cmd}」，只有 get / mark / cursor`)
+    die(`未知命令「${cmd}」，只有 get / mark / cursor / sched-get / sched-set / contests`)
   }
 } catch (err) {
   // 解析失败、磁盘写失败之类一律走这里。

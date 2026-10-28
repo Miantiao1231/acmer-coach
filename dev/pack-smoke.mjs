@@ -38,6 +38,10 @@ try {
   })
   assert.ok(tools.size >= 30, `安装副本注册的工具太少：${tools.size}`)
   assert.ok(tools.has('coach_vp_sync') && tools.has('coach_curriculum'), '关键工具缺失')
+  const catalog = await tools.get('coach_target').execute({ action: 'contests' })
+  assert.equal(catalog.ok, true, catalog.reject)
+  assert.equal(catalog.availableContests.length, 56)
+  assert.equal(catalog.contestSummary.scoredRegionals, 38)
   console.log(`✓ 安装副本可用：${tools.size} 个工具，版本 ${pkg.version}`)
 } finally {
   rmSync(tarball, { force: true })

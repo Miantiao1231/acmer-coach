@@ -89,7 +89,7 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/rules/coach-rules.md']) {
+for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json', 'assets/rules/coach-rules.md']) {
   let same = true
   try {
     same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
@@ -3008,7 +3008,8 @@ process.env.COACH_DATA_DIR = tmp32
 const mod32 = await import(`${INSTALLED}?fresh=32`)
 const hooks32 = []
 mod32.apply(mockCtx([], { hooks: hooks32 }))
-const pre32 = hooks32.find((h) => h.event === 'agent/pre-step')?.fn
+// 时钟桥也挂 pre-step；状态桥在 apply 最后注册，验收要调它本身。
+const pre32 = hooks32.findLast((h) => h.event === 'agent/pre-step')?.fn
 check('★ 钩子注册上了（挂在 agent/pre-step 上）', typeof pre32 === 'function',
   JSON.stringify(hooks32.map((h) => h.event)))
 

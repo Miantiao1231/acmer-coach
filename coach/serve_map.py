@@ -28,6 +28,7 @@ import socketserver
 import subprocess
 import sys
 import webbrowser
+from urllib.parse import parse_qs, urlsplit
 
 for _s in (sys.stdout, sys.stderr):
     if _s and hasattr(_s, "reconfigure"):
@@ -81,7 +82,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        path = self.path.split("?")[0]
+        url = urlsplit(self.path)
+        path = url.path
         if path == "/api/progress":
             try:
                 self._json(200, run_cli("get"))
@@ -93,6 +95,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._json(200, run_cli("sched-get"))
             except Exception as e:
                 self._json(500, {"ok": False, "reject": str(e)})
+            return
+        if path == "/api/contests":
+            query = parse_qs(url.query)
+            try:
+                result = run_cli("contests", *(query.get(key, [""])[0] for key in ("year", "site", "category")))
+                self._json(200 if result.get("ok") else 400, result)
+            except Exception as e:
+                self._json(500, {"ok": False, "reject": str(e), "contests": []})
             return
         # 访问根路径不该给**目录列表** ——
         # 那长得像文件系统，不像技能树，还得手敲 /skilltree.html。

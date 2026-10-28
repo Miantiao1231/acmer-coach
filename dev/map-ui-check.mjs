@@ -127,6 +127,22 @@ test('VP is a lazy view inside the coach shell instead of only a separate page',
   assert.match(template, /v === "vp" \? "VP 回放"/)
 })
 
+test('regional contest view shows four/five-solve cohorts and escapes source text', () => {
+  assert.match(template, /<button data-view="regionals" aria-pressed="false">赛区资料<\/button>/)
+  assert.match(template, /<section class="regionals" id="regionals"/)
+  assert.match(template, /fetch\(`\.\/api\/contests/)
+  assert.doesNotMatch(template, /fetch\(`\/coach\/api\/contests/)
+  assert.match(template, /题解候选/)
+  assert.match(template, /榜单候选/)
+  const source = template.slice(template.indexOf('function contestDetailHtml('), template.indexOf('async function loadContestDetail('))
+  const context = vm.createContext({ esc: value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;') })
+  vm.runInContext(`${source}\nthis.html = contestDetailHtml({year:2025,site:'西安',category:'区域赛',links:{statement:'https://example.com',officialSolution:''},scoreboard:{officialTeams:399,teamsWith4:94,teamsWith5:82,source:'https://example.com',problems:[{label:'<script>',officialSolved:155,solvedBy4:14,solvedBy5:76,attemptedUnsolvedBy4:71}]}})`, context)
+  assert.match(context.html, /14\/94/)
+  assert.match(context.html, /76\/82/)
+  assert.match(context.html, /&lt;script>/)
+  assert.doesNotMatch(context.html, /<script>/)
+})
+
 test('today card selects existing pending work and keeps an empty state without inventing a task', () => {
   assert.match(template, /id="todayCard"/)
   const source = template.slice(template.indexOf('function renderToday('), template.indexOf('async function loadProgress()'))

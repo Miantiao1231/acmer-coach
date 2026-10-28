@@ -1,0 +1,4947 @@
+{
+  "version": 1,
+  "source": {
+    "workbook": "ICPC中国区区域赛资料索引.xlsx",
+    "workbookDate": "2026-10-12",
+    "boardDataset": "https://github.com/xcpcio/board-data",
+    "boardCommit": "9dd6329f63bb137614d265fa746bd6b3a9d38b6d"
+  },
+  "contests": [
+    {
+      "year": 2026,
+      "site": "南昌",
+      "category": "邀请赛",
+      "sourceRow": 2,
+      "links": {
+        "statement": "https://codeforces.com/gym/106551/attachments/download/37848/statements-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/106551/attachments/download/37849/solution.pdf",
+        "board": "https://codeforces.com/gym/106551/standings",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2026,
+      "site": "深圳",
+      "category": "邀请赛",
+      "sourceRow": 3,
+      "links": {
+        "statement": "https://sua.ac/wiki/2026-icpc-invitational-shenzhen/contest-en.pdf",
+        "officialSolution": "https://sua.ac/wiki/2026-icpc-invitational-shenzhen/tutorial-sketch-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/51st/shenzhen-invitational",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2025,
+      "site": "成都",
+      "category": "区域赛",
+      "sourceRow": 4,
+      "links": {
+        "statement": "https://codeforces.com/gym/106161/attachments/download/34102/contest.en-cf.pdf",
+        "officialSolution": "https://codeforces.com/gym/106161/attachments/download/34103/2025%20%E5%9B%BD%E9%99%85%E5%A4%A7%E5%AD%A6%E7%94%9F%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1%E7%AB%9E%E8%B5%9B%E4%BA%9A%E6%B4%B2%E5%8C%BA%E5%9F%9F%E8%B5%9B%EF%BC%88%E6%88%90%E9%83%BD%E7%AB%99%EF%BC%89%E9%A2%98%E8%A7%A3.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/chengdu",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/106161"
+      },
+      "scoreboard": {
+        "officialTeams": 320,
+        "teamsWith4": 63,
+        "teamsWith5": 48,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 267,
+            "solvedBy4": 58,
+            "solvedBy5": 47,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 161,
+            "solvedBy4": 19,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 30
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 86,
+            "solvedBy4": 2,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 83,
+            "solvedBy4": 1,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 320,
+            "solvedBy4": 63,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 17,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 320,
+            "solvedBy4": 63,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 45,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 202,
+            "solvedBy4": 46,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 24,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/chengdu"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "香港",
+      "category": "区域赛",
+      "sourceRow": 5,
+      "links": {
+        "statement": "https://qoj.ac/contest/3169",
+        "officialSolution": "https://ucup.ac/tutorials/tutorials-4-14-en.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/hongkong",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 126,
+        "teamsWith4": 10,
+        "teamsWith5": 8,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 25,
+            "solvedBy4": 7,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 126,
+            "solvedBy4": 10,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 21,
+            "solvedBy4": 3,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 67,
+            "solvedBy4": 10,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 83,
+            "solvedBy4": 10,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/hongkong"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 6,
+      "links": {
+        "statement": "https://sua.ac/wiki/2025-icpc-nanjing/contest-en.pdf",
+        "officialSolution": "https://sua.ac/wiki/2025-icpc-nanjing/tutorial-sketch-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/nanjing",
+        "qoj": "https://qoj.ac/contest/2581?v=1",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 335,
+        "teamsWith4": 50,
+        "teamsWith5": 28,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 40,
+            "solvedBy4": 3,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 335,
+            "solvedBy4": 50,
+            "solvedBy5": 28,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 22,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 154,
+            "solvedBy4": 45,
+            "solvedBy5": 25,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 143,
+            "solvedBy4": 41,
+            "solvedBy5": 26,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 50,
+            "solvedBy4": 1,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 81,
+            "solvedBy4": 9,
+            "solvedBy5": 20,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 21,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 332,
+            "solvedBy4": 50,
+            "solvedBy5": 28,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 27,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 3
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/nanjing"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "上海",
+      "category": "区域赛",
+      "sourceRow": 7,
+      "links": {
+        "statement": "https://qoj.ac/contest/2908",
+        "officialSolution": "https://ucup.ac/tutorials/tutorials-4-12-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/shanghai",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 331,
+        "teamsWith4": 25,
+        "teamsWith5": 44,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 99,
+            "solvedBy4": 8,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 15
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 25,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 253,
+            "solvedBy4": 25,
+            "solvedBy5": 44,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 8,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 149,
+            "solvedBy4": 24,
+            "solvedBy5": 44,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 254,
+            "solvedBy4": 24,
+            "solvedBy5": 44,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 30,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 113,
+            "solvedBy4": 17,
+            "solvedBy5": 44,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 9,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/shanghai"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 8,
+      "links": {
+        "statement": "https://codeforces.com/gym/106252/attachments/download/34720/contest_en.pdf",
+        "officialSolution": "https://codeforces.com/gym/106252/attachments/download/34725/shenyang_2025_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/shenyang",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/106252"
+      },
+      "scoreboard": {
+        "officialTeams": 400,
+        "teamsWith4": 91,
+        "teamsWith5": 36,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 33,
+            "solvedBy4": 5,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 18
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 361,
+            "solvedBy4": 91,
+            "solvedBy5": 36,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 5,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 9,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 47,
+            "solvedBy4": 6,
+            "solvedBy5": 19,
+            "attemptedUnsolvedBy4": 63
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 33,
+            "solvedBy4": 4,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 400,
+            "solvedBy4": 91,
+            "solvedBy5": 36,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 133,
+            "solvedBy4": 75,
+            "solvedBy5": 33,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 373,
+            "solvedBy4": 91,
+            "solvedBy5": 36,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/shenyang"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "西安",
+      "category": "区域赛",
+      "sourceRow": 9,
+      "links": {
+        "statement": "https://contest.ucup.ac/contest/2562",
+        "officialSolution": "https://contest.ucup.ac/download.php?type=attachments&id=2562&r=1",
+        "board": "https://board.xcpcio.com/icpc/50th/xian",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 399,
+        "teamsWith4": 94,
+        "teamsWith5": 82,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 58,
+            "solvedBy4": 0,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 21
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 16,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 234,
+            "solvedBy4": 81,
+            "solvedBy5": 82,
+            "attemptedUnsolvedBy4": 7
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 398,
+            "solvedBy4": 94,
+            "solvedBy5": 82,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 155,
+            "solvedBy4": 14,
+            "solvedBy5": 76,
+            "attemptedUnsolvedBy4": 71
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 308,
+            "solvedBy4": 93,
+            "solvedBy5": 82,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 389,
+            "solvedBy4": 94,
+            "solvedBy5": 82,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 45,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 2
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/50th/xian"
+      }
+    },
+    {
+      "year": 2025,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 10,
+      "links": {
+        "statement": "https://sua.ac/wiki/2025-icpc-ecfinal/contest-en.pdf",
+        "officialSolution": "https://sua.ac/wiki/2025-icpc-ecfinal/tutorial-sketch-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/50th/ecfinal",
+        "qoj": "https://qoj.ac/contest/3295?v=1",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2025,
+      "site": "武汉",
+      "category": "邀请赛",
+      "sourceRow": 11,
+      "links": {
+        "statement": "https://qoj.ac/contest/2609",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/50th/wuhan",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2024,
+      "site": "成都",
+      "category": "区域赛",
+      "sourceRow": 12,
+      "links": {
+        "statement": "https://codeforces.com/gym/105486/attachments/download/28065/contest-45695-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/105486/attachments/download/28066/ICPC成都.pdf",
+        "board": "https://board.xcpcio.com/icpc/49th/chengdu",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/105486"
+      },
+      "scoreboard": {
+        "officialTeams": 307,
+        "teamsWith4": 91,
+        "teamsWith5": 64,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 302,
+            "solvedBy4": 91,
+            "solvedBy5": 64,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 138,
+            "solvedBy4": 0,
+            "solvedBy5": 12,
+            "attemptedUnsolvedBy4": 21
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 27,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 36,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 296,
+            "solvedBy4": 91,
+            "solvedBy5": 64,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 179,
+            "solvedBy4": 1,
+            "solvedBy5": 52,
+            "attemptedUnsolvedBy4": 44
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 291,
+            "solvedBy4": 90,
+            "solvedBy5": 64,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 44,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 307,
+            "solvedBy4": 91,
+            "solvedBy5": 64,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/chengdu"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "杭州",
+      "category": "区域赛",
+      "sourceRow": 13,
+      "links": {
+        "statement": "https://codeforces.com/gym/105657/attachments/download/29538/contest-43074-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/105657/attachments/download/29539/hangzhou_2024_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/49th/hangzhou",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/105657"
+      },
+      "scoreboard": {
+        "officialTeams": 366,
+        "teamsWith4": 84,
+        "teamsWith5": 74,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 356,
+            "solvedBy4": 84,
+            "solvedBy5": 74,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 38,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 264,
+            "solvedBy4": 72,
+            "solvedBy5": 74,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 81,
+            "solvedBy4": 1,
+            "solvedBy5": 5,
+            "attemptedUnsolvedBy4": 11
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 8,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 241,
+            "solvedBy4": 70,
+            "solvedBy5": 74,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 16,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 364,
+            "solvedBy4": 84,
+            "solvedBy5": 74,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 181,
+            "solvedBy4": 25,
+            "solvedBy5": 68,
+            "attemptedUnsolvedBy4": 52
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/hangzhou"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "香港",
+      "category": "区域赛",
+      "sourceRow": 14,
+      "links": {
+        "statement": "https://contest.ucup.ac/download.php?type=attachments&id=1885&r=0",
+        "officialSolution": "https://contest.ucup.ac/download.php?type=attachments&id=1885&r=1",
+        "board": "https://board.xcpcio.com/icpc/49th/hongkong",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 149,
+        "teamsWith4": 9,
+        "teamsWith5": 3,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 12,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 149,
+            "solvedBy4": 9,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 10,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 24,
+            "solvedBy4": 7,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 16,
+            "solvedBy4": 2,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 128,
+            "solvedBy4": 9,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 44,
+            "solvedBy4": 8,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/hongkong"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 15,
+      "links": {
+        "statement": "https://codeforces.com/gym/105484/attachments/download/28235/contest-zh.pdf",
+        "officialSolution": "https://codeforces.com/gym/105484/attachments/download/28236/tutorial-sketch-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/49th/nanjing",
+        "qoj": "https://qoj.ac/contest/1828?v=1",
+        "gym": "https://codeforces.com/gym/105484"
+      },
+      "scoreboard": {
+        "officialTeams": 336,
+        "teamsWith4": 74,
+        "teamsWith5": 32,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 77,
+            "solvedBy4": 17,
+            "solvedBy5": 29,
+            "attemptedUnsolvedBy4": 43
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 20,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 334,
+            "solvedBy4": 74,
+            "solvedBy5": 32,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 135,
+            "solvedBy4": 63,
+            "solvedBy5": 31,
+            "attemptedUnsolvedBy4": 9
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 16,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 326,
+            "solvedBy4": 74,
+            "solvedBy5": 32,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 213,
+            "solvedBy4": 68,
+            "solvedBy5": 32,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 9,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 6
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/nanjing"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "上海",
+      "category": "区域赛",
+      "sourceRow": 16,
+      "links": {
+        "statement": "https://contest.ucup.ac/download.php?type=attachments&id=1913&r=0",
+        "officialSolution": "https://contest.ucup.ac/download.php?type=attachments&id=1913&r=1",
+        "board": "https://board.xcpcio.com/icpc/49th/shanghai",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 336,
+        "teamsWith4": 57,
+        "teamsWith5": 87,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 236,
+            "solvedBy4": 55,
+            "solvedBy5": 87,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 331,
+            "solvedBy4": 57,
+            "solvedBy5": 87,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 152,
+            "solvedBy4": 24,
+            "solvedBy5": 86,
+            "attemptedUnsolvedBy4": 30
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 33,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 166,
+            "solvedBy4": 35,
+            "solvedBy5": 87,
+            "attemptedUnsolvedBy4": 18
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 318,
+            "solvedBy4": 57,
+            "solvedBy5": 87,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 11,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/shanghai"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 17,
+      "links": {
+        "statement": "https://codeforces.com/gym/105578/attachments/download/28637/2024-shenyang-statement-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/105578/attachments/download/29328/shenyang_2024_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/49th/shenyang",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/105578"
+      },
+      "scoreboard": {
+        "officialTeams": 300,
+        "teamsWith4": 44,
+        "teamsWith5": 39,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 158,
+            "solvedBy4": 34,
+            "solvedBy5": 35,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 171,
+            "solvedBy4": 43,
+            "solvedBy5": 39,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 174,
+            "solvedBy4": 43,
+            "solvedBy5": 39,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 43,
+            "solvedBy4": 1,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 16
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 15,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 17,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 300,
+            "solvedBy4": 44,
+            "solvedBy5": 39,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 90,
+            "solvedBy4": 11,
+            "solvedBy5": 36,
+            "attemptedUnsolvedBy4": 21
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/49th/shenyang"
+      }
+    },
+    {
+      "year": 2024,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 18,
+      "links": {
+        "statement": "https://qoj.ac/contest/1894",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/49th/ecfinal",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2024,
+      "site": "昆明",
+      "category": "邀请赛",
+      "sourceRow": 19,
+      "links": {
+        "statement": "https://codeforces.com/gym/105588/attachments/download/28813/1-statement-english.pdf",
+        "officialSolution": "https://codeforces.com/gym/105588/attachments/download/28803/tutorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/49th/kunming",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/105588"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "杭州",
+      "category": "区域赛",
+      "sourceRow": 20,
+      "links": {
+        "statement": "https://codeforces.com/gym/104976/attachments/download/24254/hangzhou(zh).pdf",
+        "officialSolution": "https://codeforces.com/gym/104976/attachments/download/24255/Hangzhou_Tutorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/hangzhou",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/104976"
+      },
+      "scoreboard": {
+        "officialTeams": 442,
+        "teamsWith4": 86,
+        "teamsWith5": 113,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 14,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 17,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 355,
+            "solvedBy4": 85,
+            "solvedBy5": 113,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 23,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 16,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 194,
+            "solvedBy4": 35,
+            "solvedBy5": 110,
+            "attemptedUnsolvedBy4": 26
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 216,
+            "solvedBy4": 52,
+            "solvedBy5": 113,
+            "attemptedUnsolvedBy4": 22
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 412,
+            "solvedBy4": 86,
+            "solvedBy5": 113,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 431,
+            "solvedBy4": 86,
+            "solvedBy5": 113,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/hangzhou"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "合肥",
+      "category": "区域赛",
+      "sourceRow": 21,
+      "links": {
+        "statement": "https://codeforces.com/gym/104857/attachments/download/23404/HefeiStatements.pdf",
+        "officialSolution": "https://codeforces.com/gym/104857/attachments/download/23405/23hefei-sol.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/hefei",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/104857"
+      },
+      "scoreboard": {
+        "officialTeams": 344,
+        "teamsWith4": 53,
+        "teamsWith5": 53,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 66,
+            "solvedBy4": 3,
+            "solvedBy5": 14,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 89,
+            "solvedBy4": 8,
+            "solvedBy5": 34,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 11,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 325,
+            "solvedBy4": 53,
+            "solvedBy5": 53,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 342,
+            "solvedBy4": 53,
+            "solvedBy5": 53,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 169,
+            "solvedBy4": 47,
+            "solvedBy5": 52,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 41,
+            "solvedBy4": 0,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 199,
+            "solvedBy4": 48,
+            "solvedBy5": 53,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/hefei"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "香港",
+      "category": "区域赛",
+      "sourceRow": 22,
+      "links": {
+        "statement": "https://codeforces.com/gym/104172/attachments/download/18932/Official%20Contest.pdf",
+        "officialSolution": "https://codeforces.com/gym/104172/attachments/download/18933/Hong_Kong_Tutorial.pdf",
+        "board": "https://codeforces.com/gym/104172/standings",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/104172"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "济南",
+      "category": "区域赛",
+      "sourceRow": 23,
+      "links": {
+        "statement": "https://codeforces.com/gym/104901/attachments/download/23713/contest-zh.pdf",
+        "officialSolution": "https://codeforces.com/gym/104901/attachments/download/23714/tutorial-sketch-zh.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/jinan",
+        "qoj": "https://qoj.ac/contest/1472",
+        "gym": "https://codeforces.com/gym/104901"
+      },
+      "scoreboard": {
+        "officialTeams": 334,
+        "teamsWith4": 83,
+        "teamsWith5": 31,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 272,
+            "solvedBy4": 77,
+            "solvedBy5": 31,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 31,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 333,
+            "solvedBy4": 83,
+            "solvedBy5": 31,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 52,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 204,
+            "solvedBy4": 77,
+            "solvedBy5": 30,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 10,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 330,
+            "solvedBy4": 83,
+            "solvedBy5": 31,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 117,
+            "solvedBy4": 7,
+            "solvedBy5": 23,
+            "attemptedUnsolvedBy4": 47
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 97,
+            "solvedBy4": 4,
+            "solvedBy5": 9,
+            "attemptedUnsolvedBy4": 17
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/jinan"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "澳门",
+      "category": "区域赛",
+      "sourceRow": 24,
+      "links": {
+        "statement": "https://codeforces.com/gym/104891/attachments/download/23610/statements-2-15.pdf",
+        "officialSolution": "https://codeforces.com/gym/104891/attachments/download/23611/tutorials-2-15.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/macau",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/104891"
+      },
+      "scoreboard": {
+        "officialTeams": 82,
+        "teamsWith4": 5,
+        "teamsWith5": 8,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 29,
+            "solvedBy4": 2,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 34,
+            "solvedBy4": 4,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 19,
+            "solvedBy4": 2,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 7,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 23,
+            "solvedBy4": 1,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 59,
+            "solvedBy4": 5,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 65,
+            "solvedBy4": 5,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/macau"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 25,
+      "links": {
+        "statement": "https://codeforces.com/gym/104821/attachments/download/23214/2023nj-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/104821/attachments/download/23217/nanjing_2023_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/nanjing",
+        "qoj": "https://qoj.ac/contest/1435",
+        "gym": "https://codeforces.com/gym/104821"
+      },
+      "scoreboard": {
+        "officialTeams": 331,
+        "teamsWith4": 49,
+        "teamsWith5": 37,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 142,
+            "solvedBy4": 11,
+            "solvedBy5": 26,
+            "attemptedUnsolvedBy4": 19
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 234,
+            "solvedBy4": 42,
+            "solvedBy5": 36,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 14,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 243,
+            "solvedBy4": 47,
+            "solvedBy5": 37,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 186,
+            "solvedBy4": 34,
+            "solvedBy5": 34,
+            "attemptedUnsolvedBy4": 11
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 331,
+            "solvedBy4": 49,
+            "solvedBy5": 37,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 6,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 116,
+            "solvedBy4": 9,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 61,
+            "solvedBy4": 4,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 3
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/nanjing"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 26,
+      "links": {
+        "statement": "https://codeforces.com/gym/104869/attachments/download/23414/contest-35353-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/104869/attachments/download/23443/2023shenyang_tutorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/shenyang",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/104869"
+      },
+      "scoreboard": {
+        "officialTeams": 291,
+        "teamsWith4": 82,
+        "teamsWith5": 35,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 30,
+            "solvedBy4": 0,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 289,
+            "solvedBy4": 82,
+            "solvedBy5": 35,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 22,
+            "solvedBy4": 0,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 209,
+            "solvedBy4": 82,
+            "solvedBy5": 34,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 23,
+            "solvedBy4": 0,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 281,
+            "solvedBy4": 82,
+            "solvedBy5": 35,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 165,
+            "solvedBy4": 80,
+            "solvedBy5": 35,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 59,
+            "solvedBy4": 2,
+            "solvedBy5": 22,
+            "attemptedUnsolvedBy4": 21
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/shenyang"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "西安",
+      "category": "区域赛",
+      "sourceRow": 27,
+      "links": {
+        "statement": "https://codeforces.com/gym/105471",
+        "officialSolution": "https://codeforces.com/gym/105471/attachments",
+        "board": "https://board.xcpcio.com/icpc/48th/xian",
+        "qoj": "",
+        "gym": "https://codeforces.com/gym/105471"
+      },
+      "scoreboard": {
+        "officialTeams": 406,
+        "teamsWith4": 78,
+        "teamsWith5": 24,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 26,
+            "solvedBy4": 4,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 103,
+            "solvedBy4": 56,
+            "solvedBy5": 16,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 49,
+            "solvedBy4": 9,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 307,
+            "solvedBy4": 78,
+            "solvedBy5": 24,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 271,
+            "solvedBy4": 78,
+            "solvedBy5": 24,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 34,
+            "solvedBy4": 3,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 34,
+            "solvedBy4": 6,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 9
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "13",
+            "label": "N",
+            "officialSolved": 348,
+            "solvedBy4": 78,
+            "solvedBy5": 24,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/48th/xian"
+      }
+    },
+    {
+      "year": 2023,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 28,
+      "links": {
+        "statement": "https://contest.ucup.ac/download.php?type=attachments&id=1522&r=0",
+        "officialSolution": "https://assets.ucup.ac/tutorials/tutorials-2-23.pdf",
+        "board": "https://board.xcpcio.com/icpc/48th/ecfinal",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2022,
+      "site": "杭州",
+      "category": "区域赛",
+      "sourceRow": 29,
+      "links": {
+        "statement": "https://codeforces.com/gym/104090/attachments/download/18135/2022ICPCHangzhouStatements.pdf",
+        "officialSolution": "https://codeforces.com/gym/104090/attachments/download/18136/2022ICPCHangzhouTutorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/47th/hangzhou",
+        "qoj": "https://qoj.ac/contest/1071",
+        "gym": "https://codeforces.com/gym/104090"
+      },
+      "scoreboard": {
+        "officialTeams": 556,
+        "teamsWith4": 58,
+        "teamsWith5": 112,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 262,
+            "solvedBy4": 36,
+            "solvedBy5": 112,
+            "attemptedUnsolvedBy4": 19
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 260,
+            "solvedBy4": 42,
+            "solvedBy5": 112,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 536,
+            "solvedBy4": 58,
+            "solvedBy5": 112,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 540,
+            "solvedBy4": 58,
+            "solvedBy5": 112,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 63,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 29,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 243,
+            "solvedBy4": 38,
+            "solvedBy5": 112,
+            "attemptedUnsolvedBy4": 8
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 23,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/hangzhou"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "合肥",
+      "category": "区域赛",
+      "sourceRow": 30,
+      "links": {
+        "statement": "",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/47th/hefei",
+        "qoj": "",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 454,
+        "teamsWith4": 71,
+        "teamsWith5": 51,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 451,
+            "solvedBy4": 71,
+            "solvedBy5": 51,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 237,
+            "solvedBy4": 50,
+            "solvedBy5": 47,
+            "attemptedUnsolvedBy4": 18
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 58,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 8,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 262,
+            "solvedBy4": 56,
+            "solvedBy5": 51,
+            "attemptedUnsolvedBy4": 13
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 361,
+            "solvedBy4": 71,
+            "solvedBy5": 51,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 21,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 148,
+            "solvedBy4": 18,
+            "solvedBy5": 23,
+            "attemptedUnsolvedBy4": 9
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 62,
+            "solvedBy4": 1,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 7
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 149,
+            "solvedBy4": 17,
+            "solvedBy5": 27,
+            "attemptedUnsolvedBy4": 17
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/hefei"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "香港",
+      "category": "区域赛",
+      "sourceRow": 31,
+      "links": {
+        "statement": "https://qoj.ac/contest/1099",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/47th/hongkong",
+        "qoj": "https://qoj.ac/contest/1099",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 115,
+        "teamsWith4": 20,
+        "teamsWith5": 13,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 92,
+            "solvedBy4": 20,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 12,
+            "solvedBy4": 2,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 29,
+            "solvedBy4": 4,
+            "solvedBy5": 11,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 14,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 11
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 113,
+            "solvedBy4": 20,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 112,
+            "solvedBy4": 20,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 38,
+            "solvedBy4": 13,
+            "solvedBy5": 11,
+            "attemptedUnsolvedBy4": 5
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/hongkong"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "济南",
+      "category": "区域赛",
+      "sourceRow": 32,
+      "links": {
+        "statement": "https://codeforces.com/gym/104076",
+        "officialSolution": "https://codeforces.com/group/nt86J5RALD/contest/104076/attachments/download/18037/jinan_sol.pdf",
+        "board": "https://board.xcpcio.com/icpc/47th/jinan",
+        "qoj": "https://qoj.ac/contest/1053",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 511,
+        "teamsWith4": 118,
+        "teamsWith5": 85,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 239,
+            "solvedBy4": 89,
+            "solvedBy5": 84,
+            "attemptedUnsolvedBy4": 25
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 11,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 62,
+            "solvedBy4": 0,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 15
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 166,
+            "solvedBy4": 29,
+            "solvedBy5": 77,
+            "attemptedUnsolvedBy4": 52
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 416,
+            "solvedBy4": 118,
+            "solvedBy5": 85,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 34,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 13,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 6,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 504,
+            "solvedBy4": 118,
+            "solvedBy5": 85,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 489,
+            "solvedBy4": 118,
+            "solvedBy5": 85,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/jinan"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 33,
+      "links": {
+        "statement": "https://codeforces.com/gym/104128/attachments/download/18620/contest-zh.pdf",
+        "officialSolution": "https://codeforces.com/gym/104128/attachments/download/18363/nanjing_2022_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/47th/nanjing",
+        "qoj": "https://qoj.ac/contest/1093",
+        "gym": "https://codeforces.com/gym/104128"
+      },
+      "scoreboard": {
+        "officialTeams": 438,
+        "teamsWith4": 59,
+        "teamsWith5": 29,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 224,
+            "solvedBy4": 54,
+            "solvedBy5": 28,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 86,
+            "solvedBy4": 7,
+            "solvedBy5": 13,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 128,
+            "solvedBy4": 33,
+            "solvedBy5": 28,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 28,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 372,
+            "solvedBy4": 59,
+            "solvedBy5": 29,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 416,
+            "solvedBy4": 59,
+            "solvedBy5": 29,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 120,
+            "solvedBy4": 24,
+            "solvedBy5": 17,
+            "attemptedUnsolvedBy4": 21
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/nanjing"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 34,
+      "links": {
+        "statement": "https://codeforces.com/gym/104160/attachments/download/18867/contest-29627-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/104160/attachments/download/18879/shenyang_2022_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/47th/shenyang",
+        "qoj": "https://qoj.ac/contest/1096",
+        "gym": "https://codeforces.com/gym/104160"
+      },
+      "scoreboard": {
+        "officialTeams": 708,
+        "teamsWith4": 119,
+        "teamsWith5": 23,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 40,
+            "solvedBy4": 1,
+            "solvedBy5": 20,
+            "attemptedUnsolvedBy4": 46
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 23
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 632,
+            "solvedBy4": 119,
+            "solvedBy5": 23,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 704,
+            "solvedBy4": 119,
+            "solvedBy5": 23,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 11,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 7
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 171,
+            "solvedBy4": 115,
+            "solvedBy5": 22,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 5,
+            "solvedBy4": 2,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 9
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 18,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 7
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 390,
+            "solvedBy4": 119,
+            "solvedBy5": 23,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 6
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/shenyang"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "西安",
+      "category": "区域赛",
+      "sourceRow": 35,
+      "links": {
+        "statement": "https://codeforces.com/gym/104077/attachments/download/18288/problem.pdf",
+        "officialSolution": "https://codeforces.com/gym/104077/attachments/download/18289/Tutorial",
+        "board": "https://board.xcpcio.com/icpc/47th/xian",
+        "qoj": "https://qoj.ac/contest/1051",
+        "gym": "https://codeforces.com/gym/104077"
+      },
+      "scoreboard": {
+        "officialTeams": 476,
+        "teamsWith4": 119,
+        "teamsWith5": 83,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 50,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 95,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 456,
+            "solvedBy4": 119,
+            "solvedBy5": 83,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 20,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 300,
+            "solvedBy4": 6,
+            "solvedBy5": 67,
+            "attemptedUnsolvedBy4": 91
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 470,
+            "solvedBy4": 119,
+            "solvedBy5": 83,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 427,
+            "solvedBy4": 113,
+            "solvedBy5": 83,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 469,
+            "solvedBy4": 119,
+            "solvedBy5": 83,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 240,
+            "solvedBy4": 0,
+            "solvedBy5": 16,
+            "attemptedUnsolvedBy4": 59
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/47th/xian"
+      }
+    },
+    {
+      "year": 2022,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 36,
+      "links": {
+        "statement": "https://contest.ucup.ac/download.php?type=attachments&id=1197&r=0",
+        "officialSolution": "https://contest.ucup.ac/download.php?type=attachments&id=1197&r=2",
+        "board": "https://board.xcpcio.com/icpc/47th/ec-final",
+        "qoj": "https://qoj.ac/contest/1197",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2021,
+      "site": "济南",
+      "category": "区域赛",
+      "sourceRow": 37,
+      "links": {
+        "statement": "https://qoj.ac/download.php?type=statement&id=10773",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/46th/jinan",
+        "qoj": "https://qoj.ac/contest/1997",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 726,
+        "teamsWith4": 16,
+        "teamsWith5": 10,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 166,
+            "solvedBy4": 15,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 58,
+            "solvedBy4": 12,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 24,
+            "solvedBy4": 2,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 72,
+            "solvedBy4": 15,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 669,
+            "solvedBy4": 16,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 28,
+            "solvedBy4": 4,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/jinan"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "昆明",
+      "category": "区域赛",
+      "sourceRow": 38,
+      "links": {
+        "statement": "https://qoj.ac/contest/1870",
+        "officialSolution": "",
+        "board": "https://board.xcpcio.com/icpc/46th/kunming",
+        "qoj": "https://qoj.ac/contest/1870",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 753,
+        "teamsWith4": 28,
+        "teamsWith5": 19,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 77,
+            "solvedBy4": 6,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 81,
+            "solvedBy4": 15,
+            "solvedBy5": 18,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 13,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 353,
+            "solvedBy4": 27,
+            "solvedBy5": 19,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 25,
+            "solvedBy4": 4,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 143,
+            "solvedBy4": 22,
+            "solvedBy5": 17,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 54,
+            "solvedBy4": 6,
+            "solvedBy5": 16,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 6,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 691,
+            "solvedBy4": 28,
+            "solvedBy5": 19,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 21,
+            "solvedBy4": 2,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/kunming"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "澳门",
+      "category": "区域赛",
+      "sourceRow": 39,
+      "links": {
+        "statement": "https://codeforces.com/gym/104373/attachments/download/20209/contest-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/104373/attachments/download/20208/macau_2021_editorial.pdf",
+        "board": "https://board.xcpcio.com/icpc/46th/macau",
+        "qoj": "https://qoj.ac/contest/911",
+        "gym": "https://codeforces.com/gym/104373"
+      },
+      "scoreboard": {
+        "officialTeams": 109,
+        "teamsWith4": 21,
+        "teamsWith5": 6,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 100,
+            "solvedBy4": 21,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 37,
+            "solvedBy4": 16,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 21,
+            "solvedBy4": 4,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 81,
+            "solvedBy4": 19,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 20,
+            "solvedBy4": 2,
+            "solvedBy5": 3,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 7,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 95,
+            "solvedBy4": 21,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/macau"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 40,
+      "links": {
+        "statement": "https://sua.ac/wiki/2021-icpc-nanjing/contest-en.pdf",
+        "officialSolution": "https://zhuanlan.zhihu.com/p/441174109",
+        "board": "https://board.xcpcio.com/icpc/46th/nanjing",
+        "qoj": "https://qoj.ac/contest/1236",
+        "gym": "https://codeforces.com/gym/103470"
+      },
+      "scoreboard": {
+        "officialTeams": 641,
+        "teamsWith4": 112,
+        "teamsWith5": 92,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 637,
+            "solvedBy4": 112,
+            "solvedBy5": 92,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 427,
+            "solvedBy4": 112,
+            "solvedBy5": 92,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 172,
+            "solvedBy4": 7,
+            "solvedBy5": 88,
+            "attemptedUnsolvedBy4": 78
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 28,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 14,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 277,
+            "solvedBy4": 104,
+            "solvedBy5": 92,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 29,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 66,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 13
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 605,
+            "solvedBy4": 112,
+            "solvedBy5": 92,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/nanjing"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "上海",
+      "category": "区域赛",
+      "sourceRow": 41,
+      "links": {
+        "statement": "https://codeforces.com/gym/103446/attachments/download/14827/the-2021-icpc-asia-shanghai-regional-programming-contest-en.pdf",
+        "officialSolution": "https://codeforces.com/gym/103446/attachments/download/14828/LiyuuCute.pdf",
+        "board": "https://board.xcpcio.com/icpc/46th/shanghai",
+        "qoj": "https://qoj.ac/contest/2016",
+        "gym": "https://codeforces.com/gym/103446"
+      },
+      "scoreboard": {
+        "officialTeams": 632,
+        "teamsWith4": 140,
+        "teamsWith5": 81,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 42,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 12,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 606,
+            "solvedBy4": 140,
+            "solvedBy5": 81,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 625,
+            "solvedBy4": 140,
+            "solvedBy5": 81,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 465,
+            "solvedBy4": 140,
+            "solvedBy5": 81,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 169,
+            "solvedBy4": 2,
+            "solvedBy5": 59,
+            "attemptedUnsolvedBy4": 42
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 338,
+            "solvedBy4": 137,
+            "solvedBy5": 81,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 61,
+            "solvedBy4": 0,
+            "solvedBy5": 6,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 87,
+            "solvedBy4": 0,
+            "solvedBy5": 12,
+            "attemptedUnsolvedBy4": 26
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 77,
+            "solvedBy4": 1,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 67
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/shanghai"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 42,
+      "links": {
+        "statement": "https://codeforces.com/gym/103427",
+        "officialSolution": "https://codeforces.com/gym/103427",
+        "board": "https://board.xcpcio.com/icpc/46th/shenyang",
+        "qoj": "https://qoj.ac/contest/1252",
+        "gym": "https://codeforces.com/gym/103427"
+      },
+      "scoreboard": {
+        "officialTeams": 575,
+        "teamsWith4": 126,
+        "teamsWith5": 48,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 324,
+            "solvedBy4": 126,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 575,
+            "solvedBy4": 126,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 551,
+            "solvedBy4": 126,
+            "solvedBy5": 48,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 22,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 103,
+            "solvedBy4": 0,
+            "solvedBy5": 29,
+            "attemptedUnsolvedBy4": 31
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 56,
+            "solvedBy4": 0,
+            "solvedBy5": 11,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 296,
+            "solvedBy4": 126,
+            "solvedBy5": 47,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 69,
+            "solvedBy4": 0,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 21
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 54,
+            "solvedBy4": 0,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 22
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/46th/shenyang"
+      }
+    },
+    {
+      "year": 2021,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 43,
+      "links": {
+        "statement": "https://codeforces.com/gym/103861/attachments/download/16769/statements_ec_2021.pdf",
+        "officialSolution": "",
+        "board": "https://qoj.ac/contest/1041",
+        "qoj": "https://qoj.ac/contest/1041",
+        "gym": "https://codeforces.com/gym/103861"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "济南",
+      "category": "区域赛",
+      "sourceRow": 44,
+      "links": {
+        "statement": "https://ac.nowcoder.com/acm/contest/10662",
+        "officialSolution": "",
+        "board": "",
+        "qoj": "https://qoj.ac/contest/2181",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 496,
+        "teamsWith4": 298,
+        "teamsWith5": 88,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 114,
+            "solvedBy4": 0,
+            "solvedBy5": 62,
+            "attemptedUnsolvedBy4": 95
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 485,
+            "solvedBy4": 298,
+            "solvedBy5": 88,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 442,
+            "solvedBy4": 298,
+            "solvedBy5": 88,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 478,
+            "solvedBy4": 298,
+            "solvedBy5": 88,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 3,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 46,
+            "solvedBy4": 0,
+            "solvedBy5": 12,
+            "attemptedUnsolvedBy4": 85
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 6,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 57,
+            "solvedBy4": 0,
+            "solvedBy5": 14,
+            "attemptedUnsolvedBy4": 24
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 496,
+            "solvedBy4": 298,
+            "solvedBy5": 88,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2020/jinan"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "澳门",
+      "category": "区域赛",
+      "sourceRow": 45,
+      "links": {
+        "statement": "https://codeforces.com/gym/103119/attachments/download/13795/macau2020.pdf",
+        "officialSolution": "https://codeforces.com/gym/103119/attachments/download/13796/2020icpc-macau-analyze.pdf",
+        "board": "https://codeforces.com/gym/103119/standings",
+        "qoj": "https://qoj.ac/contest/1538",
+        "gym": "https://codeforces.com/gym/103119"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 46,
+      "links": {
+        "statement": "https://codeforces.com/gym/102992/attachments/download/20230/contest-en.pdf",
+        "officialSolution": "https://zhuanlan.zhihu.com/p/338249705",
+        "board": "https://board.xcpcio.com/icpc/2020/nanjing",
+        "qoj": "https://qoj.ac/contest/1235",
+        "gym": "https://codeforces.com/gym/102992"
+      },
+      "scoreboard": {
+        "officialTeams": 554,
+        "teamsWith4": 131,
+        "teamsWith5": 42,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 6,
+            "solvedBy4": 1,
+            "solvedBy5": 2,
+            "attemptedUnsolvedBy4": 64
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 322,
+            "solvedBy4": 129,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 240,
+            "solvedBy4": 130,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 60,
+            "solvedBy4": 0,
+            "solvedBy5": 14,
+            "attemptedUnsolvedBy4": 10
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 14,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 544,
+            "solvedBy4": 131,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 481,
+            "solvedBy4": 131,
+            "solvedBy5": 42,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 72,
+            "solvedBy4": 2,
+            "solvedBy5": 25,
+            "attemptedUnsolvedBy4": 42
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2020/nanjing"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "上海",
+      "category": "区域赛",
+      "sourceRow": 47,
+      "links": {
+        "statement": "https://codeforces.com/gym/102900",
+        "officialSolution": "https://zhuanlan.zhihu.com/p/336649300",
+        "board": "https://codeforces.com/gym/102900/standings",
+        "qoj": "https://qoj.ac/contest/1477",
+        "gym": ""
+      },
+      "scoreboard": {
+        "officialTeams": 635,
+        "teamsWith4": 118,
+        "teamsWith5": 41,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 398,
+            "solvedBy4": 116,
+            "solvedBy5": 41,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 88,
+            "solvedBy4": 7,
+            "solvedBy5": 14,
+            "attemptedUnsolvedBy4": 17
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 223,
+            "solvedBy4": 98,
+            "solvedBy5": 38,
+            "attemptedUnsolvedBy4": 18
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 28,
+            "solvedBy4": 1,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 633,
+            "solvedBy4": 118,
+            "solvedBy5": 41,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 50,
+            "solvedBy4": 1,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 111,
+            "solvedBy4": 15,
+            "solvedBy5": 28,
+            "attemptedUnsolvedBy4": 40
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 25,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 466,
+            "solvedBy4": 116,
+            "solvedBy5": 41,
+            "attemptedUnsolvedBy4": 2
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2020/shanghai"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 48,
+      "links": {
+        "statement": "https://codeforces.com/gym/103202/attachments/download/14051/statements.pdf",
+        "officialSolution": "https://codeforces.com/gym/103202/attachments/download/14072/ICPC_2020_Shenyang_Regional_Tutorial.pdf",
+        "board": "https://codeforces.com/gym/103202/standings",
+        "qoj": "https://qoj.ac/contest/1251",
+        "gym": "https://codeforces.com/gym/103202"
+      },
+      "scoreboard": {
+        "officialTeams": 269,
+        "teamsWith4": 44,
+        "teamsWith5": 10,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 5
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 12,
+            "solvedBy4": 1,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 59,
+            "solvedBy4": 18,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 12
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 6,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 246,
+            "solvedBy4": 44,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 258,
+            "solvedBy4": 44,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 45,
+            "solvedBy4": 11,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 55,
+            "solvedBy4": 14,
+            "solvedBy5": 8,
+            "attemptedUnsolvedBy4": 14
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 191,
+            "solvedBy4": 43,
+            "solvedBy5": 10,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 23,
+            "solvedBy4": 1,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 19
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2020/shenyang"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "银川",
+      "category": "区域赛",
+      "sourceRow": 49,
+      "links": {
+        "statement": "https://codeforces.com/gym/104022/attachments/download/17741/yinchuan-2020-onsite-statement.pdf",
+        "officialSolution": "",
+        "board": "https://codeforces.com/gym/104022/standings",
+        "qoj": "https://qoj.ac/contest/1322",
+        "gym": "https://codeforces.com/gym/104022"
+      },
+      "scoreboard": {
+        "officialTeams": 491,
+        "teamsWith4": 185,
+        "teamsWith5": 57,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 473,
+            "solvedBy4": 185,
+            "solvedBy5": 57,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 34,
+            "solvedBy4": 1,
+            "solvedBy5": 7,
+            "attemptedUnsolvedBy4": 86
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 4
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 5,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 13
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 460,
+            "solvedBy4": 185,
+            "solvedBy5": 57,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 79,
+            "solvedBy4": 1,
+            "solvedBy5": 49,
+            "attemptedUnsolvedBy4": 96
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 2,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 432,
+            "solvedBy4": 185,
+            "solvedBy5": 57,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 270,
+            "solvedBy4": 183,
+            "solvedBy5": 57,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 4,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 4
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2020/yinchuan"
+      }
+    },
+    {
+      "year": 2020,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 50,
+      "links": {
+        "statement": "https://codeforces.com/gym/103069/attachments/download/13618/contest-21429-en.pdf",
+        "officialSolution": "",
+        "board": "https://codeforces.com/gym/103069/standings",
+        "qoj": "https://qoj.ac/contest/1040",
+        "gym": "https://codeforces.com/gym/103069"
+      }
+    },
+    {
+      "year": 2019,
+      "site": "香港",
+      "category": "区域赛",
+      "sourceRow": 51,
+      "links": {
+        "statement": "https://codeforces.com/gym/102452/attachments/download/10019/2019-2020-icpc-asia-hong-kong-regional-contest-en.pdf",
+        "officialSolution": "https://icpcarchive.github.io/Asia%20East%20Continent%20Contests/Hongkong/2019%20Asia%20Hong%20Kong%20Regional%20Contest/solution.pdf",
+        "board": "https://codeforces.com/gym/102452/standings",
+        "qoj": "https://qoj.ac/contest/1537",
+        "gym": "https://codeforces.com/gym/102452"
+      }
+    },
+    {
+      "year": 2019,
+      "site": "南京",
+      "category": "区域赛",
+      "sourceRow": 52,
+      "links": {
+        "statement": "https://codeforces.com/gym/103466/attachments/download/14822/statements.pdf",
+        "officialSolution": "",
+        "board": "https://codeforces.com/gym/103466/standings",
+        "qoj": "https://qoj.ac/contest/1321",
+        "gym": "https://codeforces.com/gym/103466"
+      }
+    },
+    {
+      "year": 2019,
+      "site": "上海",
+      "category": "区域赛",
+      "sourceRow": 53,
+      "links": {
+        "statement": "https://qoj.ac/download.php?id=11009&type=statement",
+        "officialSolution": "",
+        "board": "",
+        "qoj": "https://qoj.ac/contest/1866",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2019,
+      "site": "沈阳",
+      "category": "区域赛",
+      "sourceRow": 54,
+      "links": {
+        "statement": "https://ac.nowcoder.com/acm/problem/236911",
+        "officialSolution": "",
+        "board": "",
+        "qoj": "",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2019,
+      "site": "徐州",
+      "category": "区域赛",
+      "sourceRow": 55,
+      "links": {
+        "statement": "",
+        "officialSolution": "",
+        "board": "",
+        "qoj": "https://qoj.ac/contest/1834",
+        "gym": ""
+      }
+    },
+    {
+      "year": 2019,
+      "site": "银川",
+      "category": "区域赛",
+      "sourceRow": 56,
+      "links": {
+        "statement": "https://codeforces.com/gym/104021/attachments/download/17740/yinchuan-2019-onsite-statement.pdf",
+        "officialSolution": "https://codeforces.com/gym/104021/attachments/download/17738/yinchuan-2019-onsite-solution.pdf",
+        "board": "https://codeforces.com/gym/104021/standings",
+        "qoj": "https://qoj.ac/contest/1320",
+        "gym": "https://codeforces.com/gym/104021"
+      },
+      "scoreboard": {
+        "officialTeams": 393,
+        "teamsWith4": 111,
+        "teamsWith5": 72,
+        "problems": [
+          {
+            "id": "0",
+            "label": "A",
+            "officialSolved": 21,
+            "solvedBy4": 1,
+            "solvedBy5": 4,
+            "attemptedUnsolvedBy4": 11
+          },
+          {
+            "id": "1",
+            "label": "B",
+            "officialSolved": 381,
+            "solvedBy4": 111,
+            "solvedBy5": 72,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "2",
+            "label": "C",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 2
+          },
+          {
+            "id": "3",
+            "label": "D",
+            "officialSolved": 18,
+            "solvedBy4": 0,
+            "solvedBy5": 1,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "4",
+            "label": "E",
+            "officialSolved": 1,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "5",
+            "label": "F",
+            "officialSolved": 92,
+            "solvedBy4": 1,
+            "solvedBy5": 46,
+            "attemptedUnsolvedBy4": 28
+          },
+          {
+            "id": "6",
+            "label": "G",
+            "officialSolved": 249,
+            "solvedBy4": 110,
+            "solvedBy5": 72,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "7",
+            "label": "H",
+            "officialSolved": 9,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 18
+          },
+          {
+            "id": "8",
+            "label": "I",
+            "officialSolved": 298,
+            "solvedBy4": 109,
+            "solvedBy5": 72,
+            "attemptedUnsolvedBy4": 0
+          },
+          {
+            "id": "9",
+            "label": "J",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 3
+          },
+          {
+            "id": "10",
+            "label": "K",
+            "officialSolved": 63,
+            "solvedBy4": 1,
+            "solvedBy5": 21,
+            "attemptedUnsolvedBy4": 26
+          },
+          {
+            "id": "11",
+            "label": "L",
+            "officialSolved": 7,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 1
+          },
+          {
+            "id": "12",
+            "label": "M",
+            "officialSolved": 0,
+            "solvedBy4": 0,
+            "solvedBy5": 0,
+            "attemptedUnsolvedBy4": 6
+          },
+          {
+            "id": "13",
+            "label": "N",
+            "officialSolved": 392,
+            "solvedBy4": 111,
+            "solvedBy5": 72,
+            "attemptedUnsolvedBy4": 0
+          }
+        ],
+        "source": "https://github.com/xcpcio/board-data/tree/9dd6329f63bb137614d265fa746bd6b3a9d38b6d/data/icpc/2019/yinchuan"
+      }
+    },
+    {
+      "year": 2019,
+      "site": "EC-Final",
+      "category": "EC-Final",
+      "sourceRow": 57,
+      "links": {
+        "statement": "https://codeforces.com/gym/102471/attachments/download/10238/statements.pdf",
+        "officialSolution": "",
+        "board": "https://codeforces.com/gym/102471/standings",
+        "qoj": "https://qoj.ac/contest/1039",
+        "gym": "https://codeforces.com/gym/102471"
+      }
+    }
+  ]
+}
