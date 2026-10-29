@@ -36,6 +36,7 @@ import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
+import { applyCompanion } from './lib/companion.js'
 import { buildTrainingLog } from './lib/training-log.js'
 import { readSubmissionChain, suggestAcAnchor } from './lib/submission-chain.js'
 import { scopedProblemKey, verifiedProblemForNode, rejectedProblemForNode, recordProblemRejection, clearProblemRejection } from './lib/problem-verification.js'
@@ -1862,7 +1863,7 @@ function registerStateHook(ctx, teaching) {
         try { statSync(PROGRESS_PATH()) } catch (err) { firstRun = err.code === 'ENOENT' }
         if (!firstRun) return decision
         lines = ['<coach_state>', '（教练插件注入的位置）',
-          '- 账本还是空的：先调 coach_setup status 体检，再按它给的唯一下一步做。',
+          '- 账本还是空的：学生要训练、讲课或建计划时，先调 coach_setup status 体检；普通闲聊不做体检，也不初始化。',
           '- 没有数据时别先讲知识点、别猜他的水平；一次只问一件事（先目标或可用时间）。',
           '</coach_state>']
       } else {
@@ -2198,6 +2199,7 @@ function apply(ctx) {
   }
   const memoryHealth = {}
   applyHindsight(ctx, memoryHealth)
+  applyCompanion(ctx)
   // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
   // 为什么走 `systemPrompt.section` 而不是把规则塞进消息流：

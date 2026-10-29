@@ -41,7 +41,7 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     const { apply } = await import(`../index.js?hindsight-${Math.random()}`)
     apply(ctx); await tick()
     assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
-    assert.equal((hooks.get('agent/pre-step') || []).length, 2)
+    assert.equal((hooks.get('agent/pre-step') || []).length, 3)
     assert.equal(tools.size, 34)
     assert.equal(tools.has('coach_recall'), true)
     if (!enabled) {
@@ -133,6 +133,69 @@ test('recall uses only real user text, first step, typed plugin messages, and pr
   assert.equal(calls.length, before)
 }))
 
+test('legacy coach-only bank mission upgrades once for private continuity while custom missions stay untouched', async t => {
+  const oldMission = '只提炼与算法训练相关的事实：训练员卡过的题/知识点、弱项标签、错题类型、学习方法偏好、目标与里程碑。忽略日常寒暄和与训练无关的闲聊。'
+  await fixture(t, async ({ ctx, calls, tick }) => {
+    const { applyHindsight } = await import('../lib/hindsight.js')
+    applyHindsight(ctx)
+    await tick()
+    const patch = calls.find(call => call.method === 'PATCH')
+    assert.ok(patch)
+    assert.match(patch.body.updates.retain_mission, /交流偏好/)
+    assert.match(patch.body.updates.retain_mission, /重要经历/)
+    assert.equal(calls.filter(call => call.method === 'PATCH').length, 1)
+  }, { response: request => request.method === 'GET'
+    ? new Response(JSON.stringify({ config: { retain_mission: oldMission,
+      reflect_mission: '你是算法教练小鲸的记忆助手。从记忆中提炼与训练员 Mianiii 算法竞赛训练相关的事实、偏好、弱项、进展，供教练参考。' } }), { status: 200 })
+    : new Response('{}', { status: 200 }) })
+  await fixture(t, async ({ ctx, calls, tick }) => {
+    const { applyHindsight } = await import('../lib/hindsight.js')
+    applyHindsight(ctx)
+    await tick()
+    assert.equal(calls.filter(call => call.method === 'PATCH').length, 0)
+  }, { response: request => request.method === 'GET'
+    ? new Response(JSON.stringify({ config: { retain_mission: '用户自定义的记忆范围' } }), { status: 200 })
+    : new Response('{}', { status: 200 }) })
+})
+
+test('a blocked bank mission update does not disable ordinary recall', async t => fixture(t, async ({ ctx, hooks, calls, tick }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx)
+  await tick()
+  const messages = [user('我之前偏好怎么聊天？')]
+  const decision = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  assert.match(decision.messages.at(-1).content[0].text, /hindsight_memories/)
+  assert.equal(calls.filter(call => call.method === 'PATCH').length, 1)
+}, { response: request => {
+  if (request.method === 'PATCH') throw new Error('config writes disabled')
+  if (request.method === 'GET') return new Response(JSON.stringify({ config: {
+    retain_mission: '只提炼与算法训练相关的事实：训练员卡过的题/知识点、弱项标签、错题类型、学习方法偏好、目标与里程碑。忽略日常寒暄和与训练无关的闲聊。',
+  } }), { status: 200 })
+  return new Response(JSON.stringify({ results: [{ type: 'observation', text: '用户喜欢短一点的私聊。' }] }), { status: 200 })
+} }))
+
+test('automatic recall sees all text admitted after private input coalescing', async t => fixture(t, async ({ ctx, calls, hooks, tick }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const first = user('等一下，我还没说完')
+  const second = user('其实我担心的是没有人带我')
+  await hooks.get('agent/pre-step')[0]({ messages: [first], step: 1 },
+    async () => ({ kind: 'enter', messages: [first, second] }))
+  const recalled = calls.find(call => call.url.endsWith('/recall'))
+  assert.equal(recalled.body.query, '等一下，我还没说完\n其实我担心的是没有人带我')
+}))
+
+test('a native DSH schedule turn recalls its topic without pretending a human sent it', async t => fixture(t, async ({ ctx, calls, hooks, tick }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const followup = { role: 'user', source: { kind: 'schedule' },
+    content: [{ type: 'text', text: '[SCHEDULE REMINDER]\nreminder_prompt_json: "回来继续聊矩阵加速"' }] }
+  const result = await hooks.get('agent/pre-step')[0]({ messages: [followup], step: 1 },
+    async () => ({ kind: 'enter', messages: [followup] }))
+  assert.equal(calls.find(call => call.url.endsWith('/recall')).body.query, '回来继续聊矩阵加速')
+  assert.equal(result.messages[0], followup)
+}))
+
 test('automatic recall has twelve seconds while explicit lookup keeps fifteen seconds', async t => fixture(t, async ({ ctx, hooks, tools, tick }) => {
   const timeout = AbortSignal.timeout
   const budgets = []
@@ -166,6 +229,23 @@ test('completed turns retain native final replies and separate interleaved sessi
   assert.equal(writes[0].body.async, true)
   assert.equal(Object.hasOwn(writes[0].body.items[0], 'timestamp'), false)
   assert.deepEqual(writes[0].body.items[0].metadata, { source: 'dsh' })
+}))
+
+test('a native schedule reply is remembered without retaining its trigger instruction', async t => fixture(t, async ({ ctx, hooks, calls, tick }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const event = hooks.get('session/event')[0]
+  const session = { id: 'followup-session' }
+  event(session, { type: 'user/message', data: { id: 'followup-1', role: 'user', source: { kind: 'schedule' },
+    content: [{ type: 'text', text: '[SCHEDULE REMINDER]\nreminder_prompt_json: "内部续聊指令"' }] } })
+  event(session, { type: 'assistant/message', data: { message: { id: 'reply-1', role: 'assistant', source: { kind: 'model' },
+    content: [{ type: 'text', text: '你昨天说要从状态设计接着聊，咱们从那一格开始？' }] } } })
+  event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  await tick(); await tick()
+  const write = calls.find(call => call.url.endsWith('/memories'))
+  assert.match(write.body.items[0].content, /小鲸主动联系/)
+  assert.match(write.body.items[0].content, /昨天说要从状态设计/)
+  assert.doesNotMatch(write.body.items[0].content, /内部续聊指令|SCHEDULE REMINDER/)
 }))
 
 test('unavailable service still injects clock and can recover on a later turn', async t => {
@@ -242,14 +322,14 @@ test('authentication is sent only in headers; logs contain neither key nor stude
 }))
 
 test('test preload prevents public apply from contacting a bank inherited from the launch shell', async t => fixture(t, async ({ dir }) => {
-  const code = `let requests=0, retentionHooks=0; globalThis.fetch=async()=>{requests++;throw Error('unexpected network')};
-    const {apply}=await import('./index.js'); apply({tools:{register(){}},inject(){},on(name){if(name==='session/event')retentionHooks++}});
-    await new Promise(r=>setImmediate(r));console.log(JSON.stringify({requests,retentionHooks}));`
+  const code = `let requests=0, eventHooks=0; globalThis.fetch=async()=>{requests++;throw Error('unexpected network')};
+    const {apply}=await import('./index.js'); apply({tools:{register(){}},inject(){},on(name){if(name==='session/event')eventHooks++}});
+    await new Promise(r=>setImmediate(r));console.log(JSON.stringify({requests,eventHooks}));`
   const result = spawnSync(process.execPath, ['--import', './dev/test-env.mjs', '--input-type=module', '-e', code], {
     cwd: new URL('..', import.meta.url), env: { ...process.env, COACH_HINDSIGHT: '1', DSH_HOME: dir }, encoding: 'utf8', windowsHide: true,
   })
   assert.equal(result.status, 0, result.stderr)
-  assert.deepEqual(JSON.parse(result.stdout.trim()), { requests: 0, retentionHooks: 0 })
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { requests: 0, eventHooks: 0 })
 }))
 
 test('retain preserves real native event times and source identities in a stable per-turn document', async t => fixture(t, async ({ ctx, hooks, calls, tick }) => {

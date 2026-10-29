@@ -15,6 +15,8 @@ test('packaged persona does not bind every user to one private student', () => {
   const persona = fs.readFileSync(personaPath, 'utf8')
   assert.doesNotMatch(persona, /陪\s+[A-Za-z][\w-]{3,}/)
   assert.doesNotMatch(persona, /(?:平时|默认)叫「[A-Za-z][\w-]{3,}」/)
+  assert.doesNotMatch(persona, /每轮至少|每段末尾|一律.*颜文字/)
+  assert.match(persona, /用户.*当前|当下.*用户/)
 })
 
 test('packaged coaching instructions stay focused on judgment, not stale contest prescriptions', () => {

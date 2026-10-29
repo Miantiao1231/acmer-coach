@@ -26,6 +26,7 @@ test('coaching rules keep a weekly outcome and batch selective review into class
   assert.match(rules, /复习.*集中.*上课时段/)
   assert.match(rules, /不.*每道题.*复习/)
   assert.match(rules, /coach_target contests.*VP/)
+  assert.match(rules, /WF 名额.*不能凭印象/)
 })
 
 test('integrated map concepts cannot be assigned or examined as standalone units', async () => {

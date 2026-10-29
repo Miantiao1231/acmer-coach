@@ -44,6 +44,7 @@ test('an empty ledger gets one executable first-run step, not a guessed lesson',
     assert.equal(messages.length, 2, '首次使用要注入一条引导')
     const text = messages.at(-1).content.map((block) => block.text).join('\n')
     assert.match(text, /coach_setup status/)
+    assert.match(text, /普通闲聊不做体检/)
     assert.match(text, /别先讲知识点/)
     assert.doesNotMatch(text, /游标/)
 
