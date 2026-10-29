@@ -51,6 +51,68 @@ test('integrated map concepts cannot be assigned or examined as standalone units
   }
 })
 
+test('integrated concepts and resolved abandoned papers do not create false debts', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-false-debt-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes:\n  - {id: 动态规划基础, name: 动态规划基础, depends: []}\n  - {id: ST 表, name: ST 表, depends: []}\n')
+    writeFileSync(join(dir, 'PROGRESS.yaml'), `version: 1\ncursor: 动态规划基础\nnodes:\n  动态规划基础: {status: studying, at: 2026-09-01}\n  ST 表:\n    status: verified\n    checks:\n      - {date: 2026-10-01, outcome: abandoned, reason: 题已做过}\n      - {date: 2026-10-02, outcome: abandoned, reason: 标签不对}\n      - {date: 2026-10-03, outcome: passed}\n  二分:\n    checks:\n      - {date: 2026-10-01, outcome: abandoned, reason: 题已做过}\n      - {date: 2026-10-02, outcome: abandoned, reason: 标签不对}\n`)
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    const { apply } = await import('../index.js?false-debt-contract')
+    const tools = new Map()
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on() {} })
+    const status = await tools.get('coach_status').execute({})
+    assert.deepEqual(status.stuck, [])
+    assert.deepEqual(status.cancelled, [])
+    const shown = tools.get('coach_status').output.render({}, status)[0].text
+    assert.doesNotMatch(shown, /在学放了|学过未验：动态规划基础/)
+    assert.match(shown, /随题融合.*动态规划基础/)
+    const schedule = await tools.get('coach_schedule').execute({ days: 1 })
+    assert.deepEqual(schedule.readiness, [], 'without an active course, elapsed status days must not rank a global to-do list')
+  } finally {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('coach reads the same daily log as the page without calling an absent VP done', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-journal-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, memory: process.env.COACH_HINDSIGHT }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: []\n')
+    writeFileSync(join(dir, 'SCHEDULE.yaml'), `version: 1\ndays:\n  '2026-10-26':\n    planned:\n      - {from: '13:00', to: '18:00', kind: vp, node: '', competency: contest-decision}\n`)
+    writeFileSync(join(dir, 'PROGRESS.yaml'), `version: 1\nnodes:\n  A:\n    lessonNotes:\n      - {at: '2026-10-26T15:00:00+08:00', summary: '讲完状态', nextStep: '下一节检查转移'}\n`)
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    process.env.COACH_HINDSIGHT = '0'
+    const { apply } = await import('../index.js?journal-contract')
+    const tools = new Map()
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on() {} })
+    const tool = tools.get('coach_journal')
+    assert.ok(tool)
+    assert.equal((await tools.get('coach_status').execute({})).memoryState, 'disabled')
+    const log = await tool.execute({ date: '2026-10-26' })
+    shape(tool.output.schema, log)
+    assert.equal(log.days.length, 1)
+    assert.equal(log.days[0].state, 'active')
+    assert.equal(log.days[0].actualEntries, 0)
+    assert.equal(log.days[0].plannedMinutes, 300)
+    assert.equal(log.days[0].events.find(event => event.type === 'lesson').nextStep, '下一节检查转移')
+    assert.match(tool.output.render({}, log)[0].text, /下一节检查转移/)
+    assert.match(tool.output.render({}, log)[0].text, /实际记录未知|实际未记录/)
+  } finally {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db], ['COACH_HINDSIGHT', previous.memory]]) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('registered coaching tools expose cited findings, sourced teaching and complete refusal shapes', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-contract-'))
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }

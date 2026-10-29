@@ -98,6 +98,29 @@ test('a full 300-minute VP occupies one schedule block within the physical day',
   assert.equal(schedule.days[0].planned[0].minutes, 300)
 }))
 
+test('an intentional rest day is visible and cannot be overwritten accidentally', async () => fixture(async ({ call }) => {
+  const now = new Date()
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const rest = await call('coach_plan', { date, rest: true, blocks: [] })
+  assert.equal(rest.ok, true, rest.reject)
+  assert.equal(rest.planMin, 0)
+  assert.equal((await call('coach_schedule', { from: date, days: 1 })).days[0].rest, true)
+  assert.equal((await call('coach_journal', { date })).days[0].state, 'rest')
+  const removed = await call('coach_unplan', { date, all: true })
+  assert.equal(removed.ok, true)
+  assert.equal(removed.removedRest, true)
+  assert.equal((await call('coach_schedule', { from: date, days: 1 })).days[0].rest, false)
+  assert.equal((await call('coach_plan', { date, rest: true, blocks: [] })).ok, true)
+  const accidental = await call('coach_plan', { date, blocks: [{ from: '10:00', node: 'A', kind: 'cycle' }] })
+  assert.equal(accidental.ok, false)
+  const changed = await call('coach_plan', { date, replace: true, blocks: [{ from: '10:00', node: 'A', kind: 'cycle' }] })
+  assert.equal(changed.ok, true, changed.reject)
+  assert.equal((await call('coach_schedule', { from: date, days: 1 })).days[0].rest, false)
+  assert.equal((await call('coach_plan', { date, replace: true, rest: true, blocks: [] })).ok, true)
+  assert.equal((await call('coach_plan', { date, replace: true, blocks: [] })).ok, true)
+  assert.equal((await call('coach_schedule', { from: date, days: 1 })).days[0].rest, false)
+}))
+
 test('competency diagnostic works without a cursor and completes through coach_log without a fake map node', async () => fixture(async ({ call, read }) => {
   const assigned = await call('coach_assign', { competency: 'contest-reading', kind: 'diagnostic', minutes: 15, deliverable: '扫描题面，提交题目筛选顺序和放弃理由' })
   assert.equal(assigned.accepted, true, assigned.reject)
@@ -137,7 +160,7 @@ test('a node practice keeps its competition skill focus without counting a secon
   assert.equal((await call('coach_log', { node: 'A', solved: true, focusCompetency: 'invented' })).ok, false)
 }))
 
-test('status links one exercise to its full MLE-WA-WA-AC-AC sequence', async () => fixture(async ({ call, read, dir }) => {
+test('status links one exercise to its full MLE-WA-WA-AC-AC sequence', async () => fixture(async ({ call, read, write, dir }) => {
   const db = new DatabaseSync(join(dir, 'unused.db'))
   db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
     CREATE TABLE unified_submissions (id INTEGER PRIMARY KEY, user_id INTEGER, platform TEXT,
@@ -162,6 +185,13 @@ test('status links one exercise to its full MLE-WA-WA-AC-AC sequence', async () 
   assert.equal(status.recentPasses[0].submissionChain.attempts, 5)
   assert.equal(status.recentPasses[0].submissionChain.failed, 3)
   assert.match(status.recentPasses[0].submissionChain.verdicts, /MLE.*WA.*WA.*AC.*AC/)
+  assert.equal(status.recentPasses[0].submissionChain.diagnosisStatus, 'not-recorded')
+  const journal = await call('coach_journal', { date: logged.date })
+  assert.match(journal.days[0].events.find(event => event.type === 'practice').detail, /提交 5 发，失败 3 发.*未见正式判因/)
+  const progress = read('PROGRESS.yaml')
+  progress.nodes.A.diagnoses = [{ date: logged.date, problem: 'CF1067A', category: '测试', summary: '这题有判因，未绑定本轮' }]
+  write('PROGRESS.yaml', progress)
+  assert.equal((await call('coach_status', {})).recentPasses[0].submissionChain.diagnosisStatus, 'problem-recorded')
 }))
 
 test('two same-day rounds of one problem keep separate completion records when submission anchors differ', async () => fixture(async ({ call, read, dir }) => {
@@ -186,6 +216,29 @@ test('two same-day rounds of one problem keep separate completion records when s
   assert.equal(second.replaced, false)
   assert.equal(read('PROGRESS.yaml').nodes.A.passes.length, 2)
   assert.equal(read('SCHEDULE.yaml').days[second.date].actual.length, 2)
+}))
+
+test('status suggests one same-day AC for an old untimed record without claiming a full chain', async () => fixture(async ({ call, dir }) => {
+  const db = new DatabaseSync(join(dir, 'unused.db'))
+  db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
+    CREATE TABLE unified_submissions (id INTEGER PRIMARY KEY, user_id INTEGER, platform TEXT,
+      problem_id TEXT, verdict TEXT, submitted_at TEXT, cf_sub_id INTEGER, lg_sub_id INTEGER, nc_sub_id INTEGER);
+    INSERT INTO users VALUES (1,'trainer','trainer');`)
+  const now = new Date()
+  const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  db.prepare(`INSERT INTO unified_submissions (id,user_id,platform,problem_id,verdict,submitted_at,cf_sub_id)
+    VALUES (1,1,'codeforces','1067A','AC',?,44)`).run(`${localDate}T12:00:00+08:00`)
+  db.prepare(`INSERT INTO unified_submissions (id,user_id,platform,problem_id,verdict,submitted_at,cf_sub_id)
+    VALUES (2,1,'codeforces','1067B','AC',?,45)`).run(`${localDate}T13:00:00+08:00`)
+  db.close()
+  assert.equal((await call('coach_log', { node: 'A', problemId: 'CF1067A', solved: true })).ok, true)
+  const chain = (await call('coach_status', {})).recentPasses[0].submissionChain
+  assert.equal(chain.status, 'unknown')
+  assert.equal(chain.candidateAc?.submissionId, '44')
+  assert.equal(chain.attempts, undefined)
+  assert.equal((await call('coach_log', { node: 'A', problemId: 'CF1067B', solved: false })).ok, true)
+  const unfinished = (await call('coach_status', {})).recentPasses.find(pass => pass.problemId === 'CF1067B')
+  assert.equal(unfinished.submissionChain.candidateAc, undefined)
 }))
 
 test('competency actions bind the diagnostic phase, reject stale or other-unit work, and yield usable evidence', async () => fixture(async ({ call, read }) => {

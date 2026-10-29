@@ -42,7 +42,7 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     apply(ctx); await tick()
     assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
     assert.equal((hooks.get('agent/pre-step') || []).length, 2)
-    assert.equal(tools.size, 32)
+    assert.equal(tools.size, 33)
     assert.equal(tools.has('coach_recall'), true)
     if (!enabled) {
       assert.equal(calls.length, 0)
@@ -172,14 +172,17 @@ test('unavailable service still injects clock and can recover on a later turn', 
   let down = true
   await fixture(t, async ({ ctx, hooks, tick }) => {
     const { applyHindsight } = await import('../lib/hindsight.js')
-    applyHindsight(ctx); await tick()
+    const health = {}
+    applyHindsight(ctx, health); await tick()
     const pre = hooks.get('agent/pre-step')[0], messages = [user('需要核对记忆')]
     const failed = await pre({ messages, step: 1 }, enter(messages))
     assert.equal(failed.messages.length, 2)
     assert.match(failed.messages[1].content[0].text, /当前时间/)
+    assert.equal(health.state, 'unavailable')
     down = false
     const recovered = await pre({ messages, step: 1 }, enter(messages))
     assert.equal(recovered.messages.length, 3)
+    assert.equal(health.state, 'ready')
   }, { env: { COACH_RECALL_BACKOFF_MS: '0' }, response: request => {
     if (down) throw new DOMException('fixture timeout', 'TimeoutError')
     return new Response(JSON.stringify(request.url.endsWith('/recall') ? { results: [{ text: '已恢复' }] } : {}))

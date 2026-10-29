@@ -221,6 +221,8 @@ const cases = [
   ['coach_next', { cursor: '并不存在' }],              // 打错字
   ['coach_next', {}],                                  // 游标空 → 读夹具
   ['coach_status', {}],
+  ['coach_journal', { date: today }],
+  ['coach_journal', { date: 'invalid' }],
   ['coach_lesson#status', { action: 'status' }],
   ['coach_lesson#start', { action: 'start', node: 'A' }],
   ['coach_lesson#advance-rejected', { action: 'advance' }],
@@ -253,6 +255,8 @@ const cases = [
   ['coach_plan', { date: today, blocks: [{ from: '09:00', kind: 'review', node: 'A' }] }],
   ['coach_plan', { date: today, blocks: [{ from: '09:00', kind: 'review', node: 'A' }] }], // 已排过 → 拒
   ['coach_unplan', { date: today, from: '09:00' }],
+  ['coach_plan', { date: today, blocks: [], rest: true }],
+  ['coach_unplan', { date: today, all: true }],
   ['coach_unplan', { date: today }],                   // 没给 from/all → 拒
   ['coach_diagnose', {
     code: 'int main(){ int a; return 0; }',

@@ -37,7 +37,7 @@ import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
 import { buildTrainingLog } from './lib/training-log.js'
-import { readSubmissionChain } from './lib/submission-chain.js'
+import { readSubmissionChain, suggestAcAnchor } from './lib/submission-chain.js'
 import { scopedProblemKey, verifiedProblemForNode, rejectedProblemForNode, recordProblemRejection, clearProblemRejection } from './lib/problem-verification.js'
 import { bindStamp, textStamp, writeLedger } from './lib/ledger.js'
 import { syncPackagedMap, MAP_BACKUP_FILE, MAP_REPORT_FILE } from './lib/map-upgrade.js'
@@ -485,6 +485,7 @@ function setScheduleField(date, field, value) {
   const day = { ...(s.days[d] ?? {}) }
   if (value.length) day[f] = value
   else delete day[f]            // 空数组 = 清掉这一项，不留 `busy: []` 这种空壳
+  if (f === 'planned') delete day.rest
   if (Object.keys(day).length) s.days[d] = day
   else delete s.days[d]         // 三项全空 = 这一天删掉，别留 `{}`
   saveSchedule(s)
@@ -604,7 +605,7 @@ const freeSlots = (day) => slotsFrom(day?.busy)
  * 教练看到"21:00–22:30 空着 90 分钟"，而那里已经排着一个块 ——
  * 他会以为还能再塞一个，或者把"90 分钟空档"当成真的空档去规划。
  */
-const openSlots = (day) => slotsFrom([
+const openSlots = (day) => day?.rest === true ? [] : slotsFrom([
   ...(Array.isArray(day?.busy) ? day.busy : []),
   ...(Array.isArray(day?.planned) ? day.planned : []),
 ])
@@ -612,7 +613,7 @@ const openSlots = (day) => slotsFrom([
 const sumMin = (slots) => slots.reduce((t, x) => t + (x.z - x.a), 0)
 const freeMinutes = (day) => sumMin(freeSlots(day))
 const openMinutes = (day) => sumMin(openSlots(day))
-const capacityMin = (day) => Math.floor(freeMinutes(day) * SCHED_FILL)
+const capacityMin = (day) => day?.rest === true ? 0 : Math.floor(freeMinutes(day) * SCHED_FILL)
 
 /**
  * 给一天排块。**整批要么全过要么全拒** —— 部分写进去等于留下半天的计划，
@@ -642,6 +643,17 @@ function planDay(date, blocks, opts = {}) {
   const day = s.days?.[d] ?? {}
   const had = Array.isArray(day.planned) ? day.planned : []
   const list = Array.isArray(blocks) ? blocks : []
+  if (opts.rest === true) {
+    if (list.length) return { ok: false, reject: '休息日不能同时排训练块。' }
+    if ((had.length || day.rest === true) && !opts.replace) return { ok: false, reject: '这天已有安排；改成休息日需要 replace=true（替换当天全部计划）。' }
+    s.days[d] = { ...day, rest: true }
+    delete s.days[d].planned
+    saveSchedule(s)
+    return { ok: true, reject: '', date: d, count: 0, planned: [], planMin: 0,
+      replaced: had.length, rest: true, updated: s.updated,
+      busy: (Array.isArray(day.busy) ? day.busy : []).map((b) => ({ from: String(b?.from ?? ''), to: String(b?.to ?? ''), label: String(b?.label ?? '') })) }
+  }
+  if (day.rest === true && !opts.replace) return { ok: false, reject: '这天已安排休息；改训练计划需要 replace=true（替换当天全部计划）。' }
   // replace + 空数组 = 清掉这天的计划，所以要放在 had 那关之前判
   if (!list.length && !opts.replace) {
     return { ok: false, reject: 'blocks 是空的 —— 没东西可排。' }
@@ -775,6 +787,15 @@ function unplanDay(date, opts = {}) {
   const s = loadSchedule()
   const day = s.days?.[d] ?? {}
   const had = Array.isArray(day.planned) ? day.planned : []
+  if (!had.length && day.rest === true && opts.all === true) {
+    delete day.rest
+    if (Object.keys(day).length) s.days[d] = day
+    else delete s.days[d]
+    saveSchedule(s)
+    return { ok: true, reject: '', date: d, removed: [], removedCount: 0,
+      left: [], leftCount: 0, removedRest: true, updated: s.updated,
+      busy: (Array.isArray(day.busy) ? day.busy : []).map(b => ({ from: String(b?.from ?? ''), to: String(b?.to ?? ''), label: String(b?.label ?? '') })) }
+  }
   if (!had.length) {
     return { ok: false, reject: `「${d}」本来就没排过块，没什么可撤的。` }
   }
@@ -822,6 +843,7 @@ function unplanDay(date, opts = {}) {
     ok: true, reject: '', date: d,
     removed: removed.map(pack), removedCount: removed.length,
     left: left.map(pack), leftCount: left.length,
+    removedRest: false,
     updated: w.updated,
     // 「撤完还剩哪些块」报给他，外加整天的忙事 —— 这就是撤完的**整张表**。
     busy: (Array.isArray(day.busy) ? day.busy : []).map((b) => ({
@@ -849,19 +871,19 @@ function statusSince(rec) {
   return ''
 }
 
-// ── 火候：排课时摆出来的「哪些放得最久」──────────────────────────
+// ── 当前阶段节点：排课时展示事实，不拿全图时间间隔排优先级 ───────
 //
 // 教练**能**判断该不该复习/开卷，但前提是它主动去查那些数据 ——
-// 不查就废。所以把火候摆进**排课这个动作的输出里**：他让它排课，它就一定看得见，
+// 不查就废。所以把本阶段节点摆进**排课这个动作的输出里**：他让它排课，它就一定看得见，
 // 不依赖"它记得去看"。
 //
 // ⚠️ **只报事实，不报裁决，也不写阈值。**
 // AGENTS.md 规则 7 明写那些天数是「数字，不是开关」—— 一旦把 7 天 / 30 天写进代码，
-// 软信号就变成硬规则，正好背叛那条设计。所以这里**只按"放得最久的排前面"取前几个**：
-// 排序是事实，阈值是判断。
-function readinessOf(progress, byId, limit = 5) {
+// 软信号就变成硬规则。只展示当前阶段节点，顺序沿用课程本身；日期仍是事实。
+function readinessOf(progress, byId, focusNodes = [], limit = 5) {
   const rows = []
-  for (const [id, rec] of Object.entries(progress?.nodes ?? {})) {
+  for (const id of focusNodes) {
+    const rec = progress?.nodes?.[id]
     const st = rec?.status
     if (st !== 'studying' && st !== 'verified') continue
     const since = statusSince(rec)
@@ -878,7 +900,6 @@ function readinessOf(progress, byId, limit = 5) {
       passIndependent: passes.filter((p) => p?.solved === true && p?.independent === true).length,
     })
   }
-  rows.sort((a, b) => b.days - a.days || a.node.localeCompare(b.node))
   return rows.slice(0, limit)
 }
 
@@ -916,7 +937,7 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
       busy: (Array.isArray(day.busy) ? day.busy : []).map((b) => ({
         from: String(b?.from ?? ''), to: String(b?.to ?? ''), label: String(b?.label ?? ''),
       })),
-      planned, planMin,
+      planned, planMin, rest: day.rest === true,
       // ⚠️ **必须逐条归一，不能原样透传。**
       // `actual` 的形状后来变了（coach_log 加了 solved / note），
       // 而 output.schema 是 additionalProperties:false —— 原样透传的话，
@@ -953,8 +974,8 @@ function scheduleOverview(days = SCHED_WINDOW, fromDate = '') {
     ...(s.classWindow ? { classWindow: s.classWindow } : {}),
     blockKinds: Object.entries(SCHED_KINDS).map(([k, v]) => ({ kind: k, minutes: v.min, name: v.name })),
     days: out,
-    // 火候：排课时一定看得见，不依赖"它记得去查 coach_status"
-    readiness: readinessOf(loadProgress(), byId),
+    // 本阶段节点：排课时一定看得见，不依赖"它记得去查 coach_status"
+    readiness: readinessOf(loadProgress(), byId, curriculum.snapshot().focusNodes),
   }
 }
 
@@ -1012,12 +1033,8 @@ function daysSinceDate(dateStr) {
 //   2. **他后来过了就不算卡住**（只看"错过几次"会冤枉人）
 //   3. 卡住 = 最近一次真做过的检测没过，且累计没过 ≥2
 const STUCK_FAILS = 2
-const STUCK_IDLE_DAYS = 14
-const DROP_REASON_MAX = 60
-
 function nodeFlags(progress, byId) {
   const stuck = []
-  const cancelled = []
   for (const [id, rec] of Object.entries(progress?.nodes ?? {})) {
     const name = byId.get(id)?.name ?? id
     const checks = Array.isArray(rec?.checks) ? rec.checks : []
@@ -1025,28 +1042,16 @@ function nodeFlags(progress, byId) {
       .filter((c) => (c?.outcome === 'passed' || c?.outcome === 'failed') && c?.date)
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     const fails = valid.filter((c) => c.outcome === 'failed')
-    const drops = checks.filter((c) => c?.outcome === 'abandoned')
     const last = valid[valid.length - 1]
-    const idle = daysSinceDate(rec?.at)
-
     const why = []
-    if (last?.outcome === 'failed' && fails.length >= STUCK_FAILS) {
+    if (byId.get(id)?.role !== 'integrated' && last?.outcome === 'failed' && fails.length >= STUCK_FAILS) {
       why.push(`最近一次检测没过（累计没过 ${fails.length} 次）`)
-    }
-    if (rec?.status === 'studying' && idle !== null && idle >= STUCK_IDLE_DAYS) {
-      why.push(`在学放了 ${idle} 天还没验`)
     }
     if (why.length) stuck.push({ node: id, name, why: why.join('；') })
 
-    // 作废多了是**组卷质量**的问题，不是人的问题（标签太泛？题已被他 AC？）
-    if (drops.length >= STUCK_FAILS) {
-      cancelled.push({
-        node: id, name, drops: drops.length,
-        reason: String(drops[drops.length - 1]?.reason ?? '').trim().slice(0, DROP_REASON_MAX),
-      })
-    }
   }
-  return { stuck, cancelled }
+  // 作废卷保留在检测历史，不能长期挂成训练员的待办。
+  return { stuck, cancelled: [] }
 }
 
 // ── 「这个知识点他学过没有」—— 开卷的前提（需求 #5）────────
@@ -1388,6 +1393,18 @@ async function currentTrainerHandle() {
     return id == null ? '' : String(db.prepare('SELECT handle FROM users WHERE id = ?').get(id)?.handle ?? '')
   } catch { return '' }
   finally { try { db?.close() } catch { /* read-only lookup */ } }
+}
+
+function trainingLogPassEvidence(pass, node, diagnoses = []) {
+  if (!pass?.platform || !pass?.traceProblemId || !pass?.trainerHandle || !pass?.startedAt || !pass?.completedAt) return { status: 'unknown' }
+  const chain = readSubmissionChain({ dbPath: DB_PATH(), trainerHandle: pass.trainerHandle,
+    platform: pass.platform, problemId: pass.traceProblemId, startedAt: pass.startedAt,
+    completedAt: pass.completedAt, anchorSubmissionId: pass.anchorSubmissionId })
+  if (chain.status !== 'linked') return chain
+  const diagnosed = diagnoses.some(d => d?.problem && String(d?.date ?? '') >= String(pass.date ?? '') &&
+    submissionProblem(d.problem, pass.platform)?.problemId === pass.traceProblemId)
+  return { ...chain, verdicts: chain.submissions.map(s => s.verdict).join(' → '),
+    diagnosisStatus: !chain.failed ? 'not-applicable' : diagnosed ? 'problem-recorded' : 'not-recorded' }
 }
 
 // 节点名 → 题库标签。**两级匹配，且如实报告用了哪一级。**
@@ -1771,7 +1788,8 @@ function registerPages(ctx) {
         const query = new URL(req.url ?? '/', 'http://dsh.internal').searchParams
         const snapshot = curriculum.snapshot()
         const log = buildTrainingLog({
-          progress: loadProgress(), schedule: loadSchedule(), curriculum: snapshot,
+          progress: loadProgress(), schedule: loadSchedule(), curriculum: snapshot, vp: strategy.loadVp(),
+          passEvidence: trainingLogPassEvidence,
           byId: loadMap().byId, today: query.get('today') || undefined,
           from: query.get('from') || '', to: query.get('to') || '', days: query.get('days') || 14,
         })
@@ -2174,7 +2192,8 @@ function apply(ctx) {
   } catch (err) {
     mapUpgrade = { action: 'error', reject: String(err?.message || err) }
   }
-  applyHindsight(ctx)
+  const memoryHealth = {}
+  applyHindsight(ctx, memoryHealth)
   // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
   // 为什么走 `systemPrompt.section` 而不是把规则塞进消息流：
@@ -3798,6 +3817,9 @@ function apply(ctx) {
           // 目标和课程对不上时的一句话；空串 = 一致或没有课程。
           targetMismatch: { type: 'string', required: true },
           teachingContext: { type: 'string', required: true },
+          memoryState: { type: 'string', required: true },
+          memoryLastSuccessAt: { type: 'string', required: true },
+          memoryLastFailureAt: { type: 'string', required: true },
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
@@ -3913,6 +3935,10 @@ function apply(ctx) {
                   status: { type: 'string', required: true }, reason: { type: 'string', required: true },
                   attempts: { type: 'integer' }, failed: { type: 'integer' }, accepted: { type: 'integer' },
                   unresolved: { type: 'integer' }, verdicts: { type: 'string', required: true },
+                  diagnosisStatus: { type: 'string', required: true },
+                  candidateAc: { type: 'object', additionalProperties: false, properties: {
+                    submissionId: { type: 'string', required: true }, submittedAt: { type: 'string', required: true },
+                  } },
                   submissions: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
                     submissionId: { type: 'string', required: true }, verdict: { type: 'string', required: true },
                     submittedAt: { type: 'string', required: true },
@@ -3948,7 +3974,7 @@ function apply(ctx) {
                 at: { type: 'string', required: true },
                 competency: { type: 'string' },
                 kind: { type: 'string' },
-                // 押了几天。-1 = 日期不明（跟火候那边同一个约定，别让它算成 0）
+                // 押了几天。-1 = 日期不明，别让它算成 0。
                 days: { type: 'integer', required: true },
                 deliverable: { type: 'string', required: true },
                 solveMinutes: { type: 'integer', required: true },
@@ -3973,6 +3999,9 @@ function apply(ctx) {
                 : `　⚠️ **还没有教学记录** —— 现在开卷会被拒，先讲`)
               : ''),
           v.teachingContext,
+          v.memoryState === 'unavailable' ? '⚠️ 记忆召回暂不可用；不能把想不起往事当作从未发生。' :
+            v.memoryState === 'disabled' ? '记忆桥未启用；过往经历请查已有账本与原话。' :
+              v.memoryState === 'starting' ? '记忆桥已启用，尚未成功召回。' : '',
           v.targetMismatch ? `⚠️ ${v.targetMismatch}` : '',
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
@@ -4007,8 +4036,12 @@ function apply(ctx) {
             : '',
           `已验证 ${v.verifiedCount} · 学过（仅自评）${v.learnedCount} · ` +
             `在学 ${v.studyingCount} · 全图 ${v.totalNodes}`,
-          v.studying.length ? `在学（没学完，接着来）：${v.studying.join('、')}` : '',
-          v.learned.length ? `学过未验：${v.learned.join('、')}` : '',
+          v.studying.some(id => loadMap().byId.get(id)?.role !== 'integrated')
+            ? `在学（可独立考核）：${v.studying.filter(id => loadMap().byId.get(id)?.role !== 'integrated').join('、')}` : '',
+          v.learned.some(id => loadMap().byId.get(id)?.role !== 'integrated')
+            ? `学过未验：${v.learned.filter(id => loadMap().byId.get(id)?.role !== 'integrated').join('、')}` : '',
+          [...v.studying, ...v.learned].some(id => loadMap().byId.get(id)?.role === 'integrated')
+            ? `随题融合（不单独开卷）：${[...v.studying, ...v.learned].filter(id => loadMap().byId.get(id)?.role === 'integrated').join('、')}` : '',
           v.verified.length ? `已验证：${v.verified.join('、')}` : '',
           // 检测 / 判因的历史摆出来 —— 「要不要开卷」得综合它俩判断，
           // 而在这之前它们只写不读（见 schema 里的注释）。
@@ -4035,7 +4068,9 @@ function apply(ctx) {
               `${x.focusCompetency ? ` · 能力 ${x.focusCompetency}` : ''}${x.note ? ` · ${x.note.slice(0, 80)}${x.note.length > 80 ? '…' : ''}` : ''}` +
               (x.submissionChain.status === 'linked'
                 ? ` · 提交 ${x.submissionChain.attempts} 发，失败 ${x.submissionChain.failed} 发（${x.submissionChain.verdicts}）`
-                : x.problemId ? ' · 提交链尚未关联，不能据此断言没有失败提交' : ''))
+                  + (x.submissionChain.diagnosisStatus === 'not-recorded' ? ' · 这题未见正式判因记录'
+                    : x.submissionChain.diagnosisStatus === 'problem-recorded' ? ' · 这题有判因记录，未确认对应本轮' : '')
+                : x.problemId ? ` · 提交链尚未关联，不能据此断言没有失败提交${x.submissionChain.candidateAc ? `；同日唯一 AC 候选 ${x.submissionChain.candidateAc.submissionId}（需核实起止时间）` : ''}` : ''))
                 .join('　·　')
             : '',
           v.updated ? `进度最后更新：${v.updated}` : '',
@@ -4116,14 +4151,25 @@ function apply(ctx) {
       allChecks.sort(byDateDesc)
       allDiags.sort(byDateDesc)
       allPasses.sort((a, b) => String(b._submission?.completedAt || b.date).localeCompare(String(a._submission?.completedAt || a.date)))
+      const fallbackTrainerHandle = allPasses.slice(0, 8).some(x => !x._submission?.startedAt && x.problemId)
+        ? await currentTrainerHandle() : ''
       const recentPasses = allPasses.slice(0, 8).map(({ _submission: x, ...pass }) => {
         const chain = x?.platform && x?.traceProblemId && x?.trainerHandle && x?.startedAt && x?.completedAt
           ? readSubmissionChain({ dbPath: DB_PATH(), trainerHandle: x.trainerHandle, platform: x.platform,
             problemId: x.traceProblemId, startedAt: x.startedAt, completedAt: x.completedAt,
             anchorSubmissionId: x.anchorSubmissionId })
           : { status: 'unknown', reason: 'not-linked' }
+        const problem = submissionProblem(pass.problemId, x?.platform)
+        const candidate = pass.solved && chain.status === 'unknown' && problem && (x?.trainerHandle || fallbackTrainerHandle)
+          ? suggestAcAnchor({ dbPath: DB_PATH(), trainerHandle: x?.trainerHandle || fallbackTrainerHandle,
+            platform: problem.platform, problemId: problem.problemId, date: pass.date }) : { status: 'none' }
+        const diagnosed = chain.status === 'linked' && chain.failed > 0 && allDiags.some(d =>
+          d.node === pass.node && d.date >= pass.date && d.problem &&
+          submissionProblem(d.problem, problem?.platform)?.problemId === problem?.problemId)
         return { ...pass, submissionChain: { status: chain.status, reason: chain.reason,
           verdicts: chain.submissions?.map((s) => s.verdict).join(' → ') ?? '',
+          diagnosisStatus: chain.status !== 'linked' ? 'unknown' : !chain.failed ? 'not-applicable' : diagnosed ? 'problem-recorded' : 'not-recorded',
+          ...(candidate.status === 'candidate' ? { candidateAc: { submissionId: candidate.submissionId, submittedAt: candidate.submittedAt } } : {}),
           submissions: (chain.submissions ?? []).map((s) => ({ submissionId: String(s.submissionId ?? ''),
             verdict: String(s.verdict), submittedAt: String(s.submittedAt) })),
           ...(chain.status === 'linked' ? { attempts: chain.attempts, failed: chain.failed,
@@ -4154,6 +4200,9 @@ function apply(ctx) {
         cursorTaught: taughtEvidence(p, p.cursor)?.first ?? '',
         targetMismatch,
         teachingContext: teaching.context(p),
+        memoryState: memoryHealth.state,
+        memoryLastSuccessAt: memoryHealth.lastSuccessAt,
+        memoryLastFailureAt: memoryHealth.lastFailureAt,
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
@@ -4201,6 +4250,66 @@ function apply(ctx) {
         stuck: flags.stuck,
         cancelled: flags.cancelled,
       }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'coach_journal',
+    description: '只读查看某天或最近几天的训练日志；和网页训练日志使用同一份聚合结果。计划、实际、课时、检测与 VP 记录分开报；缺实际记录表示未知，不表示没做。回答“昨天发生了什么”时先用它。',
+    parameters: {
+      date: { type: 'string', description: '可选，指定 YYYY-MM-DD 的一天；省略时看最近三天。' },
+      days: { type: 'integer', description: '可选，未指定 date 时看最近 1–14 天，默认 3。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: {
+        ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
+        from: { type: 'string', required: true }, to: { type: 'string', required: true },
+        plannedMinutes: { type: 'integer', required: true }, recordedMinutes: { type: 'integer', required: true },
+        untimedEntries: { type: 'integer', required: true },
+        days: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+          date: { type: 'string', required: true }, state: { type: 'string', required: true },
+          plannedMinutes: { type: 'integer', required: true }, actualMinutes: { type: 'integer', required: true },
+          actualEntries: { type: 'integer', required: true }, untimedActualEntries: { type: 'integer', required: true },
+          events: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+            type: { type: 'string', required: true }, title: { type: 'string', required: true }, detail: { type: 'string', required: true },
+            problemId: { type: 'string' }, eventId: { type: 'string' }, nextStep: { type: 'string' },
+          } } },
+        } } },
+      } },
+      render: (_args, value) => {
+        if (!value.ok) return [{ type: 'text', text: `训练日志读不到：${value.reject}` }]
+        const lines = [`【训练日志】${value.from}–${value.to}`]
+        for (const day of value.days) {
+          lines.push('', `${day.date} · 计划 ${day.plannedMinutes} 分钟 · ${day.actualEntries
+            ? `已记录 ${day.actualMinutes} 分钟${day.untimedActualEntries ? `，另有 ${day.untimedActualEntries} 条未计时` : ''}`
+            : '实际记录未知'}`)
+          for (const event of day.events.slice(0, 25)) lines.push(`  · ${event.title}：${event.detail.slice(0, 400)}${event.nextStep ? `；续课：${event.nextStep.slice(0, 250)}` : ''}${event.eventId ? ` [VP ${event.eventId}]` : ''}`)
+          if (day.events.length > 25) lines.push(`  · 还有 ${day.events.length - 25} 条，缩小日期范围再查。`)
+        }
+        lines.push('', '这里是已有记录的汇总；没有实际记录不等于没有训练，未计时也不等于 0 分钟。')
+        return [{ type: 'text', text: lines.join('\n') }]
+      },
+    },
+    async execute(args = {}) {
+      const empty = reject => ({ ok: false, reject, from: '', to: '', plannedMinutes: 0, recordedMinutes: 0, untimedEntries: 0, days: [] })
+      const date = String(args?.date ?? '').trim()
+      if (date && (!parseYmd(date) || ymd(parseYmd(date)) !== date)) return empty('date 要有效的 YYYY-MM-DD。')
+      const days = args?.days ?? 3
+      if (!Number.isInteger(days) || days < 1 || days > 14) return empty('days 要 1–14 的整数。')
+      try {
+        const log = buildTrainingLog({ progress: loadProgress(), schedule: loadSchedule(), curriculum: curriculum.snapshot(),
+          vp: strategy.loadVp(), passEvidence: trainingLogPassEvidence,
+          byId: loadMap().byId, ...(date ? { from: date, to: date } : { days }) })
+        return { ok: true, reject: '', from: log.from, to: log.to,
+          plannedMinutes: log.totals.plannedMinutes, recordedMinutes: log.totals.actualMinutes,
+          untimedEntries: log.totals.untimedActualEntries,
+          days: log.days.map(day => ({ date: day.date, state: day.state,
+            plannedMinutes: day.plannedMinutes, actualMinutes: day.actualMinutes,
+            actualEntries: day.actualEntries, untimedActualEntries: day.untimedActualEntries,
+            events: day.events.map(event => ({ type: event.type, title: event.title, detail: event.detail,
+              ...(event.problemId ? { problemId: event.problemId } : {}), ...(event.eventId ? { eventId: event.eventId } : {}),
+              ...(event.nextStep ? { nextStep: event.nextStep } : {}) })) })) }
+      } catch (error) { return empty(String(error?.message ?? error)) }
     },
   }))
 
@@ -6018,6 +6127,7 @@ function apply(ctx) {
                 weekday: { type: 'string', required: true },
                 state: { type: 'string', required: true },
                 plannable: { type: 'boolean', required: true },
+                rest: { type: 'boolean', required: true },
                 busy: {
                   type: 'array', required: true,
                   items: {
@@ -6067,7 +6177,7 @@ function apply(ctx) {
               },
             },
           },
-          // 火候：**排课时一定看得见**，不依赖"它记得去查 coach_status"。
+          // 本阶段节点：**排课时一定看得见**，不依赖"它记得去查 coach_status"。
           // 见 readinessOf 的注释 —— 只报事实，不报裁决，也不写阈值。
           readiness: {
             type: 'array', required: true,
@@ -6099,6 +6209,7 @@ function apply(ctx) {
         for (const d of v.days) {
           L.push('', `── ${d.weekday} ${d.date.slice(5)}` +
             (d.state === 'today' ? '（今天）' : d.state === 'past' ? '（已过去，只读）' : '') + ' ──')
+          if (d.rest) L.push('　主动安排休息日；这天不排训练。')
           // 忙事和已排的块排成**一条时间轴**，逐个列出来。
           // 刻意不写成「忙 3 小时、闲 5 小时」那种汇总 —— 训练员要的是
           // "看得见哪几段被占了"。汇总数说不出「这 50 分钟夹在哪两件事之间」，
@@ -6159,12 +6270,12 @@ function apply(ctx) {
             for (const line of it.back) L.push(line)
           }
         }
-        // ── 火候 ──
+        // ── 本阶段节点 ──
         // 排在日程后面、排课指令前面：**这是排课时要看的最后一样东西**。
         // 只报事实（放了多少天、做过几题、独立几次），不写"该复习了"——
         // 那是小鲸的判断（AGENTS.md 规则 7：「是数字，不是开关」）。
         if (v.readiness.length) {
-          L.push('', '── 火候（按放得最久的排；**该不该动是你判**，这里只摆事实）──')
+          L.push('', '── 本阶段相关节点（只报状态与记录；该不该动由你判）──')
           for (const r of v.readiness) {
             const tag = r.status === 'verified' ? '✓已验证' : '▶在学'
             const ago = r.days < 0 ? '日期不明' : `${r.days} 天`
@@ -6231,7 +6342,8 @@ function apply(ctx) {
       '让表里的' +
       '「计划 vs 实际」事后说话。被拒就照它说的改，**不要换个说法硬试**。\n' +
       '一天排一次就**固化**了（方针 §4.1）：再问直接读 coach_schedule 报给他，不要重排。' +
-      '真要改，把 replace 说成 true。',
+      '真要改，把 replace 说成 true；replace 会替换这一天的全部训练块，blocks 必须列出新的完整日计划。' +
+      '休息日用 rest=true、blocks=[]，记为主动安排的零训练分钟。',
     parameters: {
       date: { type: 'string', required: true, description: '哪天，YYYY-MM-DD，得在今天 ~ 今天+6 之间' },
       blocks: {
@@ -6248,7 +6360,8 @@ function apply(ctx) {
           },
         },
       },
-      replace: { type: 'boolean', description: '这天已经排过了，要不要覆盖重排。默认不覆盖' },
+      replace: { type: 'boolean', description: '替换当天全部训练计划（不是只改一块）；默认不覆盖' },
+      rest: { type: 'boolean', description: '主动安排休息日；须传 blocks=[]，不计训练分钟' },
     },
     output: {
       schema: {
@@ -6278,6 +6391,7 @@ function apply(ctx) {
           },
           // 排完回一张整表，不给容量/余量汇总。
           planMin: { type: 'integer', required: true },
+          rest: { type: 'boolean', required: true },
           replaced: { type: 'integer', required: true },
           updated: { type: 'string', required: true },
           // 排进去了、但事后会出问题的地方。**只提醒不拦** ——
@@ -6298,6 +6412,7 @@ function apply(ctx) {
       },
       render: (_a, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 排不进去：\n${v.reject}` }]
+        if (v.rest) return [{ type: 'text', text: `【休息日】${v.date}：当天不排训练。${v.replaced ? `已替换原来 ${v.replaced} 个训练块。` : ''}` }]
         const L = [`【排好了】${v.date}` +
           (v.replaced ? `（覆盖掉原来那 ${v.replaced} 个块）` : '')]
         for (const b of v.planned) {
@@ -6327,7 +6442,7 @@ function apply(ctx) {
         ...(b?.competency ? { competency: String(b.competency).trim() } : {}),
         ...(b?.minutes !== undefined ? { minutes: b.minutes } : {}),
       }))
-      const r = planDay(args?.date, blocks, { replace: args?.replace === true })
+      const r = planDay(args?.date, blocks, { replace: args?.replace === true, rest: args?.rest === true })
 
       // 排进去之后要看一眼的事。
       //
@@ -6351,6 +6466,7 @@ function apply(ctx) {
         count: Number(r.count ?? 0),
         planned: r.planned ?? [],
         planMin: Number(r.planMin ?? 0),
+        rest: r.rest === true,
         replaced: Number(r.replaced ?? 0), updated: String(r.updated ?? ''),
         notes,
         busy: r.busy ?? [],
@@ -6366,7 +6482,7 @@ function apply(ctx) {
       '**撤掉**已经排好的块。他说「这个时间不合理」「那天临时有事」时用它。\n' +
       '撤的**只有计划**：他标的「有事」（busy）动不了 —— 那是事实不是计划，' +
       '要改得他自己在页面上改。\n' +
-      '给 from（那个块的**开始时间**）撤那一个；给 all=true 撤掉整天。' +
+      '给 from（那个块的**开始时间**）撤那一个；给 all=true 撤掉整天的训练块或休息日标记。' +
       '两个都不给会被拒，并把这天的候选列给你挑。\n' +
       '⚠️ **撤完不要立刻重排。** 先问清他为什么撤（太早？那天想歇？' +
       '还是这个点根本坐不住？），把撤完的样子报给他。' +
@@ -6387,6 +6503,7 @@ function apply(ctx) {
           reject: { type: 'string', required: true },
           date: { type: 'string', required: true },
           removedCount: { type: 'integer', required: true },
+          removedRest: { type: 'boolean', required: true },
           leftCount: { type: 'integer', required: true },
           removed: {
             type: 'array', required: true,
@@ -6435,6 +6552,7 @@ function apply(ctx) {
       },
       render: (_a, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 撤不了：\n${v.reject}` }]
+        if (v.removedRest) return [{ type: 'text', text: `【已取消休息日】${v.date}；忙事和实际记录不变。` }]
         const L = [`【撤了】${v.date}　拿掉 ${v.removedCount} 个`]
         for (const b of v.removed) L.push(`  ✗ ${b.from}–${b.to}　${b.kindName}　${b.nodeName}`)
         if (v.leftCount) {
@@ -6459,6 +6577,7 @@ function apply(ctx) {
         ok: r.ok === true, reject: String(r.reject ?? ''),
         date: String(r.date ?? args?.date ?? ''),
         removed: r.removed ?? [], removedCount: Number(r.removedCount ?? 0),
+        removedRest: r.removedRest === true,
         left: r.left ?? [], leftCount: Number(r.leftCount ?? 0),
         updated: String(r.updated ?? ''),
         busy: r.busy ?? [],

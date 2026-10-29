@@ -352,6 +352,7 @@ body[data-view="regionals"] #stage,body[data-view="regionals"] .side,body[data-v
 .log-day-state{font-size:11px;color:var(--text-4);padding:2px 7px;border-radius:var(--radius-pill);background:var(--fill-1)}
 .log-day-state.logged{color:var(--ac-text);background:var(--ac-soft)}
 .log-day-state.planned-only{color:var(--tle-text);background:color-mix(in srgb,var(--tle) 12%,transparent)}
+.log-day-state.rest{color:var(--text-3);background:var(--fill-2)}
 .log-day-min{margin-left:auto;color:var(--text-3);font-size:12px;font-variant-numeric:tabular-nums}
 .log-events{display:grid;gap:6px;margin-top:10px}
 .log-event{display:flex;align-items:flex-start;gap:9px;padding:7px 9px;border-radius:var(--radius-xs);background:var(--fill-0);font-size:12.5px}
@@ -395,6 +396,7 @@ body[data-view="regionals"] #stage,body[data-view="regionals"] .side,body[data-v
 .sgrid .dcol:hover{background-color:var(--fill-0)}
 .sgrid .dcol.past{opacity:.45}
 .sgrid .dcol.today{background-color:rgba(43,127,224,.045)}
+.sgrid .rest-day{position:absolute;inset:12px 7px auto;text-align:center;border:1px solid var(--stroke);border-radius:var(--radius-m);padding:8px 2px;color:var(--text-3);background:var(--fill-1);font-size:12px;font-weight:600;z-index:1}
 
 /* 一段「有事」：实心暖色块 + 备注文字。跨小时是一条连续块，
    不是一格一格拼的 —— 拼的话接缝处会有 1px 缝，看着像没对齐。 */
@@ -1689,7 +1691,7 @@ function renderSched() {
     // 列里**只有内容，没有分隔线**（那些横线是明确要求去掉的）。
     // 定位靠左边的时间标签 + 悬停跟随线。
     const cls = key === today ? " today" : key < today ? " past" : "";
-    parts.push(`<div class="dcol${cls}" data-date="${key}">${bars}${plans}</div>`);
+    parts.push(`<div class="dcol${cls}" data-date="${key}">${day.rest ? '<div class="rest-day">休息日</div>' : ''}${bars}${plans}</div>`);
   }
   $("#schedGrid").innerHTML = parts.join("");
 }
@@ -1889,9 +1891,9 @@ async function loadSchedule() {
   renderSched();
 }
 
-const LOG_STATE = { logged: "有实际记录", "planned-only": "有计划，待补实际", active: "有活动", empty: "无记录" };
+const LOG_STATE = { logged: "有实际记录", "planned-only": "有计划，待补实际", active: "有活动", rest: "休息日", empty: "无记录" };
 const PHASE_STATE = { complete: "已完成", skipped: "已跳过", current: "当前阶段", upcoming: "未开始" };
-const EVENT_LABEL = { planned: "计划", practice: "练习", lesson: "讲课", check: "检测", diagnosis: "判因", status: "状态" };
+const EVENT_LABEL = { planned: "计划", practice: "练习", lesson: "讲课", check: "检测", diagnosis: "判因", status: "状态", vp: "VP", rest: "休息" };
 function setLogNote(html, isError = false) {
   const el = $("#logNote");
   if (!el) return;
@@ -1938,7 +1940,7 @@ function renderTrainingLog() {
     const actualEntries = Number(day.actualEntries ?? (Array.isArray(day.actual) ? day.actual.length : 0));
     const untimed = Number(day.untimedActualEntries ?? (Array.isArray(day.actual) ? day.actual.filter((item) => item.actualMin === null).length : 0));
     const actualText = actualEntries === 0
-      ? "实际 0 分钟 · 无实际记录"
+      ? "实际时长未知 · 无实际记录"
       : untimed === actualEntries && actual === 0
         ? `实际时长未填 · ${actualEntries} 条记录`
         : `实际 ${actual} 分钟${untimed ? ` · ${untimed} 条未填时长` : ` · ${actualEntries} 条记录`}`;

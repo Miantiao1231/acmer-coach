@@ -48,6 +48,45 @@ test('daily log joins planned, actual and teaching evidence without inventing mi
   assert.match(plannedOnly.events.find((event) => event.type === 'planned').detail, /90/)
 })
 
+test('VP evidence appears on the same day without becoming invented training minutes', () => {
+  const log = buildTrainingLog({ today: '2026-10-29', days: 2,
+    schedule: { days: { '2026-10-28': { planned: [{ from: '13:00', to: '18:00', kind: 'vp', competency: 'contest-decision' }] } } },
+    vp: { events: [{ eventId: 'vp-28', date: '2026-10-28', contest: '区域赛模拟', problems: [{ problemId: 'A', status: 'AC' }] }],
+      postmortems: [{ eventId: 'vp-28', date: '2026-10-28' }] },
+  })
+  const day = log.days.find(item => item.date === '2026-10-28')
+  assert.equal(day.state, 'active')
+  assert.equal(day.actualMinutes, 0)
+  assert.equal(day.actualEntries, 0)
+  assert.equal(day.events.find(event => event.type === 'vp')?.eventId, 'vp-28')
+  assert.match(day.events.find(event => event.type === 'vp')?.detail || '', /已关联复盘/)
+})
+
+test('a linked practice shows failed submission facts in the daily view', () => {
+  const log = buildTrainingLog({ today: '2026-10-28', from: '2026-10-28', to: '2026-10-28',
+    progress: { nodes: { A: { passes: [{ date: '2026-10-28', problemId: 'CF1067A', solved: true }] } } },
+    passEvidence: () => ({ status: 'linked', attempts: 3, failed: 2, verdicts: 'WA → WA → AC', diagnosisStatus: 'not-recorded' }) })
+  assert.match(log.days[0].events.find(event => event.type === 'practice').detail, /提交 3 发，失败 2 发.*未见正式判因/)
+})
+
+test('two same-day rounds attach each submission chain to its own practice', () => {
+  const log = buildTrainingLog({ today: '2026-10-28', from: '2026-10-28', to: '2026-10-28',
+    schedule: { days: { '2026-10-28': { actual: [
+      { node: 'A', problemId: 'CF1067A', anchorSubmissionId: '10', solved: true },
+      { node: 'A', problemId: 'CF1067A', anchorSubmissionId: '20', solved: true },
+    ] } } },
+    progress: { nodes: { A: { passes: [
+      { date: '2026-10-28', problemId: 'CF1067A', anchorSubmissionId: '10', solved: true },
+      { date: '2026-10-28', problemId: 'CF1067A', anchorSubmissionId: '20', solved: true },
+    ] } } },
+    passEvidence: pass => ({ status: 'linked', attempts: Number(pass.anchorSubmissionId) / 10,
+      failed: 0, verdicts: 'AC', diagnosisStatus: 'not-applicable' }) })
+  const rows = log.days[0].events.filter(event => event.type === 'practice')
+  assert.equal(rows.length, 2)
+  assert.match(rows[0].detail, /提交 1 发/)
+  assert.match(rows[1].detail, /提交 2 发/)
+})
+
 test('phase rail marks completed/current/upcoming and keeps current evidence gaps', () => {
   const log = fixture()
   assert.deepEqual(log.curriculum.phases.map((phase) => phase.status), ['current', 'upcoming'])

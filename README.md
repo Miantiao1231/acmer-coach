@@ -47,7 +47,8 @@ coach_log       过了 → 记一条，然后夸
   ↓
 coach_pool → coach_test → coach_grade    章节检测，过了才标「已验证」
   ↓
-coach_schedule → coach_plan              看日程、设置固定上课时段、排练习
+coach_schedule → coach_plan              看日程、设置固定上课时段、排练习或休息日
+coach_journal                            只读查看某天/近期的训练事实（与页面同源）
   ↓
 coach_target → coach_vp_import → coach_postmortem → coach_focus
   ↓                         比赛目标、VP 复盘、当前重点
@@ -139,6 +140,14 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 
 详见 [长期课程机制](docs/长期课程机制.md)。
+
+### 2.11.0：训练事实与教练视角对齐
+
+- `coach_journal` 与页面共用训练日志：计划、实际、讲课、检测、VP 分开显示；无实际记录或未计时都不写成“训练 0 分钟”。有明确起止时间的练习还显示同题提交链与失败发数。
+- 旧完成记录缺时间窗时，`coach_status` 最多提示同账号、同题、同日唯一 AC 的候选 ID；需核实时间才能关联全链，不自动回填。失败提交只报告有无正式判因，不自动诊断能力。
+- `coach_plan` 可用 `rest=true, blocks=[]` 安排休息日；`coach_unplan all=true` 可撤销。`replace=true` 是替换**整天所有训练块**，必须提交完整的新计划；忙事和实际记录不受影响。
+- 状态页把“随题融合”的概念单独显示，不再因在学天数长而报卡住；作废卷保留在检测历史，不再反复列为欠账。排课只展示当前阶段节点，不按全图“放得最久”排序。
+- `coach_status` 显示记忆桥是可用、启动中、暂不可用还是未启用；Hindsight 仍是跨会话记忆来源，日志只是当天事实的辅助视图。
 
 ### 2.10.2：复习提示口径修正
 

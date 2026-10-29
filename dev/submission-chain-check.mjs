@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readSubmissionChain } from '../lib/submission-chain.js'
+import { readSubmissionChain, suggestAcAnchor } from '../lib/submission-chain.js'
 
 async function withDatabase(rows, run) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-submissions-'))
@@ -47,6 +47,22 @@ test('one CF1067A lesson includes MLE, two WA and both AC submissions', async ()
     assert.equal(result.failed, 3)
     assert.equal(result.accepted, 2)
   })
+})
+
+test('an old completion can suggest one exact-day AC, but never invent its submission chain', async () => {
+  await withDatabase([
+    [1, 1, 'codeforces', '1067A', 'AC', '2026-10-28T19:50:00+08:00', 1004],
+    [2, 2, 'codeforces', '1067A', 'AC', '2026-10-28T19:51:00+08:00', 2004],
+    [3, 1, 'codeforces', '1067A', 'AC', '2026-10-27T19:50:00+08:00', 1003],
+  ], async dbPath => {
+    assert.deepEqual(suggestAcAnchor({ dbPath, trainerHandle: 'Mianiii', platform: 'codeforces', problemId: '1067A', date: '2026-10-28' }),
+      { status: 'candidate', submissionId: '1004', submittedAt: '2026-10-28T19:50:00+08:00' })
+    assert.equal(suggestAcAnchor({ dbPath, trainerHandle: 'Mianiii', platform: 'codeforces', problemId: '1067A', date: '2026-10-29' }).status, 'none')
+  })
+  await withDatabase([
+    [1, 1, 'codeforces', '1067A', 'AC', '2026-10-28T19:50:00+08:00', 1004],
+    [2, 1, 'codeforces', '1067A', 'AC', '2026-10-28T19:51:00+08:00', 1005],
+  ], async dbPath => assert.equal(suggestAcAnchor({ dbPath, trainerHandle: 'Mianiii', platform: 'codeforces', problemId: '1067A', date: '2026-10-28' }).status, 'ambiguous'))
 })
 
 test('the explicit lesson window excludes an older solve and other users or problems', async () => {
