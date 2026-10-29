@@ -227,12 +227,8 @@ body[data-filters="closed"] .stage{margin-left:32px}
 .tag.st[data-st="verified"]{background:var(--ac-soft);color:var(--ac-text)}
 .tag.st[data-st="none"]{background:var(--fill-2);color:var(--text-3)}
 .tag.cur{background:var(--brand-soft);color:var(--brand-text);border:1px dashed var(--brand)}
-/* 「多久没碰了」—— 从日期算出来的，不是手标的状态。
-   7 天以内不额外提示（刚学的本来就正常），8~30 天转琥珀，30 天开外转红：
-   那时候基本等于忘了。**是提醒不是判决** —— 它不拦任何操作。 */
+/* 状态日期只报时间事实；是否需要复习由教练结合近期证据判断。 */
 .tag.age{background:var(--fill-1);color:var(--text-3)}
-.tag.age-warm{background:rgba(217,119,6,.11);color:#8a5208}
-.tag.age-stale{background:rgba(220,38,38,.11);color:#a11d1d}
 
 /* ══ 日程视图（L6 时间容量）════════════════════════════════════════
    审美跟 VP 一套：蓝白、卡片、圆角、轻阴影、悬停有回馈。
@@ -1211,8 +1207,7 @@ function ageTag(rec) {
   const days = daysSince(rec && rec.at);
   if (days === null) return "";
   const label = days <= 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`;
-  const cls = days <= 7 ? "" : days <= 30 ? " age-warm" : " age-stale";
-  return `<span class="tag age${cls}" title="${rec.at} 变成这个状态">`
+  return `<span class="tag age" title="${rec.at} 变成这个状态">`
     + label + `</span>`;
 }
 
