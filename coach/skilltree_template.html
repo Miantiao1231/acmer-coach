@@ -454,9 +454,7 @@ body[data-view="regionals"] #stage,body[data-view="regionals"] .side,body[data-v
 /* ── planned 块：教练排的训练 ────────────────────────────────────
    和 busy 走**两套视觉语言**（变量那儿的注释写了理由）：一个是描边空心的
    计划，一个是实心渐变的事实。
-   循环块用**一段渐变**画出 40/10/10 的比例 —— 不用分割元素，多一层 DOM
-   就多一处能画错的地方；而那个比例是块的灵魂：40 分钟到点必须停，
-   止损点就守在这儿。
+   只有默认 60 分钟循环块显示 40/10/10 比例；自定时长不假装有固定分段。
    **只读**：页面上不给改动入口。给了就会手滑改计划，
    那"计划 vs 实际"的对照就没了 —— 而那个对照正是排计划的意义。 */
 .pbar{position:absolute;left:3px;right:3px;border-radius:5px;
@@ -464,7 +462,7 @@ body[data-view="regionals"] #stage,body[data-view="regionals"] .side,body[data-v
   color:var(--pl-ink);font-size:11px;font-weight:600;line-height:1.25;
   padding:2px 6px;overflow:hidden;cursor:default}
 .pbar .t{display:block;font-size:10px;opacity:.78;font-weight:500}
-.pbar.k-cycle{background:linear-gradient(180deg,
+.pbar.k-cycle.default-cycle{background:linear-gradient(180deg,
   var(--pl-1) 0 66.67%, var(--pl-2) 66.67% 83.33%, var(--pl-3) 83.33% 100%)}
 .pbar.s-mini{padding:0;border-width:1px}
 
@@ -689,7 +687,7 @@ document.documentElement.style.background = bootTheme === "dark" ? "#071528" : "
   <div class="card" tabindex="0" role="region" aria-label="10 天日程，可横向滚动"><div class="sgrid" id="schedGrid"></div></div>
   <div class="legend2">
     <span><i class="busy"></i>有事（拖一段标出来）</span>
-    <span><i class="plan"></i>教练排的块：40 自己做 + 10 解决遗留 + 10 重写，排完固化</span>
+    <span><i class="plan"></i>教练排的训练（时间与内容以当次计划为准）</span>
     <span class="hint">按住拖出起止时间，松手写「什么事」· 点已有的块可改可删 · 回顾期只读</span>
   </div>
   <!-- 颜色对照。只写"按事由自动分"等于没说 —— 得让他一眼查到哪个色是哪类事，
@@ -1215,7 +1213,7 @@ function ageTag(rec) {
   const label = days <= 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`;
   const cls = days <= 7 ? "" : days <= 30 ? " age-warm" : " age-stale";
   return `<span class="tag age${cls}" title="${rec.at} 变成这个状态">`
-    + label + (days > 30 ? " · 该复习了" : "") + `</span>`;
+    + label + `</span>`;
 }
 
 function panel(id) {
@@ -1690,7 +1688,7 @@ function renderSched() {
         : size === "s-mid" ? `${esc(b.from)} ${esc(nm)}` : "";
       const tip = `${b.from}–${b.to}　${KIND_NAME[kind] ?? kind}　${nm}` +
         (kind === "cycle" && mins === 60 ? "　（40 自己做 → 10 解决遗留 → 10 重写）" : "");
-      return `<div class="pbar k-${esc(kind)} ${size}" title="${esc(tip)}" ` +
+      return `<div class="pbar k-${esc(kind)} ${kind === "cycle" && mins === 60 ? "default-cycle " : ""}${size}" title="${esc(tip)}" ` +
         `style="top:${pct(a)};height:${pct(mins)}">${body}</div>`;
     }).join("");
     // 列里**只有内容，没有分隔线**（那些横线是明确要求去掉的）。

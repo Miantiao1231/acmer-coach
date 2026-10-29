@@ -123,6 +123,31 @@ test('untimed actual work is distinguishable from a day with no actual work', ()
   assert.doesNotMatch(log.totals.recorded.text, /^0/)
 })
 
+test('an explicitly null duration remains unknown instead of becoming zero minutes', () => {
+  const log = buildTrainingLog({ today: '2026-10-15', days: 1, byId,
+    schedule: { days: { '2026-10-15': { actual: [{ node: 'dp', actualMin: null, solved: true }] } } },
+  })
+  assert.equal(log.days[0].actual[0].actualMin, null)
+  assert.equal(log.days[0].untimedActualEntries, 1)
+  assert.equal(log.totals.timedActualEntries, 0)
+  assert.match(log.totals.recorded.text, /有 1 条未计时/)
+})
+
+test('invalid calendar dates cannot silently become a different training range', () => {
+  const log = buildTrainingLog({ today: '2026-10-15', from: '2026-02-30', days: 1 })
+  assert.equal(log.from, '2026-10-15')
+  assert.equal(log.to, '2026-10-15')
+  assert.equal(log.days.length, 1)
+})
+
+test('a late-night lesson stays on the calendar date recorded with its timezone', () => {
+  const log = buildTrainingLog({ today: '2026-10-15', days: 2, byId,
+    progress: { nodes: { dp: { lessonNotes: [{ at: '2026-10-15T00:30:00+08:00', summary: '凌晨续课' }] } } },
+  })
+  assert.equal(log.days.find((day) => day.date === '2026-10-15').events.filter((event) => event.type === 'lesson').length, 1)
+  assert.equal(log.days.find((day) => day.date === '2026-10-14').events.filter((event) => event.type === 'lesson').length, 0)
+})
+
 test('the summary reports recorded minutes only, never a guessed total', () => {
   const log = buildTrainingLog({ today: '2026-10-15', days: 1, byId,
     schedule: { days: { '2026-10-15': { actual: [

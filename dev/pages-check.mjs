@@ -4,6 +4,13 @@ import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'n
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
+test('bundled first-run map uses the current coach UI shell', () => {
+  const template = readFileSync(new URL('../coach/skilltree_template.html', import.meta.url), 'utf8')
+  const bundled = readFileSync(new URL('../assets/knowledge/skilltree.html', import.meta.url), 'utf8')
+  const shell = (html) => html.replace(/\bconst DATA = [^\r\n]+;/, 'const DATA = /*__DATA__*/null;').replace(/\r\n/g, '\n')
+  assert.equal(shell(bundled), shell(template))
+})
+
 let imports = 0
 async function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-pages-'))
