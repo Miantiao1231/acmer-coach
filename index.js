@@ -1863,8 +1863,8 @@ function registerStateHook(ctx, teaching) {
         try { statSync(PROGRESS_PATH()) } catch (err) { firstRun = err.code === 'ENOENT' }
         if (!firstRun) return decision
         lines = ['<coach_state>', '（教练插件注入的位置）',
-          '- 账本还是空的：学生要训练、讲课或建计划时，先调 coach_setup status 体检；普通闲聊不做体检，也不初始化。',
-          '- 没有数据时别先讲知识点、别猜他的水平；一次只问一件事（先目标或可用时间）。',
+          '- 账本还是空的：只有学生明确要开始训练、讲课或建计划时，先调 coach_setup status 体检；普通闲聊不做体检，也不初始化。',
+          '- 没有数据时别先讲知识点、别猜他的水平；只在排训练时一次问一件事（先目标或可用时间），临时提问和闲聊不问建档。',
           '</coach_state>']
       } else {
         const { byId } = loadMap()

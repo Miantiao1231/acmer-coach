@@ -46,6 +46,8 @@ test('an empty ledger gets one executable first-run step, not a guessed lesson',
     assert.match(text, /coach_setup status/)
     assert.match(text, /普通闲聊不做体检/)
     assert.match(text, /别先讲知识点/)
+    assert.match(text, /明确要开始训练/)
+    assert.match(text, /临时提问.*不问建档/)
     assert.doesNotMatch(text, /游标/)
 
     // 静默降级要能被体检看见：假宿主没有 systemPrompt，规则必须报 missing。
