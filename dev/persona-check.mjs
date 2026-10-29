@@ -20,6 +20,7 @@ test('packaged persona does not bind every user to one private student', () => {
   assert.match(persona, /我还没说完.*等他把话说完/)
   assert.match(persona, /明确允许.*schedule_list.*schedule_create/)
   assert.match(persona, /说停.*schedule_delete/)
+  assert.match(persona, /当前会话.*自动化任务.*别声称/)
 })
 
 test('packaged coaching instructions stay focused on judgment, not stale contest prescriptions', () => {
