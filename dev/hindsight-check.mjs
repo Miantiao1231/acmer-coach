@@ -42,7 +42,7 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
     apply(ctx); await tick()
     assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
     assert.equal((hooks.get('agent/pre-step') || []).length, 2)
-    assert.equal(tools.size, 33)
+    assert.equal(tools.size, 34)
     assert.equal(tools.has('coach_recall'), true)
     if (!enabled) {
       assert.equal(calls.length, 0)

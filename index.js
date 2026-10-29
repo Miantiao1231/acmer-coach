@@ -272,6 +272,8 @@ function loadProgress() {
     // 正在上的那节课（教学模式）。和 pending 同一个坑：这里漏接，
     // 下一次任何 saveProgress 都会把课时状态静默冲掉。
     lesson: (doc?.lesson && typeof doc.lesson === 'object' && !Array.isArray(doc.lesson)) ? doc.lesson : null,
+    studentContext: (doc?.studentContext && typeof doc.studentContext === 'object' && !Array.isArray(doc.studentContext))
+      ? doc.studentContext : null,
   }, PROGRESS_PATH(), textStamp(raw))
 }
 
@@ -345,6 +347,7 @@ function saveProgress(p) {
   }
   // 课时状态（教学模式）：同样必须留在白名单里，否则记一条笔记就把课上到一半丢了。
   if (p.lesson) out.lesson = p.lesson
+  if (p.studentContext) out.studentContext = p.studentContext
   writeLedger(PROGRESS_PATH(), PROGRESS_HEADER + stringify(out, { lineWidth: 0 }), p)
   return p
 }
@@ -1850,7 +1853,7 @@ function registerStateHook(ctx, teaching) {
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
       let hasTarget = false
       try { hasTarget = Boolean(strategy.loadTarget().contest) } catch { hasTarget = true }
-      const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow
+      const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow && !p.studentContext
       let lines
       if (empty) {
         // 首次使用：账本还不存在时给一个可执行入口，不猜水平、不先讲知识点。
@@ -1867,6 +1870,7 @@ function registerStateHook(ctx, teaching) {
         const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
         const node = byId.get(cursor)
         lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
+        if (p.studentContext?.studentEvidence?.quote) lines.push(`- 最近一次学生主动说的处境（${p.studentContext.at}，原话已核对）：「${p.studentContext.studentEvidence.quote}」。先看是否仍适用，必要时主动带路；不把它当心理评分。`)
         if (!p.lesson) {
           lines.push(strategy.context())
           lines.push(curriculum.context())
@@ -2235,6 +2239,42 @@ function apply(ctx) {
   ctx.tools.register(defineTool(curriculumTool(curriculum)))
   const teaching = createTeachingNotes({ loadProgress, saveProgress, loadMap,
     getSessionQuery: () => ctx.get?.('sessionQuery') })
+  ctx.tools.register(defineTool({
+    name: 'coach_student_context',
+    description: '读、更新或清除最近一次学生主动说的学习处境。只留一条已核对原话，供下次带课时看见；长期经历仍以 Hindsight 召回为主。不要写入医疗或健康信息，不要推测情绪、代替学生说话或当作心理评分。',
+    parameters: {
+      action: { type: 'string', enum: ['read', 'set', 'clear'], description: '默认 read；set 需当前会话的学生原话；clear 清除这条提醒。' },
+      quote: { type: 'string', description: 'set 时填写当前会话学生原话，最多 1500 字。' },
+    },
+    output: { schema: { type: 'object', additionalProperties: false, properties: {
+      ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
+      quote: { type: 'string', required: true }, at: { type: 'string', required: true },
+      messageId: { type: 'string', required: true },
+    } }, render: (_args, v) => [{ type: 'text', text: !v.ok ? `❌ ${v.reject}` : v.quote
+      ? `学生最近一次主动说的处境（${v.at}，原话已核对）：「${v.quote}」；先确认现在还适不适用。`
+      : '没有置顶的学生处境；按需从 Hindsight 召回过去的经历。' }] },
+    execute: async (args = {}, exec) => {
+      const action = args.action ?? 'read'
+      const fail = reject => ({ ok: false, reject, quote: '', at: '', messageId: '' })
+      if (!['read', 'set', 'clear'].includes(action)) return fail('action 只能是 read、set 或 clear。')
+      let checked
+      if (action === 'set') {
+        checked = await teaching.source(args.quote, exec)
+        if (!checked.ok) return fail(checked.reject)
+      }
+      const p = loadProgress()
+      if (action === 'set') {
+        p.studentContext = { at: localStamp(new Date()), studentEvidence: checked.studentEvidence }
+        saveProgress(p)
+      } else if (action === 'clear' && p.studentContext) {
+        p.studentContext = null
+        saveProgress(p)
+      }
+      const context = p.studentContext
+      return { ok: true, reject: '', quote: String(context?.studentEvidence?.quote ?? ''),
+        at: String(context?.at ?? ''), messageId: String(context?.studentEvidence?.messageId ?? '') }
+    },
+  }))
   ctx.tools.register(defineTool({
     name: 'coach_note',
     description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课。' +
@@ -3820,6 +3860,10 @@ function apply(ctx) {
           memoryState: { type: 'string', required: true },
           memoryLastSuccessAt: { type: 'string', required: true },
           memoryLastFailureAt: { type: 'string', required: true },
+          studentContext: { type: 'object', required: true, additionalProperties: false, properties: {
+            quote: { type: 'string', required: true }, at: { type: 'string', required: true },
+            messageId: { type: 'string', required: true },
+          } },
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
@@ -3895,6 +3939,7 @@ function apply(ctx) {
                 category: { type: 'string', required: true },
                 problem: { type: 'string', required: true },
                 summary: { type: 'string', required: true },
+                verification: { type: 'string', required: true },
               },
             },
           },
@@ -4002,6 +4047,7 @@ function apply(ctx) {
           v.memoryState === 'unavailable' ? '⚠️ 记忆召回暂不可用；不能把想不起往事当作从未发生。' :
             v.memoryState === 'disabled' ? '记忆桥未启用；过往经历请查已有账本与原话。' :
               v.memoryState === 'starting' ? '记忆桥已启用，尚未成功召回。' : '',
+          v.studentContext.quote ? `学生最近一次主动说的处境（${v.studentContext.at}，原话已核对）：「${v.studentContext.quote}」；先确认现在还适不适用。` : '',
           v.targetMismatch ? `⚠️ ${v.targetMismatch}` : '',
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
@@ -4054,8 +4100,8 @@ function apply(ctx) {
               (c.selfReported ? `［含 ${c.selfReported} 道自述题］` : '')).join('　·　')
             : '',
           v.diagnoseTotal
-            ? `判因记录 ${v.diagnoseTotal} 条，最近：` + v.recentDiagnoses.slice(0, 4).map((d) =>
-              `${d.date.slice(5)} ${d.nodeName}「${d.category}」`).join('　·　')
+            ? `教练判因记录 ${v.diagnoseTotal} 条（引文可核对，因果须复查），最近：` + v.recentDiagnoses.slice(0, 4).map((d) =>
+              `${d.date.slice(5)} ${d.nodeName}「${d.category}」${d.verification !== 'confirmed' ? '［因果待核］' : ''}`).join('　·　')
             : '',
           // 做完记录：**独立做出**那一条腿是重点，所以单列出来。
           // （需求 #2）：条目数和题数分开报 —— 两个数不一样时，
@@ -4122,6 +4168,7 @@ function apply(ctx) {
             node: id, nodeName: name,
             date: String(d?.date ?? ''), category: String(d?.category ?? ''),
             problem: String(d?.problem ?? ''), summary: String(d?.summary ?? ''),
+            verification: String(d?.verification ?? 'legacy'),
           })
         }
       }
@@ -4203,6 +4250,8 @@ function apply(ctx) {
         memoryState: memoryHealth.state,
         memoryLastSuccessAt: memoryHealth.lastSuccessAt,
         memoryLastFailureAt: memoryHealth.lastFailureAt,
+        studentContext: { quote: String(p.studentContext?.studentEvidence?.quote ?? ''),
+          at: String(p.studentContext?.at ?? ''), messageId: String(p.studentContext?.studentEvidence?.messageId ?? '') },
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
@@ -4498,7 +4547,8 @@ function apply(ctx) {
       '这是故意的：说不出在哪一行，就说明你还没读进去，别急着下结论。\n' +
       'kind 二选一：「wrong」= 这行写错了，「missing」= 这附近应该有什么但没有。\n' +
       '去向不用你填（由分类推导）；提交记录和 WA→AC 秒数也不用你查（工具自己算）。' +
-      '所以你只管一件事：**把他的代码读懂**。',
+      '提交历史是这道题的库内历史，不保证都属于本次练习；代码引文存在也不证明你的因果解释。' +
+      '所以你只管一件事：**把他的代码读懂**，说清依据覆盖范围。',
     parameters: {
       code: {
         type: 'string',
@@ -4572,6 +4622,7 @@ function apply(ctx) {
           nodeName: { type: 'string', required: true },
           domain: { type: 'string', required: true },
           summary: { type: 'string', required: true },
+          evidenceBoundary: { type: 'string', required: true },
           nextMove: {
             type: 'object', required: true, additionalProperties: false,
             properties: {
@@ -4639,13 +4690,14 @@ function apply(ctx) {
             '',
             '── 机械证据 ──',
             ...mechLines.map((l) => '  ' + l),
+            `  ${v.evidenceBoundary}`,
             '',
             '── 下一步 ──',
             `  ${v.nextMove.label}（自己做 ${v.nextMove.minutes} 分钟）`,
             '',
             v.recorded
               ? `已记进台账：这个知识点第 ${v.diagnosisCount} 次判因。`
-              : '⚠️ 台账没写上（磁盘/权限问题）—— 结论本身有效，但下次就没记录可查了。',
+              : '⚠️ 台账没写上（磁盘/权限问题）—— 引文核对已完成，但判因仍需教练负责，下次也没记录可查。',
             '把上面那句判因和依据讲给他听 —— 引用要念到代码原文，别只说结论。',
           ].join('\n'),
         }]
@@ -4666,7 +4718,7 @@ function apply(ctx) {
       const deny = (reject) => ({
         ok: false, reject, category, node,
         nodeName: byId.get(node)?.name ?? '', domain: byId.get(node)?.domain ?? '',
-        summary, nextMove: { kind: '', label: '', minutes: 0 },
+        summary, evidenceBoundary: '', nextMove: { kind: '', label: '', minutes: 0 },
         evidence: [], mech: emptyMech(problem, platform),
         recorded: false, diagnosisCount: 0, mapStamp: stamp,
       })
@@ -4725,6 +4777,9 @@ function apply(ctx) {
 
       // 机械证据查不到也算成功 —— 代码才是主证据，提交记录是佐证。
       const mech = await loadMech(problem, platform)
+      const evidenceBoundary = mech.found
+        ? '代码引文存在；提交序列是该题库内历史，不保证都属于本轮；代码与失败的因果未核实，需结合题意和实际过程判断。'
+        : '代码引文存在；本次未核对提交链，其他提交与失败原因未知；代码与失败的因果未核实。'
 
       // 判因落盘。**不落盘的话，"他弱在哪"就没有证据源** ——
       // 只能去扒提交记录统计，那正是判因刚禁掉的那条路（从数据推断判因）。
@@ -4741,7 +4796,7 @@ function apply(ctx) {
         const now = localStamp(new Date())
         list.push({
           date: now.slice(0, 10), at: now,
-          problem, category, summary,
+          problem, category, summary, verification: 'quote-only',
           evidence: checked.map((e) => ({ quote: e.quote, kind: e.kind, why: e.why })),
         })
         rec.diagnoses = list
@@ -4754,7 +4809,7 @@ function apply(ctx) {
       return {
         ok: true, reject: '', category, node,
         nodeName: byId.get(node).name ?? node, domain: byId.get(node).domain ?? '',
-        summary, nextMove: MOVES[category], evidence: checked, mech,
+        summary, evidenceBoundary, nextMove: MOVES[category], evidence: checked, mech,
         recorded, diagnosisCount, mapStamp: stamp,
       }
     },

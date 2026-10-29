@@ -280,6 +280,51 @@ test('teaching notes survive reload, reach the native hook and never certify mas
   }
 })
 
+test('one verified student context survives reload, is visible before planning, and can be cleared', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-student-context-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, memory: process.env.COACH_HINDSIGHT }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: []\n')
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    process.env.COACH_HINDSIGHT = '0'
+    const quote = '我一直想进 WF，但是没有人带我，我很不安。'
+    const query = { readSession: async id => ({ session: { id }, events: [{ type: 'user/message', seq: 4,
+      data: { id: 'm4', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: quote }] } }] }) }
+    const register = async suffix => {
+      const tools = new Map(), hooks = new Map()
+      const { apply } = await import(`../index.js?student-context-${suffix}`)
+      apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {},
+        get: service => service === 'sessionQuery' ? query : undefined,
+        on: (event, handler) => hooks.set(event, handler) })
+      return { tools, hooks }
+    }
+    const first = await register('first')
+    const tool = first.tools.get('coach_student_context')
+    assert.ok(tool)
+    const exec = { agent: { session: { id: 's1' } } }
+    assert.equal((await tool.execute({ action: 'set', quote: '学生没说过的句子' }, exec)).ok, false)
+    assert.equal((await tool.execute({ action: 'set', quote }, exec)).ok, true)
+    const second = await register('reload')
+    const status = await second.tools.get('coach_status').execute({})
+    shape(second.tools.get('coach_status').output.schema, status)
+    assert.equal(status.studentContext.quote, quote)
+    assert.equal(status.studentContext.messageId, 'm4')
+    const injected = await second.hooks.get('agent/pre-step')({ step: 1, messages: [] },
+      async () => ({ kind: 'enter', messages: [] }))
+    assert.match(injected.messages.at(-1).content[0].text, /没有人带我/)
+    assert.equal((await second.tools.get('coach_student_context').execute({ action: 'clear' })).ok, true)
+    assert.equal((await second.tools.get('coach_status').execute({})).studentContext.quote, '')
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      const env = { data: 'COACH_DATA_DIR', db: 'COACH_DB', memory: 'COACH_HINDSIGHT' }[key]
+      if (value === undefined) delete process.env[env]
+      else process.env[env] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('continuation follows a noted unfinished lesson while the cursor stays on its prerequisite', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-note-pending-'))
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }

@@ -54,6 +54,7 @@ coach_target → coach_vp_import → coach_postmortem → coach_focus
   ↓                         比赛目标、VP 复盘、当前重点
 coach_lesson                 短回合讲课：先讲核心、听回应、再决定下一步
 coach_note                   续课笔记：教到哪里、尚待确认什么、下次接哪里
+coach_student_context        只置顶一条已核对的学生处境原话；过往经历仍从 Hindsight 召回
 ```
 
 `coach_wiki` 是知识来源：讲任何知识点之前先查本地 OI Wiki，**别凭记忆讲**。
@@ -140,6 +141,12 @@ learned/verified 记录，或路线中在此前安排的必验训练，不能从
 `disconnect` 只删除本地 token，保留缓存，方便重新连接同一个账号。
 
 详见 [长期课程机制](docs/长期课程机制.md)。
+
+### 2.11.1：教练能看见人，也能看清证据边界
+
+- `coach_student_context` 可从当前会话核对并置顶一条学生原话，下一会话自动显示日期和原话；`clear` 可清除。它不是情绪评分，也不替代 Hindsight 的历史召回。
+- `coach_diagnose` 明示：引用存在只证明代码原文，机械提交序列是题目在库内的历史；因果仍需结合题意、练习时间窗和训练员的实际过程核实。新旧判因均按“因果待核”的观察处理，不直接当作课程的已确认缺口。一次 AC 不能证明之前没有 MLE。
+- 本机配套的 `whale-sqlite` 已把 `db_submission_code` 的独立 Edge 改成按需自动打开；首次需在隔离窗口登录 Codeforces。工具分别报告浏览器启动、调试端口、登录和源码页的问题，并给出下一步。
 
 ### 2.11.0：训练事实与教练视角对齐
 
@@ -453,7 +460,7 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 
 启用后，每轮第一步用学生当前原话召回 Hindsight 整合后的 observation，连同本地时间附给小鲸；原始历史记忆仍可通过 `coach_recall` 按需查询。完成一轮对话后，异步发送学生原话和小鲸最终回复供 Hindsight 提炼。思维链、工具调用和插件注入不归档。记忆用于续课与偏好参考，不能替代 `PROGRESS` / `CURRICULUM` / `TARGET` / `SCHEDULE` 账本，也不能证明掌握。旧教练建议与学生最新纠正冲突时，以纠正和原始记录为准。
 
-始终提供一个只读工具 **`coach_recall`**：由小鲸按需写查询，例如“上次二分课卡在哪里、学生明确说过什么讲法偏好”。它复用同一个服务与 bank，不让模型指定其他账号的 bank；桥未启用或服务失败时说明原因，不装作记得。插件共 32 个工具，其中 31 个训练工具和 1 个记忆查询工具。
+始终提供一个只读工具 **`coach_recall`**：由小鲸按需写查询，例如“上次二分课卡在哪里、学生明确说过什么讲法偏好”。它复用同一个服务与 bank，不让模型指定其他账号的 bank；桥未启用或服务失败时说明原因，不装作记得。插件共 34 个工具，其中 33 个训练工具和 1 个记忆查询工具。
 
 2.8.0 起，新的归档附带能取得的原生会话、消息和轮次出处，召回返回记忆 ID、日期和来源。Hindsight 提炼的事件时间与实际归档时间分别标明；旧记忆没有字段就保持未知。对具体学习结论仍要核对原话和训练账本，来源信息本身不等于“已经掌握”。
 
@@ -535,7 +542,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 
 | 文件 | 作用 |
 |---|---|
-| `index.js` | 插件本体（host 端，32 个工具 + 规则注入） |
+| `index.js` | 插件本体（host 端，34 个工具 + 规则注入） |
 | `lib/setup.js` | 环境搭建 + CF 公开数据同步 |
 | `lib/curriculum.js` | 持久课程路线、阶段验收门槛、版本与修订历史 |
 | `lib/curriculum-evidence.js` | 从实际记录派生证据引用与事件身份，去重课表和训练记录 |
@@ -565,7 +572,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 | **人设** | `assets/persona/xiaojing-coach.md` | 默认静态加载，宿主自定义风格和当前用户偏好可覆盖；改后重启dsh |
 | **规则** | `assets/rules/coach-rules.md` | 插件用 `systemPrompt.section()` 注进 system prompt（和人设同一条路）。**改它要重启 dsh** |
 | **知识** | 地图 4 份 + OI Wiki 检索库 | `coach_setup init` 铺到数据目录；OI Wiki 直接从包里读 |
-| **工具** | 32 个 | 装完就在；`coach_recall` 未启用时只显示诊断 |
+| **工具** | 34 个 | 装完就在；`coach_recall` 未启用时只显示诊断 |
 
 规则进的是 **system prompt，不是消息流**：行为约束每轮都得在场，
 而消息流会被长对话把尾巴挤掉。文本是**静态**的（只在加载时读一次）——

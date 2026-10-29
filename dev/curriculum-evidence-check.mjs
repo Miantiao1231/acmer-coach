@@ -21,6 +21,13 @@ const rowsFor = (record) => collectEvidence(progress(record))
 const studentEvidence = { sessionId: 'test-session', messageId: 'test-report', seq: 7,
   quote: '这题做出了，但没计时。', start: 0, end: '这题做出了，但没计时。'.length }
 
+test('quote-only diagnoses remain observations, not confirmed training gaps', () => {
+  const rows = rowsFor({ diagnoses: [diagnosis({ verification: 'quote-only' }), diagnosis()] })
+  assert.equal(rows.length, 2)
+  assert.deepEqual(rows.map(row => row.signal), ['observation', 'observation'])
+  assert.ok(rows.every(row => /待核/.test(row.summary)))
+})
+
 test('sourced unknown facts remain observations rather than fabricated gaps or timings', () => {
   const rows = rowsFor({ passes: [{ date, solved: true, studentEvidence, eventId: 'student:test-report:0' }] })
   assert.equal(rows.length, 1)
@@ -85,7 +92,7 @@ test('catalog only contains real record entries, with a stable typed public shap
     assert.ok(row.id && row.eventId && row.fingerprint && row.summary)
     assert.equal(row.node, '区间 DP'); assert.equal(row.date, date)
     assert.ok(['check', 'diagnosis', 'practice', 'schedule'].includes(row.source))
-    assert.ok(['gap', 'baseline'].includes(row.signal))
+    assert.ok(['gap', 'baseline', 'observation'].includes(row.signal))
   }
 })
 
@@ -121,7 +128,7 @@ test('diagnosis evidence requires a meaningful quote, valid kind, and explanatio
   ]) assert.deepEqual(rowsFor({ diagnoses: [diagnosis({ evidence: [invalid] })] }), [])
   for (const kind of ['wrong', 'missing']) {
     const rows = rowsFor({ diagnoses: [diagnosis({ evidence: [{ quote: 'answer += dp[left][right];', kind, why: '没有考虑空区间状态' }] })] })
-    assert.equal(rows.length, 1); assert.equal(rows[0].signal, 'gap')
+    assert.equal(rows.length, 1); assert.equal(rows[0].signal, 'observation')
   }
 })
 

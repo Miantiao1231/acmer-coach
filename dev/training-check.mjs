@@ -194,6 +194,29 @@ test('status links one exercise to its full MLE-WA-WA-AC-AC sequence', async () 
   assert.equal((await call('coach_status', {})).recentPasses[0].submissionChain.diagnosisStatus, 'problem-recorded')
 }))
 
+test('diagnosis reports submission facts separately from an unverified causal judgment', async () => fixture(async ({ call, tools, dir, read }) => {
+  const db = new DatabaseSync(join(dir, 'unused.db'))
+  db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
+    CREATE TABLE unified_submissions (user_id INTEGER, platform TEXT, problem_id TEXT, verdict TEXT, submitted_at TEXT);
+    CREATE TABLE unified_problems (platform TEXT, problem_id TEXT, title TEXT, difficulty REAL, tags TEXT);
+    INSERT INTO users VALUES (1,'trainer','trainer');
+    INSERT INTO unified_submissions VALUES (1,'codeforces','1067A','MLE','2026-10-28T19:47:00Z');
+    INSERT INTO unified_submissions VALUES (1,'codeforces','1067A','AC','2026-10-28T20:00:00Z');`)
+  db.close()
+  const result = await call('coach_diagnose', { node: 'A', category: '不认真', problem: '1067A',
+    code: 'int main() { vector<int> a(1000000); return a.size(); }',
+    evidence: [{ quote: 'vector<int> a(1000000)', kind: 'wrong', why: '需要对照题目内存限制' }],
+    summary: '这份代码的数组尺寸需要核算' })
+  assert.equal(result.ok, true, result.reject)
+  assert.match(result.mech.verdicts, /MLE.*AC/)
+  assert.match(result.evidenceBoundary, /因果.*未核实/)
+  const shown = tools.get('coach_diagnose').output.render({}, result)[0].text
+  assert.match(shown, /MLE.*AC/)
+  assert.match(shown, /因果.*未核实/)
+  assert.equal(read('PROGRESS.yaml').nodes.A.diagnoses[0].verification, 'quote-only')
+  assert.match((await call('coach_status', {})).recentDiagnoses[0].verification, /quote-only/)
+}))
+
 test('two same-day rounds of one problem keep separate completion records when submission anchors differ', async () => fixture(async ({ call, read, dir }) => {
   const db = new DatabaseSync(join(dir, 'unused.db'))
   db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, handle TEXT, cf_handle TEXT);
