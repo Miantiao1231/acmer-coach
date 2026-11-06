@@ -7,7 +7,7 @@ import { parse, stringify } from 'yaml'
 import { collectEvidence } from '../lib/curriculum-evidence.js'
 import { evaluateExitChecks } from '../lib/curriculum-planning.js'
 
-async function fixture(run, nodeRecord = { status: 'studying' }) {
+async function fixture(run, nodeRecord = { status: 'studying' }, pendingMode = 'verify') {
   const dir = mkdtempSync(join(tmpdir(), 'coach-grading-'))
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, home: process.env.DSH_HOME }
   try {
@@ -17,7 +17,7 @@ async function fixture(run, nodeRecord = { status: 'studying' }) {
     writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes:\n  - {id: A, name: 基础, depends: []}\n')
     const path = join(dir, 'PROGRESS.yaml')
     writeFileSync(path, stringify({ version: 1, cursor: 'A', nodes: { A: nodeRecord }, pending: {
-      node: 'A', totalMinutes: 90, passScore: 4, maxScore: 6,
+      node: 'A', mode: pendingMode, totalMinutes: 90, passScore: 4, maxScore: 6,
       problems: [
         { problemId: 'P1', band: '易', weight: 1, cfRating: 1200, source: 'pool' },
         { problemId: 'P2', band: '中', weight: 2, cfRating: 1600, source: 'pool' },
@@ -186,4 +186,22 @@ test('malformed grading fields and contradictory IDs are rejected without changi
       assert.equal(bytes(), before)
     }
   })
+})
+
+test('a placement paper records the result without certifying or changing status', async () => {
+  await fixture(async ({ grade, ledger }) => {
+    const result = await grade.execute({ results: results({ independent: true }) })
+    assert.equal(result.ok, true, result.reject)
+    assert.equal(result.mode, 'placement')
+    assert.equal(result.outcome, 'passed')
+    assert.equal(result.verified, false, 'placement must not certify mastery')
+    assert.equal(result.status, 'none')
+    assert.equal(result.verifiedAt, 0)
+    const check = ledger().nodes.A.checks[0]
+    assert.equal(check.mode, 'placement')
+    assert.equal(check.outcome, 'passed')
+    assert.equal(ledger().nodes.A.status, undefined, 'placement must not create a studying/verified state')
+    assert.match(grade.output.render({}, result)[0].text, /定位卷/)
+    assert.match(grade.output.render({}, result)[0].text, /不产生 verified/)
+  }, {}, 'placement')
 })

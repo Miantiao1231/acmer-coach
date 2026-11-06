@@ -11,6 +11,7 @@ export const TEST_FILES = [
   'dev/regional-index-check.mjs',
   'dev/teaching-check.mjs',
   'dev/grading-check.mjs',
+  'dev/placement-check.mjs',
   'dev/training-check.mjs',
   'dev/practice-evidence-check.mjs',
   'dev/runtime-home-check.mjs',

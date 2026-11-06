@@ -2821,10 +2821,10 @@ const p31f = prog30.load()
 // 用例冤枉地红 —— 第一版就是这么红的。
 const keep31 = { A: p31f.nodes.A, B: p31f.nodes.B }
 p31f.nodes.B = { ...(p31f.nodes.B ?? {}), status: 'verified', checks: [
-  { date: '2026-09-01', outcome: 'abandoned', reason: '卷面难度结构失衡' },
+  { date: '2026-09-01', outcome: 'invalid', reason: '卷面难度结构失衡' },
   { date: '2026-09-02', outcome: 'failed', score: 3, maxScore: 6, passScore: 4 },
   { date: '2026-09-03', outcome: 'failed', score: 0, maxScore: 6, passScore: 4 },
-  { date: '2026-09-04', outcome: 'abandoned', reason: '题已被他 AC 过' },
+  { date: '2026-09-04', outcome: 'invalid', reason: '题已被他 AC 过' },
   { date: '2026-09-05', outcome: 'passed', score: 4, maxScore: 6, passScore: 4 },
 ] }
 p31f.nodes.A = { ...(p31f.nodes.A ?? {}), status: 'studying', checks: [

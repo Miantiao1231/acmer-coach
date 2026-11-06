@@ -81,7 +81,7 @@ coach_assign    布置**一个**动作：做什么 + 时间盒 + 交付物
 coach_diagnose  没过 → 读代码判因（不会 / 不熟 / 不认真），每条要引你代码原文
 coach_log       过了 → 记一条，然后夸
   ↓
-coach_pool → coach_test → coach_grade    章节检测，过了才标「已验证」
+coach_pool → coach_test → coach_grade    章节检测（默认验证卷；定位卷不产生 verified）
   ↓
 coach_schedule → coach_plan              看日程、设置固定上课时段、排练习或休息日
 coach_journal                            只读查看某天/近期的训练事实（与页面同源）
@@ -443,12 +443,13 @@ dsh plugin --profile web add github:Miantiao1231/acmer-coach    # 或从 GitHub
 拉 CF 的 AC 记录 + 标签
   → 映射到地图节点，算「接触证据」（相关题过了几道、什么难度）
   → 挑「有证据、且前置也都有证据」的**最深**节点当起点候选
-  → 出卷考一次确认
+  → 用定位卷（coach_test mode=placement）考一次确认
       过了 → 往前走
       不过 → 往回退一层
   → 几次收敛
 ```
 
+定位卷只记结果、不产生 verified；确认位置后再讲，讲过才开默认的验证卷。
 为什么不做成「拉数据自动算出你会什么」：**试过，证伪了。**
 一个人某题提交 11 次，数据能说"花了很久"，说不出"缺哪个机制"。
 "他碰过"和"他会"是两件事，前者能从数据看出来，后者只能靠检测。

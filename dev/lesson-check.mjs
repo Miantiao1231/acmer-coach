@@ -284,3 +284,21 @@ test('a reading turn gets her own background, not the student course state', asy
     assert.doesNotMatch(text, /正在接续|游标|押着一张卷|沿着学生当前卡点/)
   } finally { f.cleanup() }
 })
+
+test('a closed lesson is teaching contact, but not mastery', async () => {
+  const f = await fixture()
+  try {
+    assert.equal((await f.call('coach_set_cursor', { node: '背包 DP' })).ok, true)
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP' })
+    await f.call('coach_lesson', { action: 'advance', evidence: '他说倒序是为了不重复拿同一件物品' })
+    const ended = await f.call('coach_lesson', { action: 'end', outcome: 'unknown', evidence: '讲了一个核心点' })
+    assert.equal(ended.ok, true, ended.reject)
+    assert.match(ended.text, /教学接触/)
+    const saved = parse(readFileSync(join(f.dir, 'knowledge', 'PROGRESS.yaml'), 'utf8'))
+    assert.equal(saved.nodes['背包 DP'].lessonNotes[0].lesson, true)
+    assert.equal(saved.nodes['背包 DP'].status, undefined, 'a lesson note must not certify mastery')
+    const status = await f.call('coach_status', {})
+    assert.match(status.cursorTaught, /^\d{4}-\d{2}-\d{2}$/)
+    assert.match(f.tools.get('coach_status').output.render({}, status)[0].text, /接触记录/)
+  } finally { f.cleanup() }
+})
