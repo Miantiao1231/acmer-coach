@@ -27,6 +27,7 @@ export const TEST_FILES = [
   'dev/map-ui-check.mjs',
   'dev/training-log-check.mjs',
   'dev/storage-check.mjs',
+  'dev/data-boundary-check.mjs',
   'dev/vp-sync-unify-check.mjs',
   'dev/ledger-conflict-check.mjs',
   'dev/target-drift-check.mjs',

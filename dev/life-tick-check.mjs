@@ -283,10 +283,11 @@ test('a growth receipt is pending until someone accepts it', () => {
         { id: 'r1', kind: 'reading', state: 'completed', minutes: 25, createdAt: '2026-11-01T10:00:00' },
         { id: 'j1', kind: 'journal', state: 'completed', createdAt: '2026-11-01T23:50:00' },
       ],
-      journal: { text: '写了点东西。' },
+      journal: { body: '写了点东西。' },
       sleepLedger: { episodes: [{ kind: 'night', state: 'completed', endedAt: '2026-11-01T07:00:00', sleptSeconds: 450 * 60 }] },
     })
     assert.match(note.text, /读了 25 分钟/)
+    assert.match(note.text, /写了日记/, 'the growth note reads the journal body field')
     assert.match(note.text, /睡了 7 小时 30 分/, 'the growth note reads the recorded sleep field')
     assert.equal(note.status, 'pending')
     assert.equal(addGrowthNote(t.dir, note, { now: at2355 }).ok, true)
