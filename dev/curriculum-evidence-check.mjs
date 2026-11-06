@@ -96,6 +96,16 @@ test('catalog only contains real record entries, with a stable typed public shap
   }
 })
 
+test('placement checks never become training baselines or gaps', () => {
+  const rows = rowsFor({ checks: [
+    check('passed', { mode: 'placement' }),
+    check('failed', { mode: 'placement' }),
+    check('passed'),
+  ] })
+  assert.deepEqual(rows.map((row) => row.signal), ['baseline'])
+  assert.equal(rows[0].eventId, 'check:%E5%8C%BA%E9%97%B4%20DP:2')
+})
+
 test('failed and over-time checks are gaps; passed checks only establish a baseline', () => {
   const rows = rowsFor({ checks: [check('failed'), check('overTime', { minutes: 90 }), check('passed')] })
   assert.deepEqual(rows.map((row) => row.signal), ['gap', 'gap', 'baseline'])
