@@ -23,7 +23,7 @@
     "@deepseek-ai/dsh-tools": "0.2.1-rc.3"
   },
   "scripts": {
-    "test": "node dev/run-tests.mjs",
+    "test": "node dev/run-tests.mjs && node dev/release-check.mjs",
     "eval:teaching": "node dev/teaching-eval.mjs"
   },
   "dsh": {

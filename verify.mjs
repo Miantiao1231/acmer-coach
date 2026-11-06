@@ -15,9 +15,11 @@ const path = await import('node:path')
 const { pathToFileURL } = await import('node:url')
 
 const SOURCE_DIR = import.meta.dirname
+const CI = Boolean(process.env.CI)
 const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
 const PROFILE = process.env.COACH_VERIFY_PROFILE || 'web'
-const INSTALLED_DIR = path.join(DSH_HOME, 'profiles', PROFILE, 'node_modules', 'acmer-coach')
+// CI 没有 dsh profile：直接验源码，安装副本另由 pack-smoke 验。
+const INSTALLED_DIR = CI ? SOURCE_DIR : path.join(DSH_HOME, 'profiles', PROFILE, 'node_modules', 'acmer-coach')
 const INSTALLED = pathToFileURL(path.join(INSTALLED_DIR, 'index.js')).href
 // 插件从「profile 的 insert 行」切到 **bundle 层**，
 // 所以 patch 文件的真相源也跟着挪了位置 —— 现在是插件自己那份。
@@ -58,6 +60,9 @@ const V = '打开题面看过：要的是区间 DP（状态 dp[l][r] 合并区�
 // `dsh plugin add` 认不出分家、**不重链也不报错**。于是"改完 → 重装 → 测试绿"
 // 能一路绿到底却验的是老代码。所以这一关放最前面，不一致直接退，不许往下测。
 console.log('── 0. 已安装副本 vs 源码 ──')
+if (CI) {
+  check('CI 模式直接验源码（安装副本由 pack-smoke 验）', true)
+}
 // ⚠️ statSync 必须在列表里。第 15 关那条「没留下 .tmp 残file」把它包在
 // try/catch 里 —— 漏 import 的话它抛 ReferenceError，被 catch 吞掉，
 // 断言**永远为真**。假绿比没测更坏，因为它看起来测过了。
@@ -89,25 +94,27 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-// lib/ 下所有源文件都要比：白名单漏过一次 —— lib/companion.js 不在列表里，
-// 三份副本都停在旧版，这里却报“副本和源码一致”。
-const syncedFiles = new Set([
-  'index.js', 'package.json',
-  ...readdirSync(path.join(SOURCE_DIR, 'lib')).filter(name => name.endsWith('.js')).map(name => `lib/${name}`),
-  'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json',
-  'assets/rules/coach-rules.md', 'assets/persona/xiaojing-coach.md',
-])
-for (const f of syncedFiles) {
-  let same = true
-  try {
-    same = readFileSync(path.join(SOURCE_DIR, f), 'utf8') === readFileSync(path.join(INSTALLED_DIR, f), 'utf8')
-  } catch {
-    same = false
+if (!CI) {
+  // lib/ 下所有源文件都要比：白名单漏过一次 —— lib/companion.js 不在列表里，
+  // 三份副本都停在旧版，这里却报“副本和源码一致”。
+  const syncedFiles = new Set([
+    'index.js', 'package.json',
+    ...readdirSync(path.join(SOURCE_DIR, 'lib')).filter(name => name.endsWith('.js')).map(name => `lib/${name}`),
+    'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json',
+    'assets/rules/coach-rules.md', 'assets/persona/xiaojing-coach.md',
+  ])
+  for (const f of syncedFiles) {
+    let same = true
+    try {
+      same = readFileSync(path.join(SOURCE_DIR, f), 'utf8') === readFileSync(path.join(INSTALLED_DIR, f), 'utf8')
+    } catch {
+      same = false
+    }
+    if (!same) stale.push(f)
   }
-  if (!same) stale.push(f)
+  check('副本和源码一致', stale.length === 0,
+    stale.length ? `不一致：${stale.join(', ')}` : '')
 }
-check('副本和源码一致', stale.length === 0,
-  stale.length ? `不一致：${stale.join(', ')}` : '')
 if (stale.length) {
   // 必须**当场退**。继续测的后果是：后面几关拿旧代码跑出绿色的 OK，
   // 看上去"验收通过"—— 这正是这一关要防的东西。
@@ -143,7 +150,7 @@ check('★ patch 的 id/name 与导出的 name 逐字相同',
   Boolean(idLine) && Boolean(nameLine) && mod.name === 'acmer-coach',
   `${idLine?.trim()} / ${nameLine?.trim()} vs name=${mod.name}`)
 
-const pkg = JSON.parse(readFileSync(`${SOURCE_DIR}\\package.json`, 'utf8'))
+const pkg = JSON.parse(readFileSync(path.join(SOURCE_DIR, 'package.json'), 'utf8'))
 check('package.json 声明了 dsh.bundle.patch（走 bundle 层）',
   pkg.dsh?.bundle?.patch === './cordis.patch.yml', JSON.stringify(pkg.dsh?.bundle))
 check('package.json 声明了 dsh.client（客户端 UI）',
@@ -534,7 +541,7 @@ check('★ 且原文件没被覆盖', survived, survived ? '' : '被空进度覆
 // 所以必须验它跑得起来、并且和插件看到的是同一份数据。
 console.log('── 17. progress-cli（服务端写进度的通道）──')
 const { execFileSync } = await import('node:child_process')
-const CLI = `${INSTALLED_DIR}\\progress-cli.mjs`
+const CLI = path.join(INSTALLED_DIR, 'progress-cli.mjs')
 const runCli = (...args) => JSON.parse(execFileSync(
   process.execPath, [CLI, ...args],
   { env: { ...process.env, COACH_DATA_DIR: tmp3 }, encoding: 'utf8' }))
@@ -1948,7 +1955,7 @@ check('回退路径：本机放行', near.status === 200, `status=${near.status}
 // 渲染效果验不了（那要靠 CDP 真点），但"挂没挂上去"在这里就见了分晓。
 console.log('── 26. 客户端插件（lib/client.js）──')
 const vm = await import('node:vm')
-const clientSrc = readFileSync(`${SOURCE_DIR}\\lib\\client.js`, 'utf8')
+const clientSrc = readFileSync(path.join(SOURCE_DIR, 'lib', 'client.js'), 'utf8')
 
 let spec = null
 const styleTags = []
@@ -2838,13 +2845,15 @@ const stuckNodes = st31.stuck.map((s) => s.node)
 const dropNodes = st31.cancelled.map((s) => s.node)
 check('★ 后来通过了的不算卡住（"二分"那个形状）', !stuckNodes.includes('B'), JSON.stringify(stuckNodes))
 check('★ 连最后一次都没过 → 报卡住', stuckNodes.includes('A'), JSON.stringify(stuckNodes))
-check('★ 作废卷只留在检测历史，不再挂成待办', st31.cancelled.length === 0, JSON.stringify(st31.cancelled))
+check('★ 作废卷单独报成组卷问题，不混进待办/没过',
+  st31.cancelled.length === 1 && st31.cancelled[0].node === 'B' && st31.cancelled[0].drops === 2,
+  JSON.stringify(st31.cancelled))
 check('★ 作废不算「没过」次数（A 累计 2 次，不是 4 次）',
   String(st31.stuck.find((s) => s.node === 'A')?.why).includes('累计没过 2 次'),
   JSON.stringify(st31.stuck.find((s) => s.node === 'A')))
 const st31txt = T30.get('coach_status').output.render({}, st31)[0].text
-check('★ 复检观察渲染成人话，作废不再单列',
-  st31txt.includes('复检观察') && !st31txt.includes('卷子反复作废'),
+check('★ 复检观察与作废卷分开渲染',
+  st31txt.includes('复检观察') && st31txt.includes('卷子反复作废'),
   (st31txt.match(/.*复检观察.*/) ?? ['（没有复检观察行）'])[0].slice(0, 70))
 
 // 还回原样：下面的 coach_log / 32 / 33 都接着这份进度跑
