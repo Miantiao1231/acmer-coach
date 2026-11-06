@@ -4591,6 +4591,29 @@ function apply(ctx) {
             quote: { type: 'string', required: true }, at: { type: 'string', required: true },
             messageId: { type: 'string', required: true },
           } },
+          // 自主能力汇总：分项开关仍各自授权，这里只回答「她现在能做什么、
+          // 今天用了多少、下次什么时候能开口」。不是第二个预算账本。
+          autonomy: {
+            type: 'object', required: true, additionalProperties: false,
+            properties: {
+              enabled: { type: 'boolean', required: true },
+              nextAt: { type: 'string', required: true },
+              nextReason: { type: 'string', required: true },
+              sentToday: { type: 'integer', required: true },
+              occupiedToday: { type: 'integer', required: true },
+              maxPerDay: { type: 'integer', required: true },
+              unanswered: { type: 'integer', required: true },
+              tokenBudget: { type: 'integer', required: true },
+              tokensToday: { type: 'integer', required: true },
+              backgroundLlm: { type: 'boolean', required: true },
+              lifeImprov: { type: 'boolean', required: true },
+              autonomousReading: { type: 'boolean', required: true },
+              external: { type: 'boolean', required: true },
+              screenVision: { type: 'boolean', required: true },
+              quietStart: { type: 'string', required: true },
+              quietEnd: { type: 'string', required: true },
+            },
+          },
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
@@ -4779,6 +4802,15 @@ function apply(ctx) {
               v.memoryRecallState === 'starting' ? '记忆桥已启用，尚未成功召回。' : '',
           v.memoryRetainState === 'failed' ? `⚠️ 记忆保存失败：${v.memoryLastRetainError || '请检查记忆服务与待写任务'}；不能宣称新内容已经记住。` :
             v.memoryRetainState === 'pending' ? '长期记忆有待写内容，正在等待有上限的补发；尚未确认入库。' : '',
+          (() => {
+            const a = v.autonomy
+            return `自主：${a.enabled ? '主动联系已开' : '主动联系关'}；` +
+              `今天占用 ${a.occupiedToday}/${a.maxPerDay || '—'}，未回复 ${a.unanswered}；` +
+              `下次 ${a.nextAt || '未排'}${a.nextReason ? `（${a.nextReason}）` : ''}；` +
+              `静默 ${a.quietStart || '—'}–${a.quietEnd || '—'}；token ${a.tokensToday}/${a.tokenBudget || '—'}。` +
+              ` 生活即兴 ${a.lifeImprov ? '开' : '关'} · 自主阅读 ${a.autonomousReading ? '开' : '关'} · ` +
+              `后台模型 ${a.backgroundLlm ? '开' : '关'} · 屏幕 ${a.screenVision ? '开' : '关'}。`
+          })(),
           v.studentContext.quote ? `学生最近一次主动说的处境（${v.studentContext.at}，原话已核对）：「${v.studentContext.quote}」；按日期和当前原话判断时效，已说明不重复问；仅影响安排且仍不确定时再确认。` : '',
           v.targetMismatch ? `⚠️ ${v.targetMismatch}` : '',
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
@@ -4978,6 +5010,25 @@ function apply(ctx) {
       const problemSolved = [...perProblem.values()].filter((x) => x.solved).length
       const problemIndependent = [...perProblem.values()].filter((x) => x.solved && x.independent).length
 
+      const workerNow = workerRef?.status?.() ?? null
+      const autonomy = {
+        enabled: Boolean(workerNow?.enabled),
+        nextAt: String(workerNow?.nextAt ?? ''),
+        nextReason: String(workerNow?.nextReason ?? ''),
+        sentToday: Number(workerNow?.sentToday ?? 0),
+        occupiedToday: Number(workerNow?.occupiedToday ?? workerNow?.sentToday ?? 0),
+        maxPerDay: Number(workerNow?.rhythm?.maxPerDay ?? 0),
+        unanswered: Number(workerNow?.unanswered ?? 0),
+        tokenBudget: Number(workerNow?.rhythm?.tokenBudget ?? 0),
+        tokensToday: Number(workerNow?.tokensToday ?? 0),
+        backgroundLlm: Boolean(workerNow?.effective?.backgroundLlm),
+        lifeImprov: Boolean(workerNow?.effective?.lifeImprov),
+        autonomousReading: Boolean(workerNow?.effective?.autonomousReading),
+        external: Boolean(workerNow?.effective?.external),
+        screenVision: Boolean(workerNow?.effective?.screenVision),
+        quietStart: workerNow?.rhythm?.quietStart !== undefined ? minHM(workerNow.rhythm.quietStart) : '',
+        quietEnd: workerNow?.rhythm?.quietEnd !== undefined ? minHM(workerNow.rhythm.quietEnd) : '',
+      }
       return {
         cursor: p.cursor,
         cursorName: byId.get(p.cursor)?.name ?? '',
@@ -4997,6 +5048,7 @@ function apply(ctx) {
           return { quote: String(context?.quote ?? ''), at: String(context?.at ?? ''),
             messageId: String(context?.messageId ?? '') }
         })(),
+        autonomy,
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
