@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // 发布门禁不连真实记忆/后台模型；与 dev.sh 的环境隔离保持一致。
-const isolated = { COACH_HINDSIGHT: '0', COACH_BACKGROUND_LLM: '0' }
+const isolated = { COACH_HINDSIGHT: '0', COACH_BACKGROUND_LLM: '0', TZ: 'Asia/Shanghai' }
 const checks = [
   { name: 'verify', args: ['verify.mjs'], env: { CI: '1' } },
   { name: 'w1-check', args: ['dev/w1-check.mjs'] },
