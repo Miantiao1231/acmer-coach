@@ -693,7 +693,8 @@ test('补发 flush 返回前已收到实际回复，正文不被草稿覆盖', a
 
 test('全套测试入口只有一份文件清单', () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
-  assert.equal(pkg.scripts.test, 'node dev/run-tests.mjs')
+  // 测试文件清单仍只有 run-tests.mjs 一份；release-check 只串验收，不列文件。
+  assert.equal(pkg.scripts.test, 'node dev/run-tests.mjs && node dev/release-check.mjs')
   for (const runner of ['dev/run-all.sh', 'dev.sh']) {
     assert.match(readFileSync(join(ROOT, runner), 'utf8'), /dev\/run-tests\.mjs/)
   }

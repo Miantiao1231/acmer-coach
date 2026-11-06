@@ -36,7 +36,9 @@ console.log('── 1. 空环境体检：要如实说「缺」，不能假装没
   check('注册了 coach_setup', Boolean(tool))
   check('ok=false（还没搭）', r.ok === false, `ok=${r.ok}`)
   const st = Object.fromEntries(r.items.map((i) => [i.name, i.status]))
-  check('数据目录报「缺」', st['数据目录'] === '缺', st['数据目录'])
+  // 插件加载时会把随包地图铺进数据目录，所以「目录已建」不代表初始化完成；
+  // 真正缺的是训练库/账号/pool 这些 init 才建的东西。
+  check('数据目录已由随包地图铺好', st['数据目录'] === 'ok', st['数据目录'])
   check('训练库报「缺」', st['训练库'] === '缺', st['训练库'])
   check('给出了下一步', r.note.includes('init'), r.note.slice(0, 50))
 }
