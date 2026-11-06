@@ -150,6 +150,8 @@ console.log('── 6. 规则进 system prompt（不是消息流）──')
   check('规则正文非空且含赛场判断和证据边界', (s?.text?.length ?? 0) > 2000 &&
     s.text.includes('区域赛是限时团队赛') && s.text.includes('Hindsight 是主要的跨会话召回'),
     `${s?.text?.length ?? 0} 字符`)
+  check('规则含孤独/危机安全卡', s?.text?.includes('孤独与危机') && s.text.includes('不是紧急服务'),
+    `${s?.text?.length ?? 0} 字符`)
   // 同样断言**结构性性质**：规则里不该出现绝对路径，也不该出现本机用户名
   // （用户名从 homedir() 现取 —— 源码里不写任何一个具体的名字）。
   const uname = basename(homedir())

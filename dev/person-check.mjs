@@ -212,7 +212,7 @@ test('library reads expose metadata and a short preview, not the saved text', as
   try {
     const tool = createCompanionTool(dir)
     const excerpt = '开头标记' + '正'.repeat(59990) + '结尾标记'
-    const added = await tool.execute({ action: 'library.add', title: '长文', excerpt, readingOffset: 0, readingHash: 'h' })
+    const added = await tool.execute({ action: 'library.add', title: '长文', excerpt, readingOffset: 0, readingHash: 'h' }, { origin: 'internal' })
     assert.equal(added.ok, true, added.reject)
     const read = await tool.execute({ action: 'read', section: 'library' })
     assert.equal(read.ok, true, read.reject)
@@ -229,13 +229,34 @@ test('library add / progress / share', async () => {
   try {
     const tool = createCompanionTool(dir)
     assert.equal((await tool.execute({ action: 'share' })).ok, false, 'empty shelf cannot share')
-    assert.equal((await tool.execute({ action: 'library.add', title: '《海》', source: '书店', note: '讲潮汐的那段很好' })).ok, true)
-    assert.equal((await tool.execute({ action: 'library.add', title: '《海》' })).ok, false, 'duplicate title')
-    assert.equal((await tool.execute({ action: 'library.progress', title: '《海》', progress: 0.4, note: '看到第三章' })).ok, true)
+    assert.equal((await tool.execute({ action: 'library.add', title: '《海》', source: '书店', note: '讲潮汐的那段很好' }, { origin: 'internal' })).ok, true)
+    assert.equal((await tool.execute({ action: 'library.add', title: '《海》' }, { origin: 'internal' })).ok, false, 'duplicate title')
+    assert.equal((await tool.execute({ action: 'library.progress', title: '《海》', progress: 0.4, note: '看到第三章' }, { origin: 'internal' })).ok, true)
     const share = await tool.execute({ action: 'share' })
     assert.equal(share.ok, true)
     assert.match(share.summary, /《海》/)
     assert.match(share.summary, /看到第三章/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('model shelf writes become pending candidates; the page still adopts them', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-library-pending-'))
+  try {
+    const tool = createCompanionTool(dir, {
+      verifyEvidence: async quote => quote === '我在读《海》'
+        ? { ok: true, studentEvidence: { quote, messageId: 'm1', seq: 1 } }
+        : { ok: false, reject: 'no quote' },
+    })
+    const proposed = await tool.execute({ action: 'library.add', title: '《海》', evidence: '我在读《海》' })
+    assert.equal(proposed.ok, true, proposed.reject)
+    assert.match(proposed.summary, /待审/)
+    assert.equal(loadPerson(dir).library.length, 0)
+    const pending = loadPerson(dir).pending.find(item => item.kind === 'library')
+    assert.ok(pending, 'library candidate is pending')
+    assert.equal(pending.subject, 'role')
+    const accepted = await tool.execute({ action: 'pending.accept', id: pending.id }, { origin: 'human' })
+    assert.equal(accepted.ok, true, accepted.reject)
+    assert.equal(loadPerson(dir).library.length, 1)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
