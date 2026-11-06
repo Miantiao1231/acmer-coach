@@ -22,7 +22,8 @@ async function fixture(run) {
       CREATE TABLE rating_history (user_id INTEGER, platform TEXT, rating INTEGER);`)
     db.prepare('INSERT INTO users VALUES (1, ?, ?, 1500)').run('tester', 'tester')
     db.prepare('INSERT INTO rating_history VALUES (1, ?, 1500)').run('codeforces')
-    for (const [id, title, difficulty] of [['100A', 'P1', 800], ['100B', 'P2', 1200], ['100C', 'P3', 1800]]) {
+    for (const [id, title, difficulty] of [['100A', 'P1', 800], ['100B', 'P2', 1200], ['100C', 'P3', 1800],
+      ['100D', 'P4', 850], ['100E', 'P5', 1250], ['100F', 'P6', 1850]]) {
       db.prepare('INSERT INTO unified_problems VALUES (?,?,?,?,?,?)').run('codeforces', id, title, difficulty, 'testtag', '')
     }
     db.close()
@@ -80,5 +81,42 @@ test('placement mode opens without teaching but does not produce verified or a t
     const verify = await call('coach_test', { node: 'A', problems })
     assert.equal(verify.ok, true, verify.reject)
     assert.equal(verify.mode, 'verify')
+  })
+})
+
+
+test('two different placement papers passed independently become proven, not verified', async () => {
+  await fixture(async ({ call }) => {
+    const firstProblems = [
+      { platform: 'codeforces', problemId: '100A', band: '易', verified },
+      { platform: 'codeforces', problemId: '100B', band: '中', verified },
+      { platform: 'codeforces', problemId: '100C', band: '难', verified },
+    ]
+    const secondProblems = [
+      { platform: 'codeforces', problemId: '100D', band: '易', verified },
+      { platform: 'codeforces', problemId: '100E', band: '中', verified },
+      { platform: 'codeforces', problemId: '100F', band: '难', verified },
+    ]
+    const round = (list) => list.map((problem) => ({ problemId: problem.problemId, solved: true, minutes: 10, independent: true }))
+
+    assert.equal((await call('coach_test', { node: 'A', mode: 'placement', problems: firstProblems })).ok, true)
+    const first = await call('coach_grade', { results: round(firstProblems) })
+    assert.equal(first.ok, true, first.reject)
+    assert.equal(first.proven, false)
+    assert.equal(first.status, 'none')
+
+    assert.equal((await call('coach_test', { node: 'A', mode: 'placement', problems: secondProblems })).ok, true)
+    const second = await call('coach_grade', { results: round(secondProblems) })
+    assert.equal(second.ok, true, second.reject)
+    assert.equal(second.proven, true)
+    assert.equal(second.verified, false, 'proven is not a teaching verification')
+    assert.equal(second.status, 'proven')
+
+    const status = await call('coach_status', {})
+    assert.deepEqual(status.proven, ['A'])
+    assert.equal(status.provenCount, 1)
+    assert.equal(status.verifiedCount, 0)
+    assert.equal(status.studyingCount, 0)
+    assert.match(status.recentChecks[1].mode, /placement/)
   })
 })

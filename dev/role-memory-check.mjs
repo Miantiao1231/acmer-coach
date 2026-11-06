@@ -118,12 +118,17 @@ test('self preference metadata does not relabel a simultaneous legacy identity c
   assert.equal(active(dir).filter(item => item.source === 'role-self').length, 1)
 })
 
-test('model profile replacement needs verified user settings; the human page remains editable', async t => {
+test('model profile changes become pending candidates; the human page remains editable', async t => {
   const dir = temp(t), tool = toolFor(dir)
   assert.equal((await tool.execute({ action: 'profile.set', likes: [] }, context)).ok, false)
   assert.equal((await tool.execute({ action: 'profile.set', identity: '小蓝', evidence: '我猜的' }, context)).ok, false)
-  assert.equal((await tool.execute({ action: 'profile.set', identity: '小蓝', likes: ['热可可'],
-    evidence: '以后你叫小蓝，喜欢热可可。' }, context)).ok, true)
+  const proposed = await tool.execute({ action: 'profile.set', likes: ['热可可'],
+    evidence: '以后你叫小蓝，喜欢热可可。' }, context)
+  assert.equal(proposed.ok, true, proposed.reject)
+  assert.match(proposed.summary, /待审/)
+  assert.equal(loadPerson(dir).profile.likes.includes('热可可'), false, 'model does not write the profile directly')
+  assert.ok(loadPerson(dir).pending.some(item => item.kind === 'profile' && item.subject === 'role'))
+  assert.equal((await tool.execute({ action: 'profile.set', identity: '小蓝' }, { origin: 'human' })).ok, true)
   assert.equal(loadPerson(dir).profile.identity, '小蓝')
   assert.equal((await tool.execute({ action: 'profile.set', likes: [] }, { origin: 'human' })).ok, true)
   assert.deepEqual(loadPerson(dir).profile.likes, [])

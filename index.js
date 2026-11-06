@@ -1122,11 +1122,15 @@ function trainingIdentity(node, competency) {
 
 // 状态读取。**缺省即未学** —— 只有非未学的节点才会被写进文件。
 function nodeStatus(progress, id) {
-  const s = progress?.nodes?.[id]?.status
-  return s === 'verified' || s === 'learned' || s === 'studying' ? s : 'none'
+  const rec = progress?.nodes?.[id]
+  const s = rec?.status
+  // proposed/proven 用独立标记保存；旧页面仍只读 status，不认识这个枚举。
+  if (s === 'verified') return 'verified'
+  if (rec?.proven === true) return 'proven'
+  return s === 'learned' || s === 'studying' ? s : 'none'
 }
 
-const STATUS_MARK = { none: '', studying: '  ▶在学', learned: '  ◦学过', verified: '  ✓已验证' }
+const STATUS_MARK = { none: '', studying: '  ▶在学', learned: '  ◦学过', proven: '  ✓已证明', verified: '  ✓已验证' }
 
 // 检测结局只描述本次结果，不凭分数或超时自动判因。
 const OUTCOME_TAG = {
@@ -1245,8 +1249,8 @@ function assumedLearned(progress, extra = []) {
   const out = new Set(extra)
   for (const id of Object.keys(progress?.nodes ?? {})) {
     const s = nodeStatus(progress, id)
-    // 只有 learned / verified 算。「在学」和「未学」一样，什么都不算。
-    if (s === 'learned' || s === 'verified') out.add(id)
+    // learned / proven / verified 都算已知；「在学」和「未学」一样，什么都不算。
+    if (s === 'learned' || s === 'proven' || s === 'verified') out.add(id)
   }
   return out
 }
@@ -4617,10 +4621,12 @@ function apply(ctx) {
           domain: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
+          provenCount: { type: 'integer', required: true },
           learnedCount: { type: 'integer', required: true },
           studyingCount: { type: 'integer', required: true },
           totalNodes: { type: 'integer', required: true },
           verified: { type: 'array', required: true, items: { type: 'string' } },
+          proven: { type: 'array', required: true, items: { type: 'string' } },
           learned: { type: 'array', required: true, items: { type: 'string' } },
           studying: { type: 'array', required: true, items: { type: 'string' } },
           //**卡住**和**弃考**分开报，别让它们混进"没过"。
@@ -4847,7 +4853,7 @@ function apply(ctx) {
               v.cancelled.map((s) => `${s.name} 作废 ${s.drops} 次` +
                 (s.reason ? `（最近一次：${s.reason}）` : '')).join('　·　')
             : '',
-          `已验证 ${v.verifiedCount} · 学过（仅自评）${v.learnedCount} · ` +
+          `已验证 ${v.verifiedCount} · 已证明（免修）${v.provenCount} · 学过（仅自评）${v.learnedCount} · ` +
             `在学 ${v.studyingCount} · 全图 ${v.totalNodes}`,
           v.studying.some(id => loadMap().byId.get(id)?.role !== 'integrated')
             ? `在学（可独立考核）：${v.studying.filter(id => loadMap().byId.get(id)?.role !== 'integrated').join('、')}` : '',
@@ -4856,6 +4862,7 @@ function apply(ctx) {
           [...v.studying, ...v.learned].some(id => loadMap().byId.get(id)?.role === 'integrated')
             ? `随题融合（不单独开卷）：${[...v.studying, ...v.learned].filter(id => loadMap().byId.get(id)?.role === 'integrated').join('、')}` : '',
           v.verified.length ? `已验证：${v.verified.join('、')}` : '',
+          v.proven.length ? `已证明（免修，仅解锁前置）：${v.proven.join('、')}` : '',
           // 检测 / 判因的历史摆出来 —— 「要不要开卷」得综合它俩判断，
           // 而在这之前它们只写不读（见 schema 里的注释）。
           v.checkTotal
@@ -4904,10 +4911,11 @@ function apply(ctx) {
         const plan = curriculum.snapshot()
         targetMismatch = plan.targetState === 'stale' || plan.targetState === 'missing' ? plan.targetNote : ''
       } catch { /* 坏文件由 coach_curriculum 报，别把状态工具一起拖下水 */ }
-      const verified = [], learned = [], studying = []
-      for (const [id, rec] of Object.entries(p.nodes)) {
-        const s = rec?.status
+      const verified = [], proven = [], learned = [], studying = []
+      for (const id of Object.keys(p.nodes)) {
+        const s = nodeStatus(p, id)
         if (s === 'verified') verified.push(id)
+        else if (s === 'proven') proven.push(id)
         else if (s === 'learned') learned.push(id)
         else if (s === 'studying') studying.push(id)
       }
@@ -5052,10 +5060,12 @@ function apply(ctx) {
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
+        provenCount: proven.length,
         learnedCount: learned.length,
         studyingCount: studying.length,
         totalNodes: nodes.length,
         verified: verified.sort(),
+        proven: proven.sort(),
         learned: learned.sort(),
         studying: studying.sort(),
         checkTotal: allChecks.length,
@@ -5197,17 +5207,18 @@ function apply(ctx) {
           cursor: { type: 'string', required: true },
           updated: { type: 'string', required: true },
           verifiedCount: { type: 'integer', required: true },
+          provenCount: { type: 'integer', required: true },
           learnedCount: { type: 'integer', required: true },
           studyingCount: { type: 'integer', required: true },
         },
       },
       render: (_args, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 标记不了：${v.reject}` }]
-        const label = { none: '未学', studying: '在学', learned: '学过（自评）', verified: '已验证' }
+        const label = { none: '未学', studying: '在学', learned: '学过（自评）', proven: '已证明（免修）', verified: '已验证' }
         return [{
           type: 'text',
           text: `✓ ${v.nodeName}：${label[v.from] ?? v.from} → **${label[v.to] ?? v.to}**\n` +
-            `进度：已验证 ${v.verifiedCount} · 学过未验 ${v.learnedCount} · ` +
+            `进度：已验证 ${v.verifiedCount} · 已证明 ${v.provenCount} · 学过未验 ${v.learnedCount} · ` +
             `在学 ${v.studyingCount}（${v.updated}）\n` +
             `游标仍在 ${v.cursor || '（未设）'} —— 要推进的话单独调 coach_set_cursor。`,
         }]
@@ -5219,7 +5230,7 @@ function apply(ctx) {
 
       const deny = (reject) => ({
         ok: false, reject, node, nodeName: '', from: '', to: '',
-        cursor: '', updated: '', verifiedCount: 0, learnedCount: 0, studyingCount: 0,
+        cursor: '', updated: '', verifiedCount: 0, provenCount: 0, learnedCount: 0, studyingCount: 0,
       })
 
       // 这两档**不在教练手里**，各有各的出口：
@@ -5689,7 +5700,7 @@ function apply(ctx) {
               action: 'library.add', title, source: url, kind: 'article', excerpt,
               readingOffset: 0, readingHash: readingTextHash(excerpt),
               fetchedAt: new Date().toISOString(), scope: partial ? 'excerpt' : 'article',
-            })
+            }, { origin: 'internal' })
             if (!added.ok) return deny(added.reject || '上书架失败')
             book = loadPerson(DATA_DIR).library.find(item => String(item.source ?? '') === url)
           }
@@ -5745,7 +5756,7 @@ function apply(ctx) {
           action: 'library.update', id: bookId, note,
           readingOffset: nextOffset, readingHash: source.contentHash,
           progress: source.total ? Math.min(1, nextOffset / source.total) : 0, state,
-        })
+        }, { origin: 'internal' })
         if (!updated.ok) return deny(updated.reject || '更新书架失败', bookId)
         return {
           ok: true, reject: '', action, bookId, title: source.title,
@@ -6642,6 +6653,7 @@ function apply(ctx) {
           limit: { type: 'integer', required: true },
           status: { type: 'string', required: true },
           verified: { type: 'boolean', required: true, description: '本次卷面通过且所有做出题都有明确独立事实；不代表长期保持或迁移。' },
+          proven: { type: 'boolean', required: true, description: '定位卷两次不同题独立通过，记为已证明/免修；不冒充教学验证。' },
           independence: { type: 'string', required: true, description: '本次做出题的独立性：independent / assisted / unknown。' },
           verifiedAt: { type: 'integer', required: true },
           // 这张卷里有几道是「网上找的」（自述题）。>0 时这条 verified 的
@@ -6685,7 +6697,9 @@ function apply(ctx) {
           head,
           `得分 ${v.score}/${v.maxScore}（通过线 ${v.passScore}）· ` +
           `用时 ${v.minutes}/${v.limit} 分钟 · 累计检测 ${v.checks} 次`,
-          ...(placement ? ['定位卷只记结果，不产生 verified，也不改掌握状态。'] : []),
+          ...(placement ? [v.proven
+            ? '两次不同题的独立定位通过：已记为「已证明（免修）」，只解锁前置，不冒充教学验证。'
+            : '定位卷只记结果，不产生 verified，也不改掌握状态；再用不同题独立通过一次可记为已证明。'] : []),
           // 自述题要说在**结论旁边**，不能只躺在记录里：这张卷的证据强度
           // 直接影响这条 verified 值不值钱，而"过了"这两个字会盖过一切。
           ...(v.selfReported
@@ -6700,8 +6714,10 @@ function apply(ctx) {
         }
         lines.push('', '── 下一步 ──')
         if (placement) {
-          lines.push('  按结果调整位置：过了就往前/往深走，没过就往回/补讲；' +
-            '定位卷不产生 verified，需要正式验证时先建立教学接触再开验证卷。')
+          lines.push(v.proven
+            ? '  已证明（免修）：可把它当前置已满足、跳过已会内容；课程阶段验收仍要求 verified，不拿它冒充教过。'
+            : '  按结果调整位置：过了就往前/往深走，没过就往回/补讲；' +
+              '定位卷不产生 verified，需要正式验证时先建立教学接触再开验证卷。')
         } else if (v.outcome === 'passed') {
           lines.push(v.verified
             ? `  本次达到独立验证条件${v.verifiedAt ? `，题库难度上限≈${v.verifiedAt}` : '，没有可核对的题库难度段位'}；不代表隔日仍会或能迁移。`
@@ -6728,7 +6744,7 @@ function apply(ctx) {
       const deny = (reject) => ({
         ok: false, reject, node: '', nodeName: '', domain: '', mode: 'verify',
         outcome: '', score: 0, maxScore: 0, passScore: PASS_SCORE,
-        minutes: 0, limit: 0, status: '', verified: false, independence: 'unknown', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
+        minutes: 0, limit: 0, status: '', verified: false, proven: false, independence: 'unknown', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
       })
 
       const prog = loadProgress()
@@ -6806,8 +6822,9 @@ function apply(ctx) {
 
       const node = String(p.node ?? '')
       const prevStatus = nodeStatus(prog, node)
-      const status = placement ? prevStatus
+      let status = placement ? prevStatus
         : verified ? 'verified' : prevStatus === 'none' ? 'studying' : prevStatus
+      let proven = false
 
       // 「验证于哪个段位」= 他拿下的题里 cfRating 最高的那个。
       // 含义是"他证明过的上限"。没过就是 0 —— 没证明过任何段位。
@@ -6836,6 +6853,7 @@ function apply(ctx) {
 
       const nodeRec = { ...(prog.nodes[node] ?? {}) }
       const checks = Array.isArray(nodeRec.checks) ? nodeRec.checks : []
+      const priorChecks = checks.slice()
       checks.push({
         date: localStamp(new Date()).slice(0, 10),
         outcome, score, maxScore, passScore, mode,
@@ -6843,13 +6861,29 @@ function apply(ctx) {
         ...(independence === 'unknown' ? {} : { independent: independence === 'independent' }),
       })
       nodeRec.checks = checks
-      // 定位卷不改掌握状态；验证卷未达到独立验证条件不降级旧状态，未学节点只记录正在学习。
-      if (!placement) {
+      if (placement) {
+        // 定位卷两次独立通过、且第二张卷换了题，才算「已证明/免修」。
+        // 单张定位卷只说明当时位置，不产生 verified，也不改旧状态。
+        const priorPasses = priorChecks.filter((c) => String(c.mode ?? 'verify') === 'placement'
+          && c.outcome === 'passed' && c.independent !== false && Array.isArray(c.problems))
+        const currentIds = new Set(graded.map((g) => normId('nowcoder', g.problemId)))
+        const differentPaper = priorPasses.some((c) => c.problems.every((q) => !currentIds.has(normId('nowcoder', q?.problemId))))
+        proven = outcome === 'passed' && independence === 'independent' && differentPaper && prevStatus !== 'verified'
+        if (proven) {
+          // 页面/旧读侧只认识 status 的四级；proven 另存标记，工具读侧再解释。
+          nodeRec.proven = true
+          const stored = prevStatus === 'verified' ? 'verified' : 'learned'
+          if (prevStatus !== stored) nodeRec.status = stored
+          if (prevStatus !== stored || !nodeRec.at) nodeRec.at = localStamp(new Date()).slice(0, 10)
+          status = 'proven'
+        }
+      } else {
         nodeRec.status = status
+        if (status === 'verified') delete nodeRec.proven
         // ⚠️ 修过：这条路**以前没写 `at`**。
-        // `at` 的语义是「什么时候变成这个状态的」，而 verified 恰恰是**最该有日期的那一跳** ——
-        // 没有它就答不出「他多久没验过这个了」，而那正是"要不要复检"的唯一依据。
-        // 真实数据里就躺着证据：`排序` 是 verified，但整条记录没有 at。
+        // `at` 的语义是「什么时候变成这个状态的」，而 verified 恰恰是**最该有日期的
+        // 那一跳** —— 没有它就答不出「他多久没验过这个了」，而那正是"要不要复检"
+        // 的唯一依据。真实数据里就躺着证据：`排序` 是 verified，但整条记录没有 at。
         // 老记录补不回来，读的时候退到「最后一次判过的日期」（见 statusSince）。
         // 和 markStatus 同一条规矩：**只在状态真的变了时才更新**，重复判不刷新日期。
         if (prevStatus !== status || !nodeRec.at) {
@@ -6863,7 +6897,7 @@ function apply(ctx) {
       return {
         ok: true, reject: '', node, nodeName: byId.get(node)?.name ?? node,
         domain: byId.get(node)?.domain ?? '', mode, outcome, score, maxScore, passScore,
-        minutes, limit, status, verified, independence, verifiedAt, selfReported,
+        minutes, limit, status, verified, proven, independence, verifiedAt, selfReported,
         problems: graded, checks: checks.length,
       }
     },
@@ -8093,6 +8127,7 @@ function markStatus(node, status) {
     else delete p.nodes[id]
   } else {
     const rec = { ...(p.nodes[id] ?? {}), status: s }
+    delete rec.proven
     // `at` = **什么时候变成这个状态的**，不是「最后一次点它」。
     //
     // 语义差别很要命：把它当"最后操作时间"，重复点同一个状态就会把日期刷成今天，
@@ -8107,18 +8142,20 @@ function markStatus(node, status) {
   }
   saveProgress(p)
 
-  const c = { verified: 0, learned: 0, studying: 0 }
-  for (const rec of Object.values(p.nodes)) {
-    if (rec?.status === 'verified') c.verified++
-    else if (rec?.status === 'learned') c.learned++
-    else if (rec?.status === 'studying') c.studying++
+  const c = { verified: 0, proven: 0, learned: 0, studying: 0 }
+  for (const id of Object.keys(p.nodes)) {
+    const status = nodeStatus(p, id)
+    if (status === 'verified') c.verified++
+    else if (status === 'proven') c.proven++
+    else if (status === 'learned') c.learned++
+    else if (status === 'studying') c.studying++
   }
   return {
     ok: true, reject: '', node: id,
     nodeName: byId.get(id).name ?? id,
     from, to: s,
     cursor: p.cursor, updated: p.updated,
-    verifiedCount: c.verified, learnedCount: c.learned, studyingCount: c.studying,
+    verifiedCount: c.verified, provenCount: c.proven, learnedCount: c.learned, studyingCount: c.studying,
   }
 }
 

@@ -9,7 +9,10 @@ import { compactEvents } from '../lib/claims.js'
 const fixture = t => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-reading-storage-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))
-  return { dir, tool: createCompanionTool(dir) }
+  // 这个文件验的是阅读工具内部写入（coach_read）的存储语义，不是模型候选流程。
+  const raw = createCompanionTool(dir)
+  const tool = { execute: (args, context = {}) => raw.execute(args, { origin: 'internal', ...context }) }
+  return { dir, tool }
 }
 
 test('reading text and source scope survive companion writes and fact reloads', async t => {
