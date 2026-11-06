@@ -30,6 +30,7 @@ function fixture() {
   return { dir, progress, strategy, curriculum, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
+const futureDate = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
 const setTarget = (strategy, expectedRevision, contest, date, result) => strategy.target('set', {
   expectedRevision, contest, date, result, weeklyHours: 25,
   priorities: [{ id: 'contest-decision', weight: 100 }],
@@ -72,11 +73,11 @@ test('coach_status carries the target mismatch into what the model reads', async
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
   try {
     writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 3}\nnodes:\n  - {id: A, name: A, depends: []}\n  - {id: B, name: B, depends: [A]}\n')
-    assert.equal(setTarget(strategy, 0, '西安站', '2026-11-02', '银牌').ok, true)
+    assert.equal(setTarget(strategy, 0, '西安站', futureDate(30), '银牌').ok, true)
     assert.equal(curriculum.execute({ action: 'create', expectedRevision: 0,
       goal: '区域赛稳定表现', baseline: '起点已核实', weeklyHours: 30, phases: [phase],
       reason: '根据真实训练表现建立课程路线' }).ok, true)
-    assert.equal(setTarget(strategy, 1, '香港站', '2026-12-15', '金牌').ok, true)
+    assert.equal(setTarget(strategy, 1, '香港站', futureDate(60), '金牌').ok, true)
 
     process.env.COACH_DATA_DIR = dir
     process.env.COACH_DB = join(dir, 'unused.db')
