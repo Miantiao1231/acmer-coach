@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { parse } from 'yaml'
 import { loadPerson, savePerson } from '../lib/person.js'
 
 function shape(schema, value) {
@@ -463,6 +464,50 @@ test('continuation follows a noted unfinished lesson while the cursor stays on i
     assert.equal(explicit.total, 0)
     const injected = await hooks.get('agent/pre-step')({ step: 1, messages: [] }, async () => ({ kind: 'enter', messages: [] }))
     assert.ok(injected.messages.at(-1).content.some(block => block.type === 'text' && block.text.includes('容量维度')))
+  } finally {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a bad paper is cancelled as invalid, not recorded as the student not doing it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-invalid-cancel-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes:\n  - {id: A, name: 基础, depends: []}\n')
+    writeFileSync(join(dir, 'PROGRESS.yaml'), `version: 1
+cursor: A
+nodes:
+  A: {status: studying, at: 2026-11-01}
+pending:
+  node: A
+  mode: verify
+  date: 2026-11-06
+  totalMinutes: 90
+  passScore: 4
+  maxScore: 6
+  problems:
+    - {problemId: P1, band: 易, weight: 1, cfRating: 1200, source: pool}
+`)
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    const { apply } = await import('../index.js?invalid-cancel-contract')
+    const tools = new Map()
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on() {} })
+    const cancelled = await tools.get('coach_cancel').execute({ kind: 'invalid', reason: '题已做过，标签不符' })
+    assert.equal(cancelled.ok, true, cancelled.reject)
+    assert.equal(cancelled.kind, 'invalid')
+    const ledger = parse(readFileSync(join(dir, 'PROGRESS.yaml'), 'utf8'))
+    assert.equal(ledger.pending, undefined)
+    assert.equal(ledger.nodes.A.status, 'studying', 'invalid paper must not change learning state')
+    assert.equal(ledger.nodes.A.checks[0].outcome, 'invalid')
+    const status = await tools.get('coach_status').execute({})
+    assert.deepEqual(status.cancelled.map((item) => [item.node, item.drops]), [['A', 1]])
+    assert.match(tools.get('coach_status').output.render({}, status)[0].text, /卷子作废/)
+    assert.doesNotMatch(tools.get('coach_cancel').output.render({}, cancelled)[0].text, /弃考/)
   } finally {
     for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
       if (value === undefined) delete process.env[key]

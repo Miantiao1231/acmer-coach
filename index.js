@@ -1135,6 +1135,8 @@ const OUTCOME_TAG = {
   // （见 coach_cancel）。归到"没过"里去的话，「他最近三次都没过」和
   // 「他最近三次都没做」就读成同一句话了，而这是两种完全不同的信号。
   abandoned: '弃考（没做）',
+  // 作废：卷子/题目本身有问题（题已做过、标签不符、卷面结构坏了），不是学生没做。
+  invalid: '作废（卷子问题）',
 }
 
 // 距今几天。按**本地零点**对齐，不拿时间戳直接减 ——
@@ -1161,11 +1163,14 @@ function daysSinceDate(dateStr) {
 const STUCK_FAILS = 2
 function nodeFlags(progress, byId) {
   const stuck = []
+  const cancelled = []
   for (const [id, rec] of Object.entries(progress?.nodes ?? {})) {
     const name = byId.get(id)?.name ?? id
     const checks = Array.isArray(rec?.checks) ? rec.checks : []
+    // 定位卷只用于确认位置，不算训练/验证成绩，也不参与「卡住」判断。
     const valid = checks
-      .filter((c) => (c?.outcome === 'passed' || c?.outcome === 'failed') && c?.date)
+      .filter((c) => (c?.outcome === 'passed' || c?.outcome === 'failed') && c?.date &&
+        String(c?.mode ?? 'verify') !== 'placement')
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     const fails = valid.filter((c) => c.outcome === 'failed')
     const last = valid[valid.length - 1]
@@ -1175,9 +1180,16 @@ function nodeFlags(progress, byId) {
     }
     if (why.length) stuck.push({ node: id, name, why: why.join('；') })
 
+    // 作废卷（invalid）保留在检测历史，但不混进「没过」；它是组卷问题的信号。
+    // abandoned 是「他开了卷没做」，不是卷子坏了，不能进这里。
+    const invalid = checks.filter((c) => c?.outcome === 'invalid' && c?.date)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    if (invalid.length) cancelled.push({
+      node: id, name, drops: invalid.length,
+      reason: String(invalid[invalid.length - 1]?.reason ?? ''),
+    })
   }
-  // 作废卷保留在检测历史，不能长期挂成训练员的待办。
-  return { stuck, cancelled: [] }
+  return { stuck, cancelled }
 }
 
 // ── 「这个知识点他学过没有」—— 开卷的前提（需求 #5）────────
@@ -1205,10 +1217,19 @@ function taughtEvidence(progress, id) {
   if (!rec) return null
   const dates = [
     String(rec.at ?? ''),
-    // 兼容旧版接触线索；新计划不再写 taught，续课笔记也不算掌握证据。
+    // 兼容旧版接触线索；新计划不再写 taught。
+    // coach_lesson 的课时记录（lesson=true）算「讲过」；coach_note 的续课笔记不算。
     ...(Array.isArray(rec.taught) ? rec.taught.map((t) => String(t ?? '')) : []),
+    ...(Array.isArray(rec.lessonNotes)
+      ? rec.lessonNotes.filter((note) => note?.lesson === true)
+        .map((note) => String(note?.at ?? '').slice(0, 10))
+      : []),
     ...(Array.isArray(rec.passes) ? rec.passes.map((p) => String(p?.date ?? '')) : []),
-    ...(Array.isArray(rec.checks) ? rec.checks.map((c) => String(c?.date ?? '')) : []),
+    // 定位/诊断卷（checks.mode=placement）不是教学接触，不能拿来给验证卷开门。
+    ...(Array.isArray(rec.checks)
+      ? rec.checks.filter((check) => String(check?.mode ?? 'verify') !== 'placement')
+        .map((check) => String(check?.date ?? ''))
+      : []),
   ].filter(Boolean).sort()
   if (!dates.length && nodeStatus(progress, id) === 'none') return null
   return {
@@ -2938,7 +2959,7 @@ function apply(ctx) {
   }))
   registerTool(ctx, defineTool({
     name: 'coach_note',
-    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课。' +
+    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课；续课笔记不算教学接触，开验证卷仍需 coach_lesson 或 coach_mark 的记录。' +
       'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
     parameters: {
       action: { type: 'string', enum: ['read', 'write', 'revise'], description: '默认 read；write 新增，revise 按 noteId 更正原笔记。' },
@@ -3414,8 +3435,9 @@ function apply(ctx) {
               { name: '提交记录', status: r.submissions ? 'ok' : '空', detail: `${r.submissions} 条` },
               { name: '题库', status: r.library ? 'ok' : '空', detail: `${r.library} 道` },
             ],
-            note: '下一步：**别急着布置**。挑几个有接触证据的节点，先出一次卷确认位置 —— ' +
-              '数据只说"他碰过"，说不出"他会"。（`coach_pool` → `coach_test` → `coach_grade`）',
+            note: '下一步：**别急着布置**。挑几个有接触证据的节点，用定位卷确认位置 —— ' +
+              '数据只说"他碰过"，说不出"他会"。（`coach_pool` → `coach_test mode=placement` → `coach_grade`）' +
+              '定位卷不产生 verified；确认位置后再讲、再开验证卷。',
           }
         } catch (e) {
           return { ...base, ok: false, handle: h, note: `同步失败：${e.message}。网络不通或 handle 拼错时都是这个错，别硬编一个结果。` }
@@ -4411,7 +4433,7 @@ function apply(ctx) {
   // 只记学生回应和结果；讲解深浅由教练根据当下回应决定。
   registerTool(ctx, defineTool({
     name: 'coach_lesson',
-    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。',
+    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。这条课堂记录算教学接触（不是掌握证据），可作为之后开验证卷的前提。',
     parameters: {
       action: { type: 'string', required: true, enum: ['start', 'advance', 'correct', 'end', 'status'] },
       node: { type: 'string', description: 'start 必填：地图节点 id' },
@@ -4515,6 +4537,9 @@ function apply(ctx) {
               at: new Date().toISOString(), summary: summary.slice(0, 1000),
               nextStep: args.nextStep?.trim() ?? (outcome === 'unknown' ? '独立做题尚未核实；下次根据当前目标判断是否需要实作验证。' :
                 '下次根据这节课的记录和训练目标决定练习或复习。'), studentEvidence: null,
+              // 只给 coach_lesson 写的笔记打标记：它是「讲过」的接触记录，
+              // 不是掌握证据；coach_note 的续课笔记没有这个标记，不冒充教学接触。
+              lesson: true,
             }] }
           }
           p.lesson = null
@@ -4522,7 +4547,7 @@ function apply(ctx) {
           return { ...empty, ok: true, action, active: false, outcome,
             text: `课时已收：${name} · 结果 ${outcome}` +
               (outcome === 'unknown' ? '\n独立做题尚未核实。' : '') +
-              (hasSummary ? '\n课堂记录已记入续课笔记。' : '\n本次无课堂回应，未写续课笔记。') +
+              (hasSummary ? '\n课堂记录已记入续课笔记（教学接触，不证明掌握）。' : '\n本次无课堂回应，未写续课笔记。') +
               '\n有做题事实再用 coach_log 记。' }
         }
         return deny('action 只能是 start/advance/correct/end/status。')
@@ -4618,6 +4643,8 @@ function apply(ctx) {
                 nodeName: { type: 'string', required: true },
                 date: { type: 'string', required: true },
                 outcome: { type: 'string', required: true },
+                // verify / placement（定位/诊断卷）；老记录没有这个字段时兜底 verify。
+                mode: { type: 'string', required: true },
                 independent: { type: 'boolean' },
                 score: { type: 'integer', required: true },
                 maxScore: { type: 'integer', required: true },
@@ -4707,6 +4734,7 @@ function apply(ctx) {
           pendingNode: { type: 'string', required: true },
           pendingNodeName: { type: 'string', required: true },
           pendingDate: { type: 'string', required: true },
+          pendingMode: { type: 'string', required: true },
           pendingProblems: { type: 'integer', required: true },
           pendingMinutes: { type: 'integer', required: true },
           // 押着的训练动作（需求 #6）：**布置过的活也是约束** —— 不报出来，
@@ -4743,7 +4771,7 @@ function apply(ctx) {
             (v.cursorName
               ? (v.cursorTaught
                 ? `　接触记录 ${v.cursorTaught}（不证明理解）`
-                : `　⚠️ **还没有教学记录** —— 现在开卷会被拒，先讲`)
+                : `　⚠️ **还没有教学记录** —— 验证卷会被拒，先讲；新用户定位可用 coach_test mode=placement`)
               : ''),
           v.teachingContext,
           v.memoryRecallState === 'unavailable' ? '⚠️ 记忆召回暂不可用；不能把想不起往事当作从未发生。' :
@@ -4756,9 +4784,11 @@ function apply(ctx) {
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
           v.pendingNode
-            ? `📌 **手上押着一张卷**：${v.pendingNodeName || v.pendingNode}　` +
+            ? `📌 **手上押着一张卷**${v.pendingMode === 'placement' ? '（定位卷）' : ''}：` +
+              `${v.pendingNodeName || v.pendingNode}　` +
               `（${v.pendingDate} 开，${v.pendingProblems} 道，限时 ${v.pendingMinutes} 分钟）\n` +
-              `　 他做完 → coach_grade 判卷；他不做了 → coach_cancel 撤卷（别拿假的成绩去判）。`
+              `　 他做完 → coach_grade 判卷；他不做了 → coach_cancel kind=abandoned 撤卷；` +
+              `卷子/题目本身有问题 → coach_cancel kind=invalid 作废（别把坏卷记成"他没做"）。`
             : '',
           // 押着的动作紧跟着押着的卷：两个都是**卡住下一步的约束**，
           // 而且都是"跨会话会忘"的东西。
@@ -4780,7 +4810,8 @@ function apply(ctx) {
               v.stuck.map((s) => `${s.name}（${s.why}）`).join('　·　')
             : '',
           v.cancelled.length
-            ? '⚠️ **卷子反复作废**（不是他没做，是卷子有问题 —— 去看标签和已 AC 记录）：' +
+            ? `⚠️ **卷子${v.cancelled.some((s) => s.drops > 1) ? '反复' : ''}作废**` +
+              '（不是他没做，是卷子有问题 —— 去看标签和已 AC 记录）：' +
               v.cancelled.map((s) => `${s.name} 作废 ${s.drops} 次` +
                 (s.reason ? `（最近一次：${s.reason}）` : '')).join('　·　')
             : '',
@@ -4797,7 +4828,8 @@ function apply(ctx) {
           // 而在这之前它们只写不读（见 schema 里的注释）。
           v.checkTotal
             ? `检测记录 ${v.checkTotal} 次，最近：` + v.recentChecks.slice(0, 4).map((c) =>
-              `${c.date.slice(5)} ${c.nodeName} ${OUTCOME_TAG[c.outcome] ?? c.outcome}` +
+              `${c.date.slice(5)} ${c.nodeName}${c.mode === 'placement' ? '［定位卷］' : ''} ` +
+              `${OUTCOME_TAG[c.outcome] ?? c.outcome}` +
               (c.outcome === 'passed' ? (c.independent === true ? '［独立］' : c.independent === false ? '［有帮助］' : '［独立性未知］') : '') +
               (c.outcome === 'overTime' ? `（${c.minutes}/${c.limit} 分钟）` : '') +
               (c.verifiedAt ? ` 验证于≈${c.verifiedAt}` : '') +
@@ -4858,6 +4890,7 @@ function apply(ctx) {
           allChecks.push({
             node: id, nodeName: name,
             date: String(c?.date ?? ''), outcome: String(c?.outcome ?? ''),
+            mode: String(c?.mode ?? 'verify') === 'placement' ? 'placement' : 'verify',
             ...(typeof c?.independent === 'boolean' ? { independent: c.independent } : {}),
             score: Number(c?.score ?? 0), maxScore: Number(c?.maxScore ?? 0),
             minutes: Number(c?.minutes ?? 0), limit: Number(c?.limit ?? 0),
@@ -4988,6 +5021,7 @@ function apply(ctx) {
         pendingNode: String(p.pending?.node ?? ''),
         pendingNodeName: byId.get(String(p.pending?.node ?? ''))?.name ?? '',
         pendingDate: String(p.pending?.date ?? ''),
+        pendingMode: String(p.pending?.mode ?? '') === 'placement' ? 'placement' : (p.pending ? 'verify' : ''),
         pendingProblems: Array.isArray(p.pending?.problems) ? p.pending.problems.length : 0,
         pendingMinutes: Number(p.pending?.totalMinutes ?? 0),
         // 押着的训练动作（需求 #6）：按押的时间正序（放得最久的在前）——
@@ -5770,7 +5804,8 @@ function apply(ctx) {
               : `没有档正好落进去 —— 最接近的是 **${nearest.band}档（锚点 ${nearest.anchorRating}）**。`) +
             (integrated ? '三档只用来看难度分布，不据此开独立卷。' : '三档各挑一道，但心里得有数哪档是主力。'))
         }
-        if (!integrated) lines.push('', '从每档挑一道交 coach_test，三档各一道。')
+        if (!integrated) lines.push('', '从每档挑一道交 coach_test，三档各一道。' +
+          '新用户定位用 mode=placement（不要求教学记录、不产生 verified）；正常验证用默认 mode=verify。')
         return [{ type: 'text', text: lines.join('\n') }]
       },
     },
@@ -5946,7 +5981,10 @@ function apply(ctx) {
   registerTool(ctx, defineTool({
     name: 'coach_test',
     description:
-      '开一张章节检测卷。你**先调 coach_pool** 拿候选池，再从中挑三道：易/中/难 各一道，' +
+      '开一张检测卷。默认是**验证卷**（mode=verify）；新用户没有教学记录时可用 ' +
+      '**定位/诊断卷**（mode=placement）确认位置 —— 定位卷不要求该节点已有教学记录，' +
+      '也不产生 verified，但同样要三题、各档、核实。\n' +
+      '你**先调 coach_pool** 拿候选池，再从中挑三道：易/中/难 各一道，' +
       '然后把题号交到这里。\n' +
       '工具会核：题号真在题库里吗（挡编造）、他 AC 过没有（不重复喂已经会的题）、' +
       '三档齐不齐。任何一条不过都会被拒绝。\n' +
@@ -5961,6 +5999,9 @@ function apply(ctx) {
       '卷子会落盘——他做完回来调 coach_grade 录结果，一次只开一张。',
     parameters: {
       node: { type: 'string', required: true, description: '考哪个知识点，必须在地图里' },
+      mode: { type: 'string', enum: ['verify', 'placement'],
+        description: '默认 verify（验证已讲过的内容；节点需有教学接触记录）。' +
+          'placement = 定位/诊断卷：用于新用户确认位置，不要求教学记录、不产生 verified。' },
       problems: {
         type: 'array',
         required: true,
@@ -6011,6 +6052,7 @@ function apply(ctx) {
           node: { type: 'string', required: true },
           nodeName: { type: 'string', required: true },
           domain: { type: 'string', required: true },
+          mode: { type: 'string', required: true },
           totalMinutes: { type: 'integer', required: true },
           passScore: { type: 'integer', required: true },
           maxScore: { type: 'integer', required: true },
@@ -6042,10 +6084,12 @@ function apply(ctx) {
       },
       render: (_args, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 开不了卷：${v.reject}` }]
+        const placement = v.mode === 'placement'
         const lines = [
-          `【检测卷】${v.nodeName}　[${v.domain}]`,
+          `${placement ? '【定位卷】' : '【检测卷】'}${v.nodeName}　[${v.domain}]`,
           `限时 ${v.totalMinutes} 分钟 · 通过线 ${v.passScore}/${v.maxScore} 分` +
           `　**独立完成，不看题解、不求助**`,
+          ...(placement ? ['定位卷只用于确认位置，不产生 verified；按结果调整游标/课程。'] : []),
           '',
         ]
         for (const p of v.problems) {
@@ -6072,13 +6116,17 @@ function apply(ctx) {
     async execute(args) {
       const { byId, stamp } = loadMap()
       const node = String(args?.node ?? '').trim()
+      const mode = String(args?.mode ?? 'verify').trim()
       const given = Array.isArray(args?.problems) ? args.problems : []
       const deny = (reject) => ({
         ok: false, reject, node, nodeName: byId.get(node)?.name ?? '',
-        domain: byId.get(node)?.domain ?? '', totalMinutes: 0,
+        domain: byId.get(node)?.domain ?? '', mode, totalMinutes: 0,
         passScore: PASS_SCORE, maxScore: 0, problems: [], mapStamp: stamp,
       })
 
+      if (!['verify', 'placement'].includes(mode)) {
+        return deny('mode 只能是 verify（验证卷）或 placement（定位/诊断卷）。')
+      }
       if (!byId.has(node)) {
         const near = suggest(node, [...byId.values()])
         return deny(`地图里没有「${node}」这个知识点，别自己造。` +
@@ -6230,11 +6278,16 @@ function apply(ctx) {
         // 这个文件自己的规矩就是「题本身有问题的话先说题的问题（那更好改）」，
         // 节点级的前提不该抢在它前面。放这儿 = 题都对、卷子本来能成，才轮到问
         // "这节点学过吗"。
-        if (!taughtEvidence(prog, node)) {
+        //
+        // 定位/诊断卷（mode=placement）是这条闸的明确例外：新用户还什么都没有时，
+        // 先用它确认位置。定位卷不产生 verified，也不冒充教学接触；之后要开验证卷，
+        // 仍得先讲（或至少有一条真正的教学接触记录）。
+        if (mode === 'verify' && !taughtEvidence(prog, node)) {
           return deny(`该节点尚无教学记录，先讲再开卷 —— 「${byId.get(node)?.name ?? node}」` +
             '在进度文件里一条痕迹都没有（没标过在学、没打过卡、没判过卷）。' +
-            '检测是**验**学过的东西，不是**筛**没学过的。' +
-            '先讲过（coach_mark 标在学）再回来开卷。')
+            '验证卷是**验**学过的东西，不是**筛**没学过的。' +
+            '先讲过（coach_lesson 收课，或 coach_mark 标在学）再回来开卷；' +
+            '新用户定位请用 mode=placement 开定位卷（不要求教学记录、不产生 verified）。')
         }
 
         // 一次只开一张。同时押两张，判卷时就不知道该判哪张。
@@ -6259,7 +6312,7 @@ function apply(ctx) {
         }
         if (Object.keys(led).length) prog.verified_problems = led
         prog.pending = {
-          node, date: localStamp(new Date()).slice(0, 10), at: localStamp(new Date()),
+          node, mode, date: localStamp(new Date()).slice(0, 10), at: localStamp(new Date()),
           totalMinutes, passScore: PASS_SCORE, maxScore,
           // 存**整份**题目信息，不只是题号。这样判卷时不必再连数据库 ——
           // 判卷只该依赖卷子本身，库搬了、锁了都不该让判卷失败。
@@ -6269,7 +6322,7 @@ function apply(ctx) {
 
         return {
           ok: true, reject: '', node, nodeName: byId.get(node).name ?? node,
-          domain: byId.get(node).domain ?? '', totalMinutes,
+          domain: byId.get(node).domain ?? '', mode, totalMinutes,
           passScore: PASS_SCORE, maxScore, problems: picked, mapStamp: stamp,
         }
       } catch (err) {
@@ -6494,9 +6547,10 @@ function apply(ctx) {
   registerTool(ctx, defineTool({
     name: 'coach_grade',
     description:
-      '给正押着的那张检测卷判卷。收每题 AC 与否、实际分钟数和明确的独立性事实（未知就省略）。\n' +
+      '给正押着的那张检测卷或定位卷判卷。收每题 AC 与否、实际分钟数和明确的独立性事实（未知就省略）。\n' +
       '判定：难易加权（易1/中2/难3，满分 6），**通过线 4 分且总用时不超过限时**。\n' +
-      '分够但超时 → overTime；分不够 → failed。卷面通过且所有做出的题明确独立，才产生本次 verified。\n' +
+      '分够但超时 → overTime；分不够 → failed。验证卷（mode=verify）卷面通过且所有做出的题明确独立，才产生本次 verified。\n' +
+      '定位/诊断卷（mode=placement）只记结果、用于确认位置，不产生 verified，也不改掌握状态。\n' +
       '接受过提示/题解/他人帮助，或独立性未知：只记过卷，保留原状态，不冒充独立掌握。\n' +
       '失败或超时记录本次观察，保留旧验证与状态；不自动认定基础退化。另有证据支持时可用 coach_mark 调整当前状态。\n' +
       '本次独立验证不证明隔日保持或迁移；下一步由教练结合课程和表现判断。',
@@ -6527,6 +6581,7 @@ function apply(ctx) {
           node: { type: 'string', required: true },
           nodeName: { type: 'string', required: true },
           domain: { type: 'string', required: true },
+          mode: { type: 'string', required: true },
           outcome: { type: 'string', required: true },
           score: { type: 'integer', required: true },
           maxScore: { type: 'integer', required: true },
@@ -6566,15 +6621,19 @@ function apply(ctx) {
       },
       render: (_args, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 判不了：${v.reject}` }]
-        const head = v.outcome === 'passed'
-          ? `✅ 卷面通过${v.verified ? ' · 本次独立验证' : ' · 未形成独立验证'}　${v.nodeName}`
-          : v.outcome === 'overTime'
-            ? `⏱ 分数够，但超时了 —— 这不算过　${v.nodeName}`
-            : `❌ 没过　${v.nodeName}`
+        const placement = v.mode === 'placement'
+        const head = placement
+          ? `${v.outcome === 'passed' ? '✅' : v.outcome === 'overTime' ? '⏱' : '❌'} 定位卷${v.outcome === 'passed' ? '：过了' : v.outcome === 'overTime' ? '：超时' : '：没过'}　${v.nodeName}`
+          : v.outcome === 'passed'
+            ? `✅ 卷面通过${v.verified ? ' · 本次独立验证' : ' · 未形成独立验证'}　${v.nodeName}`
+            : v.outcome === 'overTime'
+              ? `⏱ 分数够，但超时了 —— 这不算过　${v.nodeName}`
+              : `❌ 没过　${v.nodeName}`
         const lines = [
           head,
           `得分 ${v.score}/${v.maxScore}（通过线 ${v.passScore}）· ` +
           `用时 ${v.minutes}/${v.limit} 分钟 · 累计检测 ${v.checks} 次`,
+          ...(placement ? ['定位卷只记结果，不产生 verified，也不改掌握状态。'] : []),
           // 自述题要说在**结论旁边**，不能只躺在记录里：这张卷的证据强度
           // 直接影响这条 verified 值不值钱，而"过了"这两个字会盖过一切。
           ...(v.selfReported
@@ -6588,7 +6647,10 @@ function apply(ctx) {
             `${p.minutes} 分钟（权重 ${p.weight}；${p.independent === true ? '独立' : p.independent === false ? '有帮助' : '独立性未记录'}）`)
         }
         lines.push('', '── 下一步 ──')
-        if (v.outcome === 'passed') {
+        if (placement) {
+          lines.push('  按结果调整位置：过了就往前/往深走，没过就往回/补讲；' +
+            '定位卷不产生 verified，需要正式验证时先建立教学接触再开验证卷。')
+        } else if (v.outcome === 'passed') {
           lines.push(v.verified
             ? `  本次达到独立验证条件${v.verifiedAt ? `，题库难度上限≈${v.verifiedAt}` : '，没有可核对的题库难度段位'}；不代表隔日仍会或能迁移。`
             : v.independence === 'assisted'
@@ -6612,7 +6674,7 @@ function apply(ctx) {
       const { byId } = loadMap()
       const given = Array.isArray(args?.results) ? args.results : []
       const deny = (reject) => ({
-        ok: false, reject, node: '', nodeName: '', domain: '',
+        ok: false, reject, node: '', nodeName: '', domain: '', mode: 'verify',
         outcome: '', score: 0, maxScore: 0, passScore: PASS_SCORE,
         minutes: 0, limit: 0, status: '', verified: false, independence: 'unknown', verifiedAt: 0, selfReported: 0, problems: [], checks: 0,
       })
@@ -6622,6 +6684,8 @@ function apply(ctx) {
         return deny('手里没押着卷子 —— 没卷子可判。要检测就先调 coach_test 开一张。')
       }
       const p = prog.pending
+      const mode = String(p.mode ?? 'verify') === 'placement' ? 'placement' : 'verify'
+      const placement = mode === 'placement'
       const paper = Array.isArray(p.problems) ? p.problems : []
       if (given.length !== paper.length) {
         return deny(`卷子是 ${paper.length} 道题，你给了 ${given.length} 条结果 —— ` +
@@ -6685,11 +6749,13 @@ function apply(ctx) {
       const solvedProblems = graded.filter((g) => g.solved)
       const independence = solvedProblems.some((g) => g.independent === false) ? 'assisted'
         : solvedProblems.length && solvedProblems.every((g) => g.independent === true) ? 'independent' : 'unknown'
-      const verified = outcome === 'passed' && independence === 'independent'
+      // 定位卷只定位，不产出掌握证书；验证卷仍按「通过 + 全部独立」验证。
+      const verified = !placement && outcome === 'passed' && independence === 'independent'
 
       const node = String(p.node ?? '')
       const prevStatus = nodeStatus(prog, node)
-      const status = verified ? 'verified' : prevStatus === 'none' ? 'studying' : prevStatus
+      const status = placement ? prevStatus
+        : verified ? 'verified' : prevStatus === 'none' ? 'studying' : prevStatus
 
       // 「验证于哪个段位」= 他拿下的题里 cfRating 最高的那个。
       // 含义是"他证明过的上限"。没过就是 0 —— 没证明过任何段位。
@@ -6720,20 +6786,23 @@ function apply(ctx) {
       const checks = Array.isArray(nodeRec.checks) ? nodeRec.checks : []
       checks.push({
         date: localStamp(new Date()).slice(0, 10),
-        outcome, score, maxScore, passScore,
+        outcome, score, maxScore, passScore, mode,
         minutes, limit, verifiedAt, selfReported, problems: graded,
         ...(independence === 'unknown' ? {} : { independent: independence === 'independent' }),
       })
       nodeRec.checks = checks
-      nodeRec.status = status
-      // ⚠️ 修过：这条路**以前没写 `at`**。
-      // `at` 的语义是「什么时候变成这个状态的」，而 verified 恰恰是**最该有日期的那一跳** ——
-      // 没有它就答不出「他多久没验过这个了」，而那正是"要不要复检"的唯一依据。
-      // 真实数据里就躺着证据：`排序` 是 verified，但整条记录没有 at。
-      // 老记录补不回来，读的时候退到「最后一次判过的日期」（见 statusSince）。
-      // 和 markStatus 同一条规矩：**只在状态真的变了时才更新**，重复判不刷新日期。
-      if (prevStatus !== status || !nodeRec.at) {
-        nodeRec.at = localStamp(new Date()).slice(0, 10)
+      // 定位卷不改掌握状态；验证卷未达到独立验证条件不降级旧状态，未学节点只记录正在学习。
+      if (!placement) {
+        nodeRec.status = status
+        // ⚠️ 修过：这条路**以前没写 `at`**。
+        // `at` 的语义是「什么时候变成这个状态的」，而 verified 恰恰是**最该有日期的那一跳** ——
+        // 没有它就答不出「他多久没验过这个了」，而那正是"要不要复检"的唯一依据。
+        // 真实数据里就躺着证据：`排序` 是 verified，但整条记录没有 at。
+        // 老记录补不回来，读的时候退到「最后一次判过的日期」（见 statusSince）。
+        // 和 markStatus 同一条规矩：**只在状态真的变了时才更新**，重复判不刷新日期。
+        if (prevStatus !== status || !nodeRec.at) {
+          nodeRec.at = localStamp(new Date()).slice(0, 10)
+        }
       }
       prog.nodes[node] = nodeRec
       prog.pending = null
@@ -6741,7 +6810,7 @@ function apply(ctx) {
 
       return {
         ok: true, reject: '', node, nodeName: byId.get(node)?.name ?? node,
-        domain: byId.get(node)?.domain ?? '', outcome, score, maxScore, passScore,
+        domain: byId.get(node)?.domain ?? '', mode, outcome, score, maxScore, passScore,
         minutes, limit, status, verified, independence, verifiedAt, selfReported,
         problems: graded, checks: checks.length,
       }
@@ -6761,21 +6830,29 @@ function apply(ctx) {
   //   ① **独立工具，不塞进 coach_grade 的参数**。判卷 = 他做了、报结果；
   //      撤卷 = 他没做。一个入口两件事的话，小鲸迟早会拿"撤卷"躲开一次
   //      难看的判卷结果 —— 而那次判卷恰恰是最该留下的一条数据。
-  //   ② **撤不是删**：往 checks 里落一条 outcome=abandoned。
-  //      「开了卷没做」本身就是信号（卷子出难了？那天没时间？），
-  //      抹掉它等于把一条证据洗掉，而且洗得无声无息。
+  //   ② **撤不是删**：往 checks 里落一条 outcome=abandoned（学生没做）
+  //      或 outcome=invalid（卷子/题目本身有问题）。两者不能混：
+  //      「开了卷没做」是学习信号，「题已做过/标签不符」是组卷 bug；
+  //      把坏卷记成「他没做」等于把一条假数据写进真相源。
   registerTool(ctx, defineTool({
     name: 'coach_cancel',
     description:
-      '撤掉手上正押着的那张检测卷 —— **只有他说「不做了 / 今天没时间 / 换个时间」时才用**。\n' +
-      '⚠️ 他做了、但考得不好，**一律走 coach_grade**（哪怕三题全错也要判）。' +
+      '撤掉手上正押着的那张检测卷。\n' +
+      '**kind=abandoned（默认）**：只有他说「不做了 / 今天没时间 / 换个时间」时才用；' +
       '撤卷会把"他没做"记进台账，判卷会把"他没过"记进台账 —— 把没过说成没做，' +
       '等于把一条真数据换成一条假数据。\n' +
+      '**kind=invalid**：卷子/题目本身有问题（题已做过、标签不符、卷面结构坏了）时用；' +
+      '它记成"卷子作废"，不是"他没做"，也不改知识点状态。\n' +
+      '⚠️ 他做了、但考得不好，**一律走 coach_grade**（哪怕三题全错也要判）。\n' +
       '撤完知识点状态**不动**（不升也不降）：没做检测不代表没学，也不代表学了。',
     parameters: {
+      kind: {
+        type: 'string', enum: ['abandoned', 'invalid'],
+        description: '默认 abandoned = 学生没做；invalid = 卷子/题目有问题（题已做过、标签不符等），不是学生没做。',
+      },
       reason: {
         type: 'string', required: true,
-        description: '已知的撤卷原因，进台账；未知如实记未说明，不编理由。用户已说明或不愿解释时不追问。',
+        description: '已知的撤卷原因，进台账；abandoned 写他没做的原因，invalid 写清题目/标签哪里不对。未知如实记未说明，不编理由；用户已说明或不愿解释时不追问。',
       },
     },
     output: {
@@ -6789,6 +6866,7 @@ function apply(ctx) {
           nodeName: { type: 'string', required: true },
           domain: { type: 'string', required: true },
           date: { type: 'string', required: true },
+          kind: { type: 'string', required: true },
           problems: { type: 'integer', required: true },
           reason: { type: 'string', required: true },
           checks: { type: 'integer', required: true },
@@ -6796,23 +6874,31 @@ function apply(ctx) {
       },
       render: (_a, v) => {
         if (!v.ok) return [{ type: 'text', text: `❌ 撤不了：${v.reject}` }]
+        const invalid = v.kind === 'invalid'
         return [{
           type: 'text',
-          text: `🗑 卷子撤了：${v.nodeName}（${v.date} 开的那张，${v.problems} 道）\n` +
+          text: `${invalid ? '🗑 卷子作废' : '🗑 卷子撤了'}：${v.nodeName}（${v.date} 开的那张，${v.problems} 道）\n` +
             `原因记下了：${v.reason}\n` +
-            `这个知识点的状态**没动** —— 没做检测不等于没学。累计检测记录 ${v.checks} 条。\n` +
-            `\n` +
-            '是否另排训练按当前请求决定；不自动追问原因或重新排课。',
+            (invalid
+              ? `这是**卷子问题**，不记成"他没做"；知识点状态没动。累计检测记录 ${v.checks} 条。\n\n` +
+                `重新核题后再用 coach_test 开新卷。`
+              : `这个知识点的状态**没动** —— 没做检测不等于没学。累计检测记录 ${v.checks} 条。\n\n` +
+                '是否另排训练按当前请求决定；不自动追问原因或重新排课。'),
         }]
       },
     },
     async execute(args) {
       const { byId } = loadMap()
       const reason = String(args?.reason ?? '').trim()
+      const kind = String(args?.kind ?? 'abandoned').trim()
       const deny = (reject) => ({
-        ok: false, reject, node: '', nodeName: '', domain: '',
+        ok: false, reject, node: '', nodeName: '', domain: '', kind,
         date: '', problems: 0, reason: '', checks: 0,
       })
+
+      if (!['abandoned', 'invalid'].includes(kind)) {
+        return deny('kind 只能是 abandoned（学生没做）或 invalid（卷子/题目有问题）。')
+      }
 
       // 撤卷要写理由。没理由的撤 = 随手把一张卷抹掉，
       // 而"为什么没做"正是这件事里唯一有价值的部分。
@@ -6834,7 +6920,8 @@ function apply(ctx) {
       const now = localStamp(new Date())
       checks.push({
         date: now.slice(0, 10),
-        outcome: 'abandoned',
+        outcome: kind === 'invalid' ? 'invalid' : 'abandoned',
+        mode: String(p.mode ?? 'verify') === 'placement' ? 'placement' : 'verify',
         score: 0,
         maxScore: Number(p.maxScore ?? 0),
         passScore: Number(p.passScore ?? 0),
@@ -6863,7 +6950,7 @@ function apply(ctx) {
       return {
         ok: true, reject: '', node, nodeName: name,
         domain: byId.get(node)?.domain ?? '',
-        date: String(p.date ?? ''), problems: paper.length,
+        date: String(p.date ?? ''), kind, problems: paper.length,
         reason, checks: checks.length,
       }
     },
