@@ -595,7 +595,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 
 | 文件 | 作用 |
 |---|---|
-| `index.js` | 插件本体（host 端，37 个工具 + 规则注入） |
+| `index.js` | 插件本体（host 端，38 个工具 + 规则注入） |
 | `lib/setup.js` | 环境搭建 + CF 公开数据同步 |
 | `lib/curriculum.js` | 持久课程路线、阶段验收门槛、版本与修订历史 |
 | `lib/curriculum-evidence.js` | 从实际记录派生证据引用与事件身份，去重课表和训练记录 |
@@ -626,7 +626,7 @@ COACH_HINDSIGHT=1 HINDSIGHT_URL=http://127.0.0.1:18888 HINDSIGHT_BANK=my-trainin
 | **人设** | `assets/persona/xiaojing-coach.md` | 默认静态加载，宿主自定义风格和当前用户偏好可覆盖；改后重启dsh |
 | **规则** | `assets/rules/coach-rules.md` | 插件用 `systemPrompt.section()` 注进 system prompt（和人设同一条路）。**改它要重启 dsh** |
 | **知识** | 地图 4 份 + OI Wiki 检索库 | `coach_setup init` 铺到数据目录；OI Wiki 直接从包里读 |
-| **工具** | 37 个 | 装完就在；`coach_recall` 未启用时只显示诊断 |
+| **工具** | 38 个 | 装完就在；`coach_recall` 未启用时只显示诊断 |
 
 规则进的是 **system prompt，不是消息流**：行为约束每轮都得在场，
 而消息流会被长对话把尾巴挤掉。文本是**静态**的（只在加载时读一次）——
