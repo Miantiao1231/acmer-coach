@@ -398,6 +398,55 @@ test('a burst sends one short follow-up after the gap, without spending a new da
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
+test('a burst is still blocked by quiet hours, daily cap and unanswered pause', () => {
+  const base = { ...emptyState(new Date('2026-10-30T12:00:00')), enabled: true, sessionId: 'sess-1' }
+  const midnight = new Date('2026-10-30T22:30:10')
+  assert.equal(nextAllowed(base, midnight, CONFIG, { burst: true }).reason, 'quiet')
+  // 每日上限按联系算，burst 是同一轮的补一句；普通路径仍然受上限约束。
+  const capped = { ...base, occupiedToday: 1, lastUserAt: '2026-10-30T09:00:00' }
+  assert.equal(nextAllowed(capped, new Date('2026-10-30T12:00:00'), CONFIG, { burst: true }).reason, 'ready')
+  assert.equal(nextAllowed(capped, new Date('2026-10-30T12:00:00'), CONFIG).reason, 'daily-cap')
+  const unanswered = { ...base, unanswered: 2, lastContactAt: '2026-10-30T11:00:00' }
+  assert.equal(nextAllowed(unanswered, new Date('2026-10-30T12:00:00'), CONFIG, { burst: true }).reason, 'unanswered')
+  // 同一轮补一句不再被 idle/最短间隔挡住；普通路径仍会挡。
+  const recent = { ...base, lastUserAt: '2026-10-30T11:50:00', lastContactAt: '2026-10-30T11:59:00' }
+  assert.equal(nextAllowed(recent, new Date('2026-10-30T12:00:00'), CONFIG, { burst: true }).reason, 'ready')
+  assert.equal(nextAllowed(recent, new Date('2026-10-30T12:00:00'), CONFIG).reason, 'idle')
+})
+
+test('a due burst waits for quiet hours instead of sending', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-pworker-'))
+  try {
+    let clock = new Date('2026-10-30T22:29:00')
+    const state = emptyState(clock)
+    state.enabled = true
+    state.sessionId = 'sess-1'
+    state.route = { provider: 'p', model: 'm' }
+    state.lastUserAt = '2026-10-30T21:00:00'
+    saveState(dir, state)
+    const sent = []
+    const llm = mockLlm(['在吗，明天要不要接着看？', JSON.stringify({ decision: 'send', score: 86, reason: '像她' })])
+    const worker = createProactiveWorker({
+      ctx: mockCtx(llm, sent), dataDir: dir,
+      loadPerson: () => ({ profile: {}, relation: { milestones: [] }, library: [], promises: [{ text: '明天问他进度', dueAt: '2026-10-31', status: 'open' }] }),
+      loadProgress: () => ({ nodes: {} }), loadSchedule: () => ({ classWindow: null }),
+      loadTarget: () => null, loadCompanionState: () => ({ lastUserAt: '2026-10-30T21:00:00', life: null }),
+      loadVp: () => null, config: BURST_CONFIG, now: () => clock,
+    })
+    try {
+      assert.equal((await worker.tick()).reason, 'sent')
+      assert.ok(loadState(dir, clock).burst)
+      clock = new Date('2026-10-30T22:30:10')
+      assert.equal((await worker.tick()).reason, 'burst-wait')
+      const after = loadState(dir, clock)
+      assert.ok(after.burst, 'the burst is held, not silently dropped')
+      assert.equal(after.contacts.filter(item => item.status === 'sent').length, 1)
+      assert.equal(sent.length, 1)
+      assert.ok(Date.parse(after.nextAt) > clock.getTime())
+    } finally { worker.stop() }
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('a user reply cancels a pending burst', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'coach-pworker-'))
   try {
