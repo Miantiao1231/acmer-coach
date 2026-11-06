@@ -138,14 +138,14 @@ test('life improvisation waits while chatting or sleeping without reserving budg
   assert.equal(loadTaskQueue(f.dir).tasks.some(task => task.kind === 'life.improvise'), false)
 })
 
-test('two life ticks share one durable improvisation reservation', async t => {
+test('two life ticks share one durable improvisation reservation', { timeout: 5000 }, async t => {
   let signalStarted, release
   const started = new Promise(resolve => { signalStarted = resolve })
   const gate = new Promise(resolve => { release = resolve })
   const f = fixture(t, { enabled: true, beforeReply: () => { signalStarted(); return gate } })
   const first = f.tick()(BASE)
-  await started
   try {
+    await Promise.race([started, first.then(() => { throw new Error('tick finished without entering generation') })])
     await f.tick()(BASE)
     assert.equal(f.requests.length, 1)
   } finally { release() }

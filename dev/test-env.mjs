@@ -1,3 +1,5 @@
+// 作息夹具按 +08:00 编写；固定测试时区，避免 UTC runner 把白天当成睡眠。
+process.env.TZ = 'Asia/Shanghai'
 // An opted-in launch shell must not connect ordinary tests to its real memory bank.
 process.env.COACH_HINDSIGHT = '0'
 // 普通测试不联网；外部源单测自己传 env/fetch。
