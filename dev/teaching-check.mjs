@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { createTeachingNotes } from '../lib/teaching.js'
+import { createTeachingNotes, minutesInReport } from '../lib/teaching.js'
 import { buildTrainingLog } from '../lib/training-log.js'
 
 const AT = '2026-10-11T10:00:00.000Z'
@@ -13,6 +13,15 @@ const userEvent = (overrides = {}) => ({
   type: 'user/message', seq: 7,
   data: { id: 'message-7', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: QUOTE }] },
   ...overrides,
+})
+
+test('student reports accept Chinese durations instead of only bare numbers', () => {
+  assert.deepEqual(minutesInReport('这题做了半小时'), [30])
+  assert.deepEqual(minutesInReport('我花了一个半小时'), [30, 90])
+  assert.ok(minutesInReport('四十分钟独立做出来了').includes(40))
+  assert.ok(minutesInReport('两小时').includes(120))
+  assert.ok(minutesInReport('1.5 小时').includes(90))
+  assert.deepEqual(minutesInReport('没看时间'), [])
 })
 
 function fixture(t) {
@@ -49,6 +58,46 @@ test('续课笔记留在既有节点账本，重建后可读且不改变掌握�
   const expected = structuredClone(f.initial)
   expected.nodes.dp.lessonNotes = [{ ...result.notes[0], studentEvidence: null }]
   assert.deepEqual(f.loadProgress(), expected)
+})
+
+test('课中续课笔记默认跟随当前课时，显式指定仍优先于课时和游标', async (t) => {
+  const f = fixture(t)
+  const notes = f.create()
+  await notes.write({ summary: '旧游标笔记', nextStep: '检查状态' })
+  const progress = f.loadProgress()
+  progress.lesson = { node: 'graph', problem: '换座位例子', evidence: [] }
+  f.saveProgress(progress)
+  assert.equal(notes.read().node, 'graph')
+  assert.equal(notes.context(f.loadProgress()), '', '当前课还没有笔记，不借用其他节点的旧笔记')
+  const written = await notes.write({ summary: '箭头方向仍没讲懂', nextStep: '换三个座位的图来走一遍' })
+  assert.equal(written.ok, true, written.reject)
+  assert.equal(written.node, 'graph')
+  assert.equal(notes.read().notes[0].summary, '箭头方向仍没讲懂')
+  assert.match(notes.context(f.loadProgress()), /换三个座位的图/)
+  assert.doesNotMatch(notes.context(f.loadProgress()), /旧游标笔记/)
+  assert.equal(notes.read({ node: 'dp' }).notes[0].summary, '旧游标笔记')
+  const explicit = await notes.write({ node: 'dp', summary: '明确记入游标节点', nextStep: '独立检查转移' })
+  assert.equal(explicit.node, 'dp')
+  assert.equal(f.loadProgress().cursor, 'dp')
+  assert.equal(f.loadProgress().lesson.node, 'graph')
+})
+
+test('当前课时节点无效时拒绝默认记笔记，不回退到其他知识点', async (t) => {
+  const f = fixture(t)
+  const notes = f.create()
+  await notes.write({ summary: '旧游标笔记', nextStep: '检查状态' })
+  for (const lesson of [{ node: 'missing' }, { node: 123 }, {}]) {
+    const progress = f.loadProgress()
+    progress.lesson = lesson
+    f.saveProgress(progress)
+    const before = f.loadProgress()
+    assert.equal(notes.read().ok, false)
+    assert.equal(notes.context(before), '')
+    const result = await notes.write({ summary: '卡点', nextStep: '换图解释' })
+    assert.equal(result.ok, false)
+    assert.deepEqual(f.loadProgress(), before)
+    assert.equal(notes.read({ node: 'dp' }).ok, true, '显式指定仍可读取有效节点')
+  }
 })
 
 test('按笔记 ID 更正时保留原文，但续课和训练日志只使用生效版本', async (t) => {

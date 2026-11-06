@@ -9,6 +9,7 @@ const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].
 test('VP page links back to the skilltree, schedule, and training log', () => {
   assert.match(html, /href="\.\/skilltree\.html">技能树与日程/)
   assert.match(html, /href="\.\/skilltree\.html#log">训练日志/)
+  assert.match(html, /href="\.\/person\.html">人格档案/)
 })
 
 test('VP supports embedded mode without duplicating the coach shell header', () => {

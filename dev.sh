@@ -2,7 +2,7 @@
 # acmer-coach 开发回路：同步 + 验收，一条命令。改完就跑它。
 #
 # 前提：插件以 `file:` 依赖装进了某个 profile。
-#   默认 profile 是 web；要换就设 COACH_PROFILES（空格分隔，可多个）。
+#   默认同步 web + desktop；要换就设 COACH_PROFILES（空格分隔，可多个）。
 #   要换 dsh 家目录就设 DSH_HOME。
 #
 # 一个坑，两道保险：
@@ -14,6 +14,7 @@
 #   第二道：verify.mjs 第 0 关自己比源码和副本，不一致直接 exit 1。
 set -euo pipefail
 export COACH_HINDSIGHT=0
+export COACH_BACKGROUND_LLM=0
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BITSH="${SRC_DIR//\\//}"                  # Windows 上给 python/node 用的正斜杠形式
@@ -24,7 +25,7 @@ DSH_HOME_BASH="${DSH_HOME//\\//}"
 # ⚠️ 一份也不能漏。半同步的插件会让每一次「代码到底变没变」的判断都不可靠 ——
 # 你会花整晚排查一个"明明改了却不生效"的问题，而它只是副本没跟上。
 # 所以这里列**全部**要同步的 profile。
-read -r -a PROFILES <<< "${COACH_PROFILES:-web}"
+read -r -a PROFILES <<< "${COACH_PROFILES:-web desktop}"
 DSTS=("$DSH_HOME_BASH/plugins/acmer-coach")
 for p in "${PROFILES[@]}"; do
   DSTS+=("$DSH_HOME_BASH/profiles/$p/node_modules/acmer-coach")
@@ -36,12 +37,15 @@ done
 # 从副本目录跑 `bash dev.sh` 走的是另一条路（`dsh plugin remove/add`，而那条
 # 路不可靠），和这份的行为不一样。换句话说，**同一个命令，从哪个目录按回车
 # 决定跑哪份脚本** —— 两份 dev.sh 就是两份真相，正是这份文件在防的那种坑。
-SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/workspace-migration.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js lib/teaching.js lib/hindsight.js lib/training-log.js assets/extension/notes/index.js assets/extension/notes/verify.mjs assets/knowledge/COMPETENCIES.yaml assets/knowledge/NODE_META.yaml assets/knowledge/CONTEST_PROFILES.yaml assets/knowledge/vp.html assets/knowledge/skilltree.html assets/rules/coach-rules.md assets/persona/xiaojing-coach.md dev/persona-check.mjs dev/hindsight-check.mjs dev/test-env.mjs dev/teaching-eval.mjs dev/teaching-eval-guard.mjs dev/teaching-eval-check.mjs docs/真实教学验收.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs dev/training-log-check.mjs coach/skilltree_template.html dev/run-all.sh docs/长期课程机制.md docs/比赛与教学依据.md docs/设计方针.md docs/china-contest-sources.md dev.sh lib/pages.js assets/knowledge/fonts/geist-latin-wght-normal.woff2 assets/knowledge/fonts/geist-mono-latin-400-normal.woff2 assets/knowledge/fonts/Geist-OFL.txt assets/knowledge/fonts/Geist-Mono-OFL.txt assets/knowledge/fonts/README.md dev/pages-check.mjs dev/vp-ui-check.mjs dev/map-ui-check.mjs lib/ledger.js dev/vp-sync-unify-check.mjs dev/ledger-conflict-check.mjs dev/target-drift-check.mjs dev/pack-smoke.mjs lib/map-upgrade.js dev/map-upgrade-check.mjs dev/node-alias-check.mjs dev/first-run-check.mjs dev/lesson-check.mjs'
+SYNC_FILES='index.js package.json verify.mjs verify-shape.mjs progress-cli.mjs build-node-meta.mjs cordis.patch.yml README.md lib/client.js lib/vp-client.js lib/workspace-migration.js lib/setup.js lib/curriculum.js lib/curriculum-evidence.js lib/curriculum-planning.js lib/strategy.js lib/teaching.js lib/hindsight.js lib/request-clock.js lib/training-log.js assets/extension/notes/index.js assets/extension/notes/verify.mjs assets/knowledge/COMPETENCIES.yaml assets/knowledge/NODE_META.yaml assets/knowledge/CONTEST_PROFILES.yaml assets/knowledge/vp.html assets/knowledge/person.html assets/knowledge/skilltree.html assets/rules/coach-rules.md assets/persona/xiaojing-coach.md dev/persona-check.mjs dev/hindsight-check.mjs dev/test-env.mjs dev/teaching-eval.mjs dev/teaching-eval-guard.mjs dev/teaching-eval-check.mjs docs/真实教学验收.md dev/curriculum-check.mjs dev/curriculum-evidence-check.mjs dev/strategy-check.mjs dev/workspace-migration-check.mjs dev/vp-client-check.mjs dev/vp-sync-check.mjs dev/catalog-check.mjs dev/coaching-contract-check.mjs dev/teaching-check.mjs dev/grading-check.mjs dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs dev/training-log-check.mjs coach/skilltree_template.html dev/run-all.sh docs/长期课程机制.md docs/比赛与教学依据.md docs/设计方针.md docs/china-contest-sources.md dev.sh lib/pages.js lib/companion.js assets/knowledge/fonts/geist-latin-wght-normal.woff2 assets/knowledge/fonts/geist-mono-latin-400-normal.woff2 assets/knowledge/fonts/Geist-OFL.txt assets/knowledge/fonts/Geist-Mono-OFL.txt assets/knowledge/fonts/README.md dev/pages-check.mjs dev/vp-ui-check.mjs dev/map-ui-check.mjs lib/ledger.js dev/vp-sync-unify-check.mjs dev/ledger-conflict-check.mjs dev/target-drift-check.mjs dev/pack-smoke.mjs lib/map-upgrade.js dev/map-upgrade-check.mjs dev/node-alias-check.mjs dev/first-run-check.mjs dev/lesson-check.mjs'
 SYNC_FILES="$SYNC_FILES dev/storage-check.mjs dev/vp-race-check.mjs"
 SYNC_FILES="$SYNC_FILES assets/knowledge/CONTEST_INDEX.json dev/regional-index-check.mjs"
 SYNC_FILES="$SYNC_FILES lib/submission-chain.js lib/problem-verification.js dev/submission-chain-check.mjs dev/problem-verification-check.mjs dev/setup-sync-check.mjs"
 SYNC_FILES="$SYNC_FILES dev/w1-check.mjs"
+SYNC_FILES="$SYNC_FILES dev/persona-tone-check.mjs dev/companion-state-check.mjs dev/persona-audit-check.mjs dev/person-check.mjs dev/reflection-check.mjs dev/reflection-runner-check.mjs dev/proactive-check.mjs dev/proactive-worker-check.mjs dev/claims-check.mjs dev/companion-fixes-check.mjs dev/external-sources-check.mjs docs/人格验收.md docs/主动worker.md lib/proactive.js lib/proactive-state.js lib/proactive-rhythm.js lib/proactive-sources.js lib/proactive-compose.js lib/proactive-send.js lib/proactive-worker.js lib/proactive-lock.js lib/companion-state.js lib/body-state.js lib/claims.js lib/persona-audit.js lib/person.js lib/memory-select.js lib/memory-arbiter.js lib/last-seen.js lib/warmth.js lib/external-sources.js lib/screen-observer.js lib/llm-controls.js lib/sleep-ledger.js lib/sleep-runtime.js lib/sleep-settings.js lib/rest-gate.js lib/activity-ledger.js lib/activity-runtime.js lib/interaction-log.js lib/state-maintenance.js lib/reflection.js lib/reflection-runner.js dev/setup-check.mjs dev/sleep-ledger-check.mjs dev/sleep-settings-check.mjs dev/state-maintenance-check.mjs dev/rest-gate-check.mjs dev/activity-check.mjs lib/json-store.js lib/llm-call.js lib/journal.js lib/reading.js lib/life-tick.js lib/state-patrol.js lib/workload.js lib/reflection-batch.js lib/episodes.js lib/habits.js lib/proactive-events.js lib/growth.js dev/journal-check.mjs dev/life-tick-check.mjs dev/memory-layers-check.mjs dev/proactive-events-check.mjs lib/busy-gate.js lib/closing.js lib/tool-operations.js lib/screen-consent.js lib/screen-originals.js dev/busy-closing-check.mjs dev/tool-operations-check.mjs dev/screen-check.mjs lib/task-queue.js dev/task-queue-check.mjs"
 STALE=''
+SYNC_FILES="$SYNC_FILES lib/request-context.js dev/preview-check.mjs dev/identity-migration-check.mjs dev/wiki-check.mjs dev/companion-check.mjs docs/维护与记忆职责.md docs/提示词链路核对-2026-11-04.md dev/role-memory-check.mjs dev/life-improv-check.mjs docs/背景与人格接续.md docs/修复记录-2026-11-05-rc29.md docs/长会话与提示接续-rc30.md dev/test-files.mjs dev/run-tests.mjs dev/rc31-fixes-check.mjs"
+SYNC_FILES="$SYNC_FILES lib/reading-run.js lib/reading-session.js dev/reading-check.mjs dev/reading-settings-check.mjs dev/reading-storage-check.mjs dev/reading-run-check.mjs"
 for f in $SYNC_FILES; do
   for d in "${DSTS[@]}"; do
     [ -d "$d" ] || continue
@@ -114,19 +118,9 @@ node "$SRC_BASH/verify-shape.mjs" || SHAPE_RC=$?
 SHAPE_RC=${SHAPE_RC:-0}
 
 echo
-echo '── 长期课程验收（隔离数据、真实工具与会话状态）──'
-node --test "$SRC_BASH/dev/curriculum-check.mjs" || CURRICULUM_RC=$?
-CURRICULUM_RC=${CURRICULUM_RC:-0}
-
-echo
-echo '── 编排证据验收（目录、引用、事件身份与重复记录）──'
-node --test "$SRC_BASH/dev/curriculum-evidence-check.mjs" || EVIDENCE_RC=$?
-EVIDENCE_RC=${EVIDENCE_RC:-0}
-
-echo
-echo '── 策略、教学目录、真实工具与账号数据回归 ──'
-  node --test "$SRC_BASH/dev/strategy-check.mjs" "$SRC_BASH/dev/catalog-check.mjs" "$SRC_BASH/dev/coaching-contract-check.mjs" "$SRC_BASH/dev/regional-index-check.mjs" "$SRC_BASH/dev/teaching-check.mjs" "$SRC_BASH/dev/hindsight-check.mjs" "$SRC_BASH/dev/teaching-eval-check.mjs" "$SRC_BASH/dev/persona-check.mjs" "$SRC_BASH/dev/pages-check.mjs" "$SRC_BASH/dev/vp-ui-check.mjs" "$SRC_BASH/dev/map-ui-check.mjs" "$SRC_BASH/dev/grading-check.mjs" "$SRC_BASH/dev/training-check.mjs" "$SRC_BASH/dev/practice-evidence-check.mjs" "$SRC_BASH/dev/runtime-home-check.mjs" "$SRC_BASH/dev/training-log-check.mjs" "$SRC_BASH/dev/workspace-migration-check.mjs" "$SRC_BASH/dev/vp-client-check.mjs" "$SRC_BASH/dev/vp-sync-check.mjs" "$SRC_BASH/dev/vp-race-check.mjs" "$SRC_BASH/dev/storage-check.mjs" "$SRC_BASH/dev/vp-sync-unify-check.mjs" "$SRC_BASH/dev/ledger-conflict-check.mjs" "$SRC_BASH/dev/target-drift-check.mjs" "$SRC_BASH/dev/map-upgrade-check.mjs" "$SRC_BASH/dev/node-alias-check.mjs" "$SRC_BASH/dev/first-run-check.mjs" "$SRC_BASH/dev/lesson-check.mjs" "$SRC_BASH/dev/problem-verification-check.mjs" "$SRC_BASH/dev/submission-chain-check.mjs" "$SRC_BASH/dev/setup-sync-check.mjs" || CONTRACT_RC=$?
-CONTRACT_RC=${CONTRACT_RC:-0}
+echo '── 全套测试（文件列表唯一来源 dev/test-files.mjs）──'
+  node "$SRC_BASH/dev/run-tests.mjs" || TESTS_RC=$?
+TESTS_RC=${TESTS_RC:-0}
 
 LEDGER_AFTER=$(ledger_fp)
 if [ "$LEDGER_BEFORE" != "$LEDGER_AFTER" ]; then
@@ -159,4 +153,4 @@ if [ -n "$DSH_LIVE" ]; then
   echo '  要验「工具挂进教练的清单里」，得先重启 dsh。'
 fi
 
-exit $(( VERIFY_RC + SHAPE_RC + CURRICULUM_RC + EVIDENCE_RC + CONTRACT_RC ))
+exit $(( VERIFY_RC + SHAPE_RC + TESTS_RC ))

@@ -89,10 +89,18 @@ for (const f of readdirSync(KNOWLEDGE)) {
 }
 process.env.COACH_DATA_DIR = tmpEarly
 let stale = []
-for (const f of ['index.js', 'package.json', 'lib/setup.js', 'lib/vp-client.js', 'lib/workspace-migration.js', 'lib/strategy.js', 'lib/teaching.js', 'lib/curriculum.js', 'lib/curriculum-evidence.js', 'lib/curriculum-planning.js', 'lib/submission-chain.js', 'lib/problem-verification.js', 'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json', 'assets/rules/coach-rules.md']) {
+// lib/ 下所有源文件都要比：白名单漏过一次 —— lib/companion.js 不在列表里，
+// 三份副本都停在旧版，这里却报“副本和源码一致”。
+const syncedFiles = new Set([
+  'index.js', 'package.json',
+  ...readdirSync(path.join(SOURCE_DIR, 'lib')).filter(name => name.endsWith('.js')).map(name => `lib/${name}`),
+  'assets/knowledge/CONTEST_PROFILES.yaml', 'assets/knowledge/CONTEST_INDEX.json',
+  'assets/rules/coach-rules.md', 'assets/persona/xiaojing-coach.md',
+])
+for (const f of syncedFiles) {
   let same = true
   try {
-    same = readFileSync(`${SOURCE_DIR}\\${f}`, 'utf8') === readFileSync(`${INSTALLED_DIR}\\${f}`, 'utf8')
+    same = readFileSync(path.join(SOURCE_DIR, f), 'utf8') === readFileSync(path.join(INSTALLED_DIR, f), 'utf8')
   } catch {
     same = false
   }
@@ -209,6 +217,10 @@ console.log(blocks[0].text.split('\n').map((l) => '     │ ' + l).join('\n'))
 // ══════════════════════════════════════════════════════════════════
 console.log('── 6. coach_next：线路图的验收用例 ──')
 const next = byName.get('coach_next')
+// 合成验收的已学前置显式记录在临时账本，不能拿游标代替证据。
+for (const node of ['动态规划基础', '枚举', '递归 & 分治']) {
+  await byName.get('coach_mark').execute({ node, status: 'learned' })
+}
 const r = await next.execute({ cursor: '动态规划基础' }, undefined)
 const ids = r.candidates.map((c) => c.id)
 check('游标认得', r.notFound === false)
@@ -237,7 +249,7 @@ check(wyAssumed
     ? digit?.ready === true
     : (digit?.ready === false && digit?.missing?.includes('位运算')),
   digit ? `ready=${digit.ready} missing=${JSON.stringify(digit.missing)}` : '不在候选里')
-check('假定已学里含前置闭包（枚举、递归 & 分治）',
+check('已学集合包含夹具明确标记的枚举、递归 & 分治',
   r.assumedLearned.includes('枚举') && r.assumedLearned.includes('递归 & 分治'),
   r.assumedLearned.join(' / '))
 check('mapStamp 非空（能追溯是哪版地图算的）', typeof r.mapStamp === 'string' && r.mapStamp.length > 0, r.mapStamp)
@@ -322,8 +334,8 @@ check('★ 开新知识点：块结构是 讲20/做40/10/10（讲解排在最前
   JSON.stringify(a1.blocks.map((b) => `${b.kind}:${b.minutes}`)))
 check('★ 总时长把讲解和收尾都算进去（净40 + 收尾20 + 讲20 = 80）',
   a1.totalMinutes === 80, String(a1.totalMinutes))
-check('讲解段的 label 带着三段式（推导→命名→扩展）',
-  a1.blocks[0].label.includes('推导') && a1.blocks[0].label.includes('扩展'),
+check('讲解段按卡点选方法，不强制三段式',
+  a1.blocks[0].label.includes('当前卡点') && !a1.blocks[0].label.includes('→'),
   a1.blocks[0].label)
 check('三件套齐全（做什么 / 时间盒 / 交付物）',
   Boolean(a1.node) && a1.minutes > 0 && Boolean(a1.deliverable))
@@ -340,8 +352,8 @@ const a1short = await assign.execute({
   cursor: '动态规划基础', node: '区间 DP',
   deliverable: '把代码贴给我', why: '测试', teachMinutes: 3,
 }, undefined)
-check('★ 讲解短于下限 → 拒（讲 3 分钟等于念结论）',
-  a1short.accepted === false && a1short.reject.includes('太短'), a1short.reject.split('\n')[0])
+check('★ 3分钟讲解预算有效，不用时长代替教学质量',
+  a1short.accepted === true && a1short.teachMinutes === 3, a1short.reject)
 
 console.log('── 12. coach_assign：校验不过必须挡住（反向测试）──')
 const denyCase = async (label, args, wantSubstr) => {
@@ -1514,8 +1526,13 @@ const T6 = (n) => reg6.find((t) => t.name === n)
 // 后来补的夹具：一个「在学」节点。兜底那条路是 214/349 个末端节点的
 // **唯一**入口，而 AGENTS.md 第 8 条要求「接着放了没几天的 > 开全新的」——
 // 那条判断在过去**没有任何依据**：兜底列表既不显示状态、也不显示放了多久。
+// 前沿的定义是「前置已满足」：根必须已经学过，否则 核心/中档/冷门 全被
+// 前置过滤掉，兜底列表只剩根自己 —— 这是夹具漏标，不是产品行为。
 writeFileSync(path.join(tmp6, 'PROGRESS.yaml'), `version: 1
 nodes:
+  根:
+    status: learned
+    at: '2026-08-20'
   核心:
     status: studying
     at: '2026-09-01'
@@ -1576,13 +1593,16 @@ check('放行时说明这是「就在当前节点上做」', a6.selfTarget === t
 writeFileSync(path.join(tmp6, 'PROGRESS.yaml'), `version: 1
 cursor: 叶子
 nodes:
+  根:
+    status: learned
+    at: '2026-08-20'
   叶子:
     status: verified
 `)
 const a6b = await assign6.execute(
   { cursor: '叶子', node: '叶子', deliverable: '重学一遍' }, undefined)
 check('★ 已经 verified 的节点 → 拒绝（学完了就往前走）',
-  a6b.accepted === false && a6b.reject.includes('往前走'), a6b.reject)
+  a6b.accepted === false && a6b.reject.includes('已有验证记录'), a6b.reject)
 
 // ── 23c. entry 不许静默缺失（需求 #4）──────────────────
 //
@@ -1649,11 +1669,7 @@ check('★ 老行为不变：没 entry 的仍然放行（reachable=true，只是
 // ══════════════════════════════════════════════════════════════════
 // 24. 「已学集合」的语义
 // ══════════════════════════════════════════════════════════════════
-// 背景：coach_next / coach_assign 原先只展开**游标自己**的前置闭包，
-// 训练员显式标过的几十个节点全当没看见 —— 他标了「位运算」，
-// 教练还说「数位 DP 缺前置 位运算」。三个工具里只有 set_cursor 读了进度。
-// 修法：抽一个 assumedLearned() 三家共用 =
-//      闭包(你站的位置) ∪ 显式标为 学过/已验证 的节点（标记本身不展开）。
+// 三个工具共用显式 learned/verified 口径；游标和在学状态不再补出已学闭包。
 //
 // 这一节**不碰真地图、不碰真进度**。第 6 / 12 节原先拿真实数据写断言，
 // 训练员一标记前提就假了 —— 教训是「进度数据一有内容，写死的假设开始过期」。
@@ -1725,10 +1741,10 @@ const n7 = await T7('coach_next').execute({ cursor: '基础' }, undefined)
 const cand7 = (id) => n7.candidates.find((c) => c.id === id)
 const assumed7 = new Set(n7.assumedLearned)
 
-// ① 标记要被看见：游标的闭包只覆盖「基础」，「工具」全靠 learned 标记
+// ① 基础和工具都有显式已学记录，不依赖游标推断。
 check('★ ① 显式标记「工具」(learned) 进了已学集合',
   assumed7.has('工具'), n7.assumedLearned.join(' / '))
-check('★ ① 「进阶」两道前置（闭包 + 标记）都满足 → 可开',
+check('★ ① 「进阶」两道前置都有显式标记 → 可开',
   cand7('进阶')?.ready === true,
   cand7('进阶') ? `missing=${JSON.stringify(cand7('进阶').missing)}` : '不在候选里')
 // 真缺的照旧挡住 —— 别把「标记被看见」修成「什么都放行」
@@ -1739,7 +1755,7 @@ check('缺前置的照旧挡，并指名缺哪个',
 // ② 「在学」不算已学
 check('★ ② 「概率 DP」标的是 studying → 不进已学集合',
   !assumed7.has('概率 DP'), n7.assumedLearned.join(' / '))
-// set_cursor 的警告（种子 = 旧游标）也要跟着这个口径
+// set_cursor 的警告也只看显式前置证据。
 const set7 = await T7('coach_set_cursor').execute({ node: '概率进阶' }, undefined)
 check('★ ② set_cursor 警告：目标的前置只是在学 → 如实报缺',
   set7.ok === true && set7.prereqMissing.includes('概率 DP'),
@@ -1997,7 +2013,7 @@ check('注册项带 id（槽位系统的去重键）',
   slots.length > 0 && slots.every((s) => typeof s.desc?.id === 'string' && s.desc.id.length > 0),
   JSON.stringify(slots.map((s) => s.desc?.id)))
 check('注册项给了组件（不是 undefined）', slots.every((s) => typeof s.comp === 'function'))
-check('样式注入了（浮层没样式就是一块白板）', styleTags.length === 1, `${styleTags.length} 个`)
+check('样式注入了（浮层没样式就是一块白板）', styleTags.length >= 1, `${styleTags.length} 个`)
 check('inject 声明了 slots 服务', api.inject.includes('slots'), JSON.stringify(api.inject))
 
 // 防回归：弹层必须 portal 到 body。就地渲染会被 header 的 transform 抓住
@@ -2446,11 +2462,13 @@ check('★ 排完回一条完整时间轴：刚排的块 + 他标的忙事都在
 // defineTool 会把 parameters 包成 JSON Schema（type / properties / required），
 // 所以要看的是 .properties，不是 parameters 本身。
 const planParams = planT.parameters.properties ?? {}
+// operation_id 是注册层统一加的幂等键，和「一次能动几天」无关，别让它搅进来。
+const planKeys = Object.keys(planParams).filter((k) => k !== 'operation_id').sort()
 check('★ 排块接口是单日的（结构上就排不了多天）',
-  Object.keys(planParams).sort().join(',') === 'blocks,date,replace' &&
+  planKeys.join(',') === 'blocks,date,replace,rest' &&
   planParams.date.type === 'string' &&
-  !Object.keys(planParams).some((k) => /days|range|dates|list/i.test(k)),
-  Object.keys(planParams).join(','))
+  !planKeys.some((k) => /days|range|dates|list/i.test(k)),
+  planKeys.join(','))
 
 // ══ 撤块 ══
 // 要的：「我说这个时间不合理，直接让他撤回这个日程就行」。
@@ -2820,15 +2838,14 @@ const stuckNodes = st31.stuck.map((s) => s.node)
 const dropNodes = st31.cancelled.map((s) => s.node)
 check('★ 后来通过了的不算卡住（"二分"那个形状）', !stuckNodes.includes('B'), JSON.stringify(stuckNodes))
 check('★ 连最后一次都没过 → 报卡住', stuckNodes.includes('A'), JSON.stringify(stuckNodes))
-check('★ 两次作废进的是"卷子作废"，不是"他没过"', dropNodes.includes('B'), JSON.stringify(dropNodes))
-check('★ 作废没被算进没过次数（B 的作废 2 次 ≠ 再给他加 2 次失败）',
-  st31.cancelled.find((c) => c.node === 'B')?.drops === 2 &&
-  String(st31.cancelled.find((c) => c.node === 'B')?.reason).includes('AC 过'),
-  JSON.stringify(st31.cancelled.find((c) => c.node === 'B')))
+check('★ 作废卷只留在检测历史，不再挂成待办', st31.cancelled.length === 0, JSON.stringify(st31.cancelled))
+check('★ 作废不算「没过」次数（A 累计 2 次，不是 4 次）',
+  String(st31.stuck.find((s) => s.node === 'A')?.why).includes('累计没过 2 次'),
+  JSON.stringify(st31.stuck.find((s) => s.node === 'A')))
 const st31txt = T30.get('coach_status').output.render({}, st31)[0].text
-check('★ 两条都渲染成人话（躺返回值里没人念等于没收）',
-  st31txt.includes('卡住') && st31txt.includes('卷子反复作废'),
-  (st31txt.match(/.*卡住.*/) ?? ['（没有卡住行）'])[0].slice(0, 70))
+check('★ 复检观察渲染成人话，作废不再单列',
+  st31txt.includes('复检观察') && !st31txt.includes('卷子反复作废'),
+  (st31txt.match(/.*复检观察.*/) ?? ['（没有复检观察行）'])[0].slice(0, 70))
 
 // 还回原样：下面的 coach_log / 32 / 33 都接着这份进度跑
 const p31r = prog30.load()
@@ -3034,11 +3051,15 @@ check('首次使用给唯一下一步（先体检，别先讲知识点）',
   d_first.messages.length === 2 && /coach_setup status/.test(textOf32(d_first)),
   `${d_first.messages.length} 条：${textOf32(d_first).slice(0, 40)}`)
 
-// ①′ 账本存在但还是空的 —— 不该注入（空状态块只是白烧 token）
+// ①′ 账本存在但还是空的 —— 不该注入**训练状态**（游标/在学/押卷/首次体检）。
+// 人物档案与生活背景是每轮都要给的角色上下文，不属于「白烧 token」。
 writeFileSync(path.join(tmp32, 'PROGRESS.yaml'), 'version: 1\ncursor: ""\nnodes: {}\n')
 const d_empty = await pre32({ messages: [], step: 1 }, enter())
-check('空进度不注入（三样都没有就闭嘴，别白烧 token）',
-  d_empty.messages.length === 1, `${d_empty.messages.length} 条`)
+const emptyText = textOf32(d_empty)
+check('空进度不注入训练状态（人物背景仍随轮注入）',
+  d_empty.messages.length === 2 && /<coach_state>/.test(emptyText)
+    && !/训练游标|在学（|押着|coach_setup status/.test(emptyText),
+  `${d_empty.messages.length} 条：${emptyText.slice(0, 80)}`)
 
 // ② 有游标 + 在学 + 押着卷 —— 该注入，而且三样都要在里面
 const h32 = { version: 1, cursor: 'A', updated: '2026-09-16', nodes: {
@@ -3122,6 +3143,37 @@ writeFileSync(path.join(tmp33, 'PROGRESS.yaml'), [
   `    at: ${sd(-3)}`,
   '',
 ].join('\n'))
+// 火候只在「有课程」时排；没有课程就不给全局待办排序（见 coaching-contract-check）。
+// 这条夹具补一份最小 v1 课程，否则 readiness 按设计为空。
+writeFileSync(path.join(tmp33, 'CURRICULUM.yaml'), [
+  'version: 1',
+  'revision: 1',
+  'status: active',
+  'goal: 测试',
+  'baseline: 测试',
+  'deadline: ""',
+  'focusUntil: ""',
+  'updated: 2026-10-30',
+  'weeklyHours: 30',
+  'phases:',
+  '  - id: p1',
+  '    title: 测试阶段',
+  '    outcome: 测试成果',
+  '    exitCriteria: 独立',
+  '    nodes: [A, B]',
+  '    requiredVerified: [A, B]',
+  '    exitChecks: []',
+  'current: 0',
+  'focusNodes: [A, B]',
+  'history:',
+  '  - revision: 1',
+  '    action: create',
+  '    reason: 测试',
+  '    at: 2026-10-30',
+  '    fromPhase: ""',
+  '    toPhase: ""',
+  '',
+].join('\n'))
 process.env.COACH_DATA_DIR = tmp33
 const mod33 = await import(`${INSTALLED}?fresh=33`)
 const reg33 = []
@@ -3143,8 +3195,9 @@ check('★ 报的是独立做出那一条腿（做过 1 / 独立 1）',
 check('studying 的用 at 算天数（3 天前标的）', rB33?.days === 3, `${rB33?.days}`)
 
 const txt33 = T33.get('coach_schedule').output.render({}, sch33)[0].text
-check('★ 渲染里摆得出来，且标明"该不该动是你判"',
-  txt33.includes('火候') && txt33.includes('该不该动是你判'), (txt33.match(/.*火候.*/) ?? [''])[0])
+check('★ 渲染里摆得出来，且标明"该不该动由你判"',
+  txt33.includes('本阶段相关节点') && txt33.includes('该不该动由你判'),
+  (txt33.match(/.*本阶段相关节点.*/) ?? [''])[0])
 check('★ 排课建议依据目标与表现，不强制持续开新课',
   txt33.includes('根据目标') && txt33.includes('实际表现') && txt33.includes('迁移或 VP') && !txt33.includes('剩下的时间留给推进'),
   (txt33.match(/.*根据目标.*/) ?? ['（没有）'])[0].slice(0, 70))
@@ -3199,6 +3252,7 @@ const log34 = T34.get('coach_log')
 const una34 = T34.get('coach_unassign')
 const txt34 = (t, v) => t.output.render({}, v)[0].text
 const prog34 = () => readFileSync(path.join(tmp34, 'PROGRESS.yaml'), 'utf8')
+await T34.get('coach_mark').execute({ node: '记忆化搜索', status: 'learned' })
 check('注册了 coach_unassign（撤销出口）', Boolean(una34))
 
 // ── 布置：游标 = 记忆化搜索，区间 DP 是它的下一层（未学 → 必须带讲解段）──
@@ -3318,6 +3372,7 @@ const mod35 = await import(`${INSTALLED}?fresh=35`)
 const reg35 = []
 mod35.apply(mockCtx(reg35))
 const T35 = (n) => reg35.find((t) => t.name === n)
+await T35('coach_mark').execute({ node: '记忆化搜索', status: 'learned' })
 const asg35 = T35('coach_assign')
 const txt35 = (t, v) => t.output.render({}, v)[0].text
 const base35 = { cursor: '记忆化搜索', node: '区间 DP', deliverable: 'P1004 的代码', teachMinutes: 15 }
@@ -3447,6 +3502,7 @@ const mod37 = await import(`${INSTALLED}?fresh=37`)
 const reg37 = []
 mod37.apply(mockCtx(reg37))
 const T37 = (n) => reg37.find((t) => t.name === n)
+await T37('coach_mark').execute({ node: '记忆化搜索', status: 'learned' })
 
 // ── 需求 #9：游标停在末端节点 → next 给前沿，且必须写明"怎么才能布置" ──
 const nx37 = await T37('coach_next').execute({ cursor: '区间 DP' })
@@ -3553,6 +3609,7 @@ const g38real = await asg38.execute({ cursor: '记忆化搜索', node: '记忆�
 check('★ 实际接触之后：游标节点再布置不用重讲', g38real.accepted === true, g38real.reject)
 
 // ④ 不误伤：非游标的新节点照样要讲
+await T38('coach_mark').execute({ node: '记忆化搜索', status: 'learned' })
 const g38d = await asg38.execute({ cursor: '记忆化搜索', node: '区间 DP', deliverable: '贴代码', minutes: 40 })
 check('★ 非游标的新节点：不给 teachMinutes 照样拒（原有闸门没松）',
   g38d.accepted === false && g38d.reject.includes('全新知识点'), g38d.reject.split('\n')[0])

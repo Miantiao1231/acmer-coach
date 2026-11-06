@@ -11,8 +11,9 @@ async function fixture() {
   const dir = mkdtempSync(join(tmpdir(), 'coach-lesson-'))
   mkdirSync(join(dir, 'knowledge'), { recursive: true })
   writeFileSync(join(dir, 'knowledge', 'MAP.yaml'),
-    'meta: {version: 3}\nnodes:\n  - {id: 背包 DP, name: 背包 DP, domain: 动态规划, depends: []}\n')
-  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+    'meta: {version: 3}\nnodes:\n  - {id: 背包 DP, name: 背包 DP, domain: 动态规划, depends: []}\n  - {id: 最短路, name: 最短路, domain: 图论, depends: []}\n')
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, home: process.env.DSH_HOME }
+  process.env.DSH_HOME = dir
   process.env.COACH_DATA_DIR = join(dir, 'knowledge')
   process.env.COACH_DB = join(dir, 'unused.db')
   const tools = new Map(), hooks = new Map()
@@ -25,7 +26,7 @@ async function fixture() {
   return {
     dir, tools, hooks, call,
     cleanup() {
-      for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
+      for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db], ['DSH_HOME', previous.home]]) {
         if (value === undefined) delete process.env[key]
         else process.env[key] = value
       }
@@ -34,13 +35,43 @@ async function fixture() {
   }
 }
 
+test('active lessons keep only their own continuity note and problem in the next turn', async () => {
+  const f = await fixture()
+  try {
+    await f.call('coach_note', { action: 'write', node: '最短路', summary: '其他课的距离定义', nextStep: '再看松弛' })
+    await f.call('coach_note', { action: 'write', node: '背包 DP', summary: '公式讲法没讲通', nextStep: '改用一个物品容量为二的表格' })
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP', problem: '只有一件物品\n容量为二' })
+    const hook = f.hooks.get('agent/pre-step')
+    const turn = () => hook({ messages: [], step: 1 }, async () => ({ kind: 'enter', messages: [] }))
+    const decision = await turn()
+    const text = decision.messages.at(-1).content.map(block => block.text).join('\n')
+    assert.match(text, /公式讲法没讲通/)
+    assert.match(text, /改用一个物品容量为二的表格/)
+    assert.match(text, /只有一件物品 容量为二/)
+    assert.equal(text.split('续课笔记').length - 1, 1)
+    assert.doesNotMatch(text, /其他课的距离定义|再看松弛/)
+    assert.match(text, /不自动开启教学/)
+    await f.call('coach_lesson', { action: 'end', outcome: 'unknown' })
+    await f.call('coach_lesson', { action: 'start', node: '最短路' })
+    const progressPath = join(f.dir, 'knowledge', 'PROGRESS.yaml')
+    const progress = parse(readFileSync(progressPath, 'utf8'))
+    delete progress.nodes['最短路'].lessonNotes
+    // Keep an unrelated cursor note: an active lesson without notes must not borrow it.
+    progress.cursor = '背包 DP'
+    const { stringify } = await import('yaml')
+    writeFileSync(progressPath, stringify(progress))
+    const empty = await turn()
+    assert.doesNotMatch(empty.messages.at(-1).content.map(block => block.text).join('\n'), /公式讲法没讲通|续课笔记/)
+  } finally { f.cleanup() }
+})
+
 test('a lesson records a student response without forcing five stages', async () => {
   const f = await fixture()
   try {
     const started = await f.call('coach_lesson', { action: 'start', node: '背包 DP' })
     assert.equal(started.ok, true, started.reject)
     assert.equal(started.stage, 'active')
-    assert.match(started.text, /一句话/)
+    assert.match(started.text, /学生现在的疑问/)
     assert.doesNotMatch(started.text, /第 1\/5 步/)
 
     const blocked = await f.call('coach_lesson', { action: 'advance' })
@@ -52,6 +83,55 @@ test('a lesson records a student response without forcing five stages', async ()
     assert.equal(moved.stage, 'active')
     assert.equal(moved.evidenceCount, 1)
     assert.match(moved.next, /回应/)
+  } finally { f.cleanup() }
+})
+
+test('a concrete continuation survives closing and reopening without becoming mastery evidence', async () => {
+  const f = await fixture()
+  try {
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP', problem: '上节题：一件物品\n容量二' + '，其余题面线索'.repeat(30) })
+    await f.call('coach_lesson', { action: 'advance', evidence: '学生说公式没看懂，为什么不能正序' })
+    const nextStep = '改用一个物品容量为二的表格，演示正序如何重复使用；听懂与否待核实'
+    const ended = await f.call('coach_lesson', { action: 'end', outcome: 'unknown',
+      evidence: '目前公式讲解未奏效，卡在同一物品重复使用' + '；其余讲解观察'.repeat(55), nextStep: `  ${nextStep}  ` })
+    assert.equal(ended.ok, true, ended.reject)
+    const note = await f.call('coach_note', { action: 'read', node: '背包 DP' })
+    assert.equal(note.notes[0].nextStep, nextStep)
+    assert.match(note.notes[0].summary, /公式讲解未奏效/)
+    assert.match(note.notes[0].summary, /上节题：一件物品 容量二/)
+    assert.match(note.notes[0].summary, /题面未核对/)
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP', problem: '一件物品装容量二的包' })
+    const decision = await f.hooks.get('agent/pre-step')({ messages: [], step: 1 }, async () => ({ kind: 'enter', messages: [] }))
+    const text = decision.messages.at(-1).content.map(block => block.text).join('\n')
+    assert.match(text, /改用一个物品容量为二的表格/)
+    assert.match(text, /上节题：一件物品 容量二/)
+    assert.match(text, /目前公式讲解未奏效，卡在同一物品重复使用/)
+    assert.match(text, /同知识点.*历史/)
+    assert.match(text, /以当前题意和回应为准/)
+    const saved = parse(readFileSync(join(f.dir, 'knowledge', 'PROGRESS.yaml'), 'utf8'))
+    assert.notEqual(saved.nodes['背包 DP'].status, 'verified')
+  } finally { f.cleanup() }
+})
+
+test('invalid continuation cannot partially close a lesson and an empty lesson cannot create a note', async () => {
+  const f = await fixture()
+  try {
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP' })
+    const path = join(f.dir, 'knowledge', 'PROGRESS.yaml')
+    const before = readFileSync(path, 'utf8')
+    for (const nextStep of ['', '   ', 'x'.repeat(501)]) {
+      const result = await f.call('coach_lesson', { action: 'end', outcome: 'unknown', evidence: '公式还没讲懂', nextStep })
+      assert.equal(result.ok, false, `invalid nextStep ${JSON.stringify(nextStep)}`)
+      assert.equal(readFileSync(path, 'utf8'), before)
+    }
+    for (const nextStep of [42, null]) {
+      await assert.rejects(async () => f.call('coach_lesson', { action: 'end', outcome: 'unknown', evidence: '公式还没讲懂', nextStep }), /nextStep.*string/)
+      assert.equal(readFileSync(path, 'utf8'), before)
+    }
+    const ended = await f.call('coach_lesson', { action: 'end', outcome: 'unknown', nextStep: '下次用表格' })
+    assert.equal(ended.ok, true, ended.reject)
+    assert.match(ended.text, /未写续课笔记/)
+    assert.equal((await f.call('coach_note', { action: 'read', node: '背包 DP' })).total, 0)
   } finally { f.cleanup() }
 })
 
@@ -152,7 +232,7 @@ test('lesson state survives another ledger writer and reaches the next turn', as
     const decision = await hook({ messages: [{ role: 'user' }], step: 1 },
       async () => ({ kind: 'enter', messages: [{ role: 'user' }] }))
     const text = decision.messages.at(-1).content.map((block) => block.text).join('\n')
-    assert.match(text, /教学模式/)
+    assert.match(text, /正在接续/)
     assert.match(text, /背包 DP/)
     assert.match(text, /正序会重复拿同一件物品/)
     assert.doesNotMatch(text, /游标：.*先问清/)
@@ -164,11 +244,14 @@ test('a recurring lesson window is saved once and injected into later turns', as
   try {
     const invalid = await f.call('coach_schedule', { action: 'set_class_window', fromTime: '19:30', toTime: '19:00' })
     assert.equal(invalid.ok, false)
+    // 用「昨天」的星期：核对时段事实，不从时段外推导必须练习。
+    // 否则在 19:00–19:30 之间跑就会命中「在上课时段」，跟着日历自己红。
+    const yesterday = (new Date().getDay() + 6) % 7
     const set = await f.call('coach_schedule', {
-      action: 'set_class_window', fromTime: '19:00', toTime: '19:30', weekdays: [1, 2, 3, 4, 5, 6],
+      action: 'set_class_window', fromTime: '19:00', toTime: '19:30', weekdays: [yesterday],
     })
     assert.equal(set.ok, true, set.reject)
-    assert.deepEqual(set.classWindow, { from: '19:00', to: '19:30', weekdays: [1, 2, 3, 4, 5, 6] })
+    assert.deepEqual(set.classWindow, { from: '19:00', to: '19:30', weekdays: [yesterday] })
     assert.deepEqual(parse(readFileSync(join(f.dir, 'knowledge', 'SCHEDULE.yaml'), 'utf8')).classWindow, set.classWindow)
     const read = await f.call('coach_schedule')
     assert.deepEqual(read.classWindow, set.classWindow)
@@ -177,9 +260,27 @@ test('a recurring lesson window is saved once and injected into later turns', as
       async () => ({ kind: 'enter', messages: [{ role: 'user' }] }))
     const text = decision.messages.at(-1).content.map((block) => block.text).join('\n')
     assert.match(text, /19:00.*19:30/)
-    assert.match(text, /练习/)
+    assert.match(text, /在时段外/)
     const cleared = await f.call('coach_schedule', { action: 'clear_class_window' })
     assert.equal(cleared.ok, true, cleared.reject)
     assert.equal(cleared.classWindow, undefined)
+  } finally { f.cleanup() }
+})
+
+test('a reading turn gets her own background, not the student course state', async () => {
+  const f = await fixture()
+  try {
+    await f.call('coach_lesson', { action: 'start', node: '背包 DP', problem: '只有一件物品\n容量为二' })
+    const hook = f.hooks.get('agent/pre-step')
+    const reading = {
+      role: 'user', source: { kind: 'plugin:acmer-coach/reading' },
+      content: [{ type: 'text', text: '现在是你的阅读时间。' }],
+    }
+    const decision = await hook({ messages: [reading], step: 1 },
+      async () => ({ kind: 'enter', messages: [reading] }))
+    const text = decision.messages.at(-1).content.map(block => block.text).join('\n')
+    assert.match(text, /阅读时间/, 'the reading turn gets its own framing')
+    assert.match(text, /coach_read/)
+    assert.doesNotMatch(text, /正在接续|游标|押着一张卷|沿着学生当前卡点/)
   } finally { f.cleanup() }
 })

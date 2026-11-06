@@ -16,11 +16,18 @@ test('packaged persona does not bind every user to one private student', () => {
   assert.doesNotMatch(persona, /陪\s+[A-Za-z][\w-]{3,}/)
   assert.doesNotMatch(persona, /(?:平时|默认)叫「[A-Za-z][\w-]{3,}」/)
   assert.doesNotMatch(persona, /每轮至少|每段末尾|一律.*颜文字/)
+  assert.doesNotMatch(persona, /父女|他的女儿|第一句.*先给情绪|讲题也一小步一停/)
   assert.match(persona, /用户.*当前|当下.*用户/)
   assert.match(persona, /我还没说完.*等他把话说完/)
-  assert.match(persona, /明确允许.*schedule_list.*schedule_create/)
-  assert.match(persona, /说停.*schedule_delete/)
-  assert.match(persona, /当前会话.*自动化任务.*别声称/)
+  assert.match(persona, /明确允许.*coach_proactive arm/)
+  assert.match(persona, /说停.*coach_proactive disarm/)
+  assert.doesNotMatch(persona, /schedule_create|schedule_list|schedule_delete/)
+  assert.match(persona, /被主动 worker 叫醒.*像自己忽然想起他/)
+  assert.match(persona, /默认是小鲸/)
+  assert.match(persona, /档案身份/)
+  assert.match(persona, /初始设定/)
+  assert.match(persona, /当前说法.*更明确.*以那个为准/)
+  assert.match(persona, /不自己连发/)
 })
 
 test('packaged coaching instructions stay focused on judgment, not stale contest prescriptions', () => {
@@ -28,6 +35,8 @@ test('packaged coaching instructions stay focused on judgment, not stale contest
   assert.ok(rules.length < 7000, `static rules are ${rules.length} characters`)
   assert.match(rules, /可做题/)
   assert.match(rules, /快速扫描/)
+  assert.match(rules, /Hindsight.*主要.*跨会话/)
+  assert.doesNotMatch(rules, /优先于 Hindsight|每轮只补一个|然后停下来听他的理解/)
   assert.doesNotMatch(rules, /题目是不是全都被读过|强制交版|每\s*\d+\s*分钟必须提交/)
 })
 
@@ -72,9 +81,10 @@ function denyReads(t, denied) {
 }
 
 function assertTools(f) {
-  assert.equal(f.tools.size, 34)
+  assert.equal(f.tools.size, 38)
   assert.ok(f.tools.has('coach_status'))
   assert.ok(f.tools.has('coach_note'))
+  assert.ok(f.tools.has('coach_read'))
 }
 
 test('apply loads packaged static persona before custom style without local personas', async t => {
@@ -137,7 +147,7 @@ test('rejected rules section leaves packaged persona and tools available', async
 })
 
 for (const unavailable of ['missing service', 'missing get', 'throwing get']) {
-  test(`all 34 tools load with ${unavailable}`, async t => {
+  test(`all 38 tools load with ${unavailable}`, async t => {
     const f = await fixture(t)
     if (unavailable === 'missing get') delete f.ctx.get
     else f.ctx.get = () => {
@@ -181,7 +191,8 @@ test('persona is read once into static sections, never messages or training ledg
       for (const message of result.messages.slice(1)) {
         assert.ok(message.content.every(block => block.type === 'text' && block.text.startsWith('<coach_state>\n')))
       }
-      assert.ok(!JSON.stringify(result.messages).includes('鲸鱼娘'))
+      // 档案身份可以出现在 coach_state；这里防的是把人设正文整段塞进消息。
+      assert.ok(!JSON.stringify(result.messages).includes('尾巴会出卖心情'))
     }
     assert.deepEqual(f.sections, initial)
     assert.equal(reads.filter(path => path.endsWith('/xiaojing-coach.md')).length, 1)

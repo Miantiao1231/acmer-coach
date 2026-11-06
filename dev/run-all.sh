@@ -65,37 +65,8 @@ cd "$SRC"
 run "w1-check"      node dev/w1-check.mjs
 run "wiki-check"    node dev/wiki-check.mjs
 run "setup-check"   node dev/setup-check.mjs
-run "curriculum"    node --test dev/curriculum-check.mjs
-run "evidence"      node --test dev/curriculum-evidence-check.mjs
-run "strategy"      node --test dev/strategy-check.mjs
-run "catalog"       node --test dev/catalog-check.mjs
-run "coach-contract" node --test dev/coaching-contract-check.mjs
-run "regionals"     node --test dev/regional-index-check.mjs
-run "teaching"      node --test dev/teaching-check.mjs
-run "hindsight"     node --test dev/hindsight-check.mjs
-run "teaching-eval" node --test dev/teaching-eval-check.mjs
-run "persona"       node --test dev/persona-check.mjs
-run "pages"         node --test dev/pages-check.mjs
-run "VP-UI"         node --test dev/vp-ui-check.mjs
-run "map-UI"        node --test dev/map-ui-check.mjs
-run "training-log"  node --test dev/training-log-check.mjs
-run "grading"       node --test dev/grading-check.mjs
-run "training"      node --test dev/training-check.mjs dev/practice-evidence-check.mjs dev/runtime-home-check.mjs
-run "submissions"   node --test dev/submission-chain-check.mjs
-run "verification"  node --test dev/problem-verification-check.mjs
-run "CF-sync"       node --test dev/setup-sync-check.mjs
-run "VP-client"     node dev/vp-client-check.mjs
-run "VP-sync"       node --test dev/vp-sync-check.mjs
-run "VP-unify"      node --test dev/vp-sync-unify-check.mjs
-run "ledger"        node --test dev/ledger-conflict-check.mjs
-run "target-drift"  node --test dev/target-drift-check.mjs
-run "map-upgrade"   node --test dev/map-upgrade-check.mjs
-run "node-alias"    node --test dev/node-alias-check.mjs
-run "first-run"     node --test dev/first-run-check.mjs
-run "lesson"        node --test dev/lesson-check.mjs
-run "VP-race"       node --test dev/vp-race-check.mjs
-run "storage"       node --test dev/storage-check.mjs
-run "migration"     node --test dev/workspace-migration-check.mjs
+# 测试文件列表只有一份（dev/test-files.mjs），别再逐条抄。
+run "tests"         node dev/run-tests.mjs
 if [ -n "${COACH_LIVE_INDEX:-}" ]; then
   run "parity-check" node dev/parity-check.mjs
 else

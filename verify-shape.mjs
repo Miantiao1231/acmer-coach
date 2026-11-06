@@ -29,7 +29,12 @@ const PROFILE = process.env.COACH_VERIFY_PROFILE || 'web'
 const INSTALLED = process.env.CI
   ? new URL('./index.js', import.meta.url).href
   : pathToFileURL(path.join(DSH_HOME, 'profiles', PROFILE, 'node_modules', 'acmer-coach', 'index.js')).href
+// 形状扫描不该依赖真实 Hindsight 数据：有记忆时 coach_recall 会多出
+// metadata 字段，没记忆时走空分支，同一份代码两种结果。默认关掉，需要验
+// 真实召回形状时显式 COACH_HINDSIGHT=1。
+if (process.env.COACH_HINDSIGHT === undefined) process.env.COACH_HINDSIGHT = '0'
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'coach-sweep-'))
+process.env.DSH_HOME = tmp
 
 // ── 夹具：小地图 + 进度 + 空日程 ────────────────────────────────
 writeFileSync(path.join(tmp, 'MAP.yaml'),
@@ -135,7 +140,14 @@ function validate(schema, value, at, errs) {
     }
     const props = schema.properties ?? {}
     for (const k of Object.keys(value)) {
-      if (!(k in props)) errs.push(`${at}.${k}: schema 未声明（additionalProperties:false → dsh 校验会拒）`)
+      if (k in props) continue
+      if (schema.additionalProperties === true) continue
+      // additionalProperties 也可以是子 schema：未知键按它校验，而不是一律拒绝。
+      if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
+        validate(schema.additionalProperties, value[k], `${at}.${k}`, errs)
+        continue
+      }
+      errs.push(`${at}.${k}: schema 未声明（additionalProperties:false → dsh 校验会拒）`)
     }
     for (const [k, s] of Object.entries(props)) {
       if (!(k in value)) { if (s.required === true || (Array.isArray(schema.required) && schema.required.includes(k))) errs.push(`${at}.${k}: 缺 required 字段`); continue }
@@ -251,6 +263,8 @@ const cases = [
   ['coach_unassign', { node: 'ZZZ', reason: '不在图上' }],
   ['coach_pool', { node: 'A' }],
   ['coach_pool', { node: 'ZZZ' }],                     // 拒
+  ['coach_read', { action: 'open' }],                  // 拒：书架没有正文
+  ['coach_read', { action: 'save', bookId: 'missing', readChars: 1000 }], // 拒：找不到条目
   ['coach_schedule', {}],
   ['coach_plan', { date: today, blocks: [{ from: '09:00', kind: 'review', node: 'A' }] }],
   ['coach_plan', { date: today, blocks: [{ from: '09:00', kind: 'review', node: 'A' }] }], // 已排过 → 拒
@@ -277,6 +291,28 @@ const cases = [
   ['coach_verify', { problems: [{ platform: 'nowcoder', problemId: 'NC1',
     gist: '打开题面看过：考的是区间 DP，和别人 AC 代码一致', node: 'A' }], check: false }],
   ['coach_verify', { problems: [{ platform: 'nowcoder', problemId: 'NC2', gist: '太短' }], check: false }],  // 拒
+  // ── companion：人的档案 / 书架 / 状态（成功 + 拒绝都要扫）──
+  ['companion', { action: 'read' }],
+  ['companion', { action: 'profile.set', likes: ['测试喜欢'] }],
+  ['companion', { action: 'library.add', title: '测试书架条目', source: 'fixture' }],
+  ['companion', { action: 'episode.add', summary: '一次足够长的测试共同经历，用来扫形状。', at: '2026-10-30', evidence: 'fixture' }],
+  ['companion', { action: 'promise.add', promiseText: '测试承诺要问的事', dueAt: '2026-10-31', evidence: 'fixture' }],
+  ['companion', { action: 'share' }],
+  // 非法 enum 会在 defineTool 之前被拦成 throw；用合法动作 + 非法字段走 execute 的拒绝分支
+  ['companion', { action: 'relation.add', label: 'x', date: '不是日期', evidence: 'x' }],
+  // ── 之前没扫到的两个工具：记忆召回 / 学生处境 ──
+  ['coach_recall', { query: '测试记忆' }],
+  ['coach_recall', { query: '' }], // 拒：空查询
+  ['coach_student_context', { action: 'read' }],
+  ['coach_student_context', { action: 'set' }], // 拒：缺原话
+  // ── coach_proactive：只保留开关和状态，next/sent 已删除 ──
+  ['coach_proactive', { action: 'arm' }], // 拒：夹具没有会话/日程服务
+  ['coach_proactive', { action: 'disarm' }], // 拒：夹具没有会话
+  ['coach_proactive', { action: 'status' }],
+  ['coach_task', { action: 'list' }],
+  ['coach_task', { action: 'list', queue: 'memory' }],
+  ['coach_task', { action: 'retry', queue: 'memory', id: 'fixture-missing-task' }],
+  ['coach_task', { action: 'cancel', id: 'fixture-missing-task' }],
   // ⚠️ coach_cancel 的两条**不能放在这里** —— 它们是**有状态的**（有没有卷子），
   // 而这一批是在开卷那一坨**之前**全部构造好的：放这儿的话，
   // 循环跑到时卷子已经在手里了，"手里没卷 → 拒"这条就测不到，
@@ -374,4 +410,8 @@ const missing = all.filter((n) => !seen.has(n))
 console.log()
 console.log(`工具总数 ${all.length}，扫到 ${seen.size}${missing.length ? `，没扫到：${missing.join(', ')}` : ''}`)
 console.log(bad ? `✗ ${bad} 条用例形状不合格` : '✓ 所有用例的形状都和 schema 对齐')
-process.exit(bad ? 1 : 0)
+// 不要 process.exit 硬切：Windows 上 node:sqlite / libuv 的异步关闭还没收尾，
+// 会在 exit 时触发 `!(handle->flags & UV_HANDLE_CLOSING)` 断言。设 exitCode
+// 让事件循环自然退出；如果还挂着句柄，再兜底退出。
+process.exitCode = bad ? 1 : 0
+setTimeout(() => process.exit(process.exitCode), 100).unref()

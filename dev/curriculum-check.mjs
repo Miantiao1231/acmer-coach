@@ -726,7 +726,7 @@ test('plugin integration: cross-branch course assignments, detours, logging and 
   assert.equal((await assign.execute({ ...args, node: 'B' })).accepted, false)
   const decision = await hook({ messages: [], step: 1 }, async () => ({ kind: 'enter', messages: [] }))
   assert.match(JSON.stringify(decision.messages), /测试长期路线/)
-  assert.match(JSON.stringify(decision.messages), /当前未完成单元/)
+  assert.match(JSON.stringify(decision.messages), /押着的动作/)
   const logged = await tools.get('coach_log').execute({ node: 'C', actualMin: 40, solved: true, independent: true })
   assert.equal(logged.actionCleared, true)
   assert.equal((await course.execute({ action: 'read' })).phaseId, 'foundation')

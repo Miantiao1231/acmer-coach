@@ -31,12 +31,43 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords } from './lib/setup.js'
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 import { createStrategyStore } from './lib/strategy.js'
-import { createTeachingNotes } from './lib/teaching.js'
+import { createTeachingNotes, minutesInReport } from './lib/teaching.js'
 import { createVpClient } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
+import { hasNativeTimeContext } from './lib/request-clock.js'
+import { createRequestContext, createPromptGuard } from './lib/request-context.js'
 import { applyCompanion } from './lib/companion.js'
+import { loadCompanionState, saveCompanionState, timeLine, inClassWindow, advanceLife, lifeLine, advanceJournal } from './lib/companion-state.js'
+import { advanceBody } from './lib/body-state.js'
+import { settleSleep } from './lib/sleep-runtime.js'
+import { loadSleepLedger } from './lib/sleep-ledger.js'
+import { withOperationId } from './lib/tool-operations.js'
+import { listTasks, cancelTask, retryTask, recoverExpiredTasks } from './lib/task-queue.js'
+import { grantScreenConsent, revokeScreenConsent, loadScreenConsent, activeScreenConsent } from './lib/screen-consent.js'
+import { loadScreenCaptures, latestScreenCapture, dropScreenCapture, readScreenOriginal } from './lib/screen-originals.js'
+import { recordUserMessage, loadInteractionLog } from './lib/interaction-log.js'
+import { loadActivityLedger } from './lib/activity-ledger.js'
+import { settleActivities } from './lib/activity-runtime.js'
+import { loadJournalArchive, journalFor, journalEntryText, journalDayKey } from './lib/journal.js'
+import { workloadScoreFor } from './lib/workload.js'
+import { observeHabit } from './lib/habits.js'
+import { loadGrowth, acceptGrowthNote } from './lib/growth.js'
+import { auditText, appendPersonaAudit } from './lib/persona-audit.js'
+import { loadPerson, savePerson, personLines, memoryLines, effectivePresence, presenceDelay, createCompanionTool, studentContextSnapshot, libraryView } from './lib/person.js'
+import { consumeReadReceipt, issueReadReceipt, readingSource, readingTextHash } from './lib/reading.js'
+import { readableText, looksBinary, mergeReadingNote, pickContinuation, pageTitle as pageTitleOf, READ_OPTIONS } from './lib/reading-run.js'
+import { runReadingSession, readingTurnActive, READING_SOURCE } from './lib/reading-session.js'
+import { resolveConflict, listEventArchives, readEventArchive } from './lib/claims.js'
+import { applyReflection } from './lib/reflection-runner.js'
+import { redact } from './lib/reflection.js'
+import { lastSeenAt } from './lib/last-seen.js'
+import { createProactiveTool } from './lib/proactive.js'
+import { createProactiveWorker } from './lib/proactive-worker.js'
+import { createLifeTick } from './lib/life-tick.js'
+import { PROACTIVE_SOURCE } from './lib/proactive-send.js'
+import { loadState } from './lib/proactive-state.js'
 import { buildTrainingLog } from './lib/training-log.js'
 import { readSubmissionChain, suggestAcAnchor } from './lib/submission-chain.js'
 import { scopedProblemKey, verifiedProblemForNode, rejectedProblemForNode, recordProblemRejection, clearProblemRejection } from './lib/problem-verification.js'
@@ -67,14 +98,6 @@ const NET_FLOOR_MIN = 1           // 实际时间盒由教练按任务决定
 const TAIL_MIN = 20               // 解决遗留(10) + 重写(10)，不随净时间压缩
 const CYCLE_TOTAL_MIN = NET_DEFAULT_MIN + TAIL_MIN   // 60：题目循环的整块长度（plan 的 cycle 就是它）
 
-// 开新知识点时「先讲一遍」那段的下限。
-//
-// 为什么有下限但**没有上限**：这个块的时间分配是教学判断，交给教练，
-// 不给他卡死。上限会把它变成"填一个不超过 X 的数"，
-// 而讲多久本来就该由教练定。
-// 下限只挡没意义的输入（讲 1 分钟等于没讲），不表达任何偏好。
-const TEACH_FLOOR_MIN = 10
-
 // 数据根：教练的全部真相源都在这一个目录下。
 // 默认落在 dsh 家目录下；COACH_DATA_DIR 可覆盖 ——
 // 探针后端套路（在副本上验，不脏真库）和夹具写接口的闸门都靠它。
@@ -87,6 +110,48 @@ const DATA_DIR_EXPLICIT = Boolean(process.env.COACH_DATA_DIR)
 const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh')
 const DATA_DIR = process.env.COACH_DATA_DIR || join(DSH_HOME, 'knowledge')
 const MAP_PATH = () => join(DATA_DIR, 'MAP.yaml')
+
+// 所有工具走这一层注册：统一加上可选 operation_id 幂等键（lib/tool-operations.js）。
+// 一条 sed 能改完 35 个注册点，就不会出现「某个工具忘了幂等」的漂移。
+//
+// 只读调用不参与重放：同一天内复用 operation_id 的查询必须看到最新状态。
+// 有副作用的工具保留幂等去重，混合工具按 action 区分。
+const READ_ONLY_TOOLS = new Set([
+  'coach_vp_contests', 'coach_vp_replay', 'coach_focus', 'coach_wiki',
+  'coach_ping', 'coach_next', 'coach_status', 'coach_journal', 'coach_pool',
+])
+const READ_ONLY_ACTIONS = {
+  companion: ['read', 'share', 'pending.list', 'style.list'],
+  coach_curriculum: ['read', 'assess'],
+  coach_student_context: ['read'],
+  coach_note: ['read'],
+  coach_vp_connect: ['status'],
+  coach_target: ['read', 'profiles', 'contests'],
+  coach_lesson: ['status'],
+  coach_schedule: ['read'],
+  coach_task: ['list'],
+}
+function isReadOnlyCall(tool, args) {
+  if (READ_ONLY_TOOLS.has(tool?.name)) return true
+  const actions = READ_ONLY_ACTIONS[tool?.name]
+  // coach_lesson 省略 action 时执行的是 status 查询，其余混合工具默认 read。
+  const action = args?.action ?? (tool?.name === 'coach_lesson' ? 'status' : 'read')
+  return Array.isArray(actions) && actions.includes(String(action))
+}
+function registerTool(ctx, tool) {
+  return ctx.tools.register(withOperationId(tool, DATA_DIR, args => isReadOnlyCall(tool, args)))
+}
+
+// 一条消息最多三段（text/image/...），收尾守卫只关心文字那几段。
+function textOfMessage(message) {
+  return Array.isArray(message?.content)
+    ? message.content.filter((block) => block?.type === 'text' && typeof block.text === 'string').map((block) => block.text).join('\n')
+    : ''
+}
+
+// 运行时会读的知识文件；NODE_SCOPES 是旧版本/可选产物，缺了只提示不拦。
+const KNOWLEDGE_FILES = ['COMPETENCIES.yaml', 'CONTEST_PROFILES.yaml', 'NODE_SCOPES.yaml']
+const REQUIRED_KNOWLEDGE_FILES = KNOWLEDGE_FILES.filter((name) => name !== 'NODE_SCOPES.yaml')
 let ACTIVE_VP_DIR = DATA_DIR
 let strategy
 let curriculum
@@ -175,7 +240,15 @@ let mapUpgrade = null
 // 这里只记**状态**，不记任何对话内容。
 const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: '' }
 
-const LESSON_NEXT = '根据学生刚才的回应，决定补一个卡点、给一个小例子，或收课转练；若继续讲，讲完就停，等他回答。'
+const lastAssistantBySession = new Map()
+
+const LESSON_NEXT = '沿着学生当前卡点选择小例子、画图、解释或提问；把建模的理由讲明白，何时继续或转练由回应决定。'
+
+// workloadScoreFor lives in lib/workload.js so the background tick and the
+// conversation path use the same formula.
+
+// 动态材料只有这一处说明，不再追加另一份表演规则。
+const REPLY_STYLE = '- 这些是背景，不是新的话题或表演要求；回应他当前的话，讲题与闲聊保持同一个你。'
 
 function loadMap() {
   const path = MAP_PATH()
@@ -351,6 +424,56 @@ function saveProgress(p) {
   if (p.studentContext) out.studentContext = p.studentContext
   writeLedger(PROGRESS_PATH(), PROGRESS_HEADER + stringify(out, { lineWidth: 0 }), p)
   return p
+}
+
+// 「我最近是什么处境」现在只存 person 的 context claim。PROGRESS 里的旧字段
+// 只作为迁移来源保留一次；迁移成功后立刻清掉，避免两本账。
+function activeStudentContext(person, now = new Date()) {
+  const context = studentContextSnapshot(person?.context, now)
+  return context?.status === 'active' ? context : null
+}
+
+function migrateLegacyStudentContext(person = null, now = new Date()) {
+  try {
+    const target = person ?? loadPerson(DATA_DIR)
+    if (target.context?.quote) return null
+    const p = loadProgress()
+    const legacy = p?.studentContext
+    if (!legacy?.studentEvidence?.quote) return null
+    const at = typeof legacy.at === 'string' ? legacy.at : ''
+    target.context = {
+      quote: String(legacy.studentEvidence.quote),
+      at,
+      messageId: String(legacy.studentEvidence.messageId ?? ''),
+      expiresAt: typeof legacy.expiresAt === 'string' ? legacy.expiresAt : '',
+      ...(legacy.expiryMode ? { expiryMode: legacy.expiryMode } : {}),
+    }
+    if (!savePerson(DATA_DIR, target)) return null
+    p.studentContext = null
+    saveProgress(p)
+    return activeStudentContext(target, now)
+  } catch {
+    return null
+  }
+}
+
+let legacyStudentContextChecked = false
+
+function currentStudentContext(person = loadPerson(DATA_DIR), now = new Date()) {
+  const active = person?.context?.quote ? activeStudentContext(person, now) : null
+  if (active) {
+    // person 已经有 context 时，把 PROGRESS 里的旧字段收干净；每个进程只查一次。
+    if (!legacyStudentContextChecked) {
+      legacyStudentContextChecked = true
+      try {
+        const p = loadProgress()
+        if (p.studentContext) { p.studentContext = null; saveProgress(p) }
+      } catch { /* cleanup is best effort */ }
+    }
+    return active
+  }
+  if (person?.context?.quote) return null
+  return migrateLegacyStudentContext(person, now)
 }
 
 // ── SCHEDULE.yaml：时间容量 ───────────────────────────────────────
@@ -1005,10 +1128,9 @@ function nodeStatus(progress, id) {
 
 const STATUS_MARK = { none: '', studying: '  ▶在学', learned: '  ◦学过', verified: '  ✓已验证' }
 
-// 检测结局的短标签（coach_status 的历史行用）。三种结局**不合并** ——
-// 「分够但超时」是「不熟」的机械形态，跟"没过"是两种病（见 coach_grade）。
+// 检测结局只描述本次结果，不凭分数或超时自动判因。
 const OUTCOME_TAG = {
-  passed: '过', overTime: '超时（算不熟）', failed: '没过',
+  passed: '过', overTime: '超时', failed: '没过',
   // 弃考：卷子开了但没做。**不是失败，也不是没发生** —— 它是一条独立的记录
   // （见 coach_cancel）。归到"没过"里去的话，「他最近三次都没过」和
   // 「他最近三次都没做」就读成同一句话了，而这是两种完全不同的信号。
@@ -1097,45 +1219,9 @@ function taughtEvidence(progress, id) {
   }
 }
 
-// 前置闭包：seeds 加上它们的全部前置，递归。
-// 「学过 动态规划基础」在逻辑上就意味着「递归 & 分治、枚举」也学过 ——
-// 没学过前者推不出后者。所以游标要先展开成闭包，否则
-// 区间 DP（只依赖 动态规划基础）会被误判成"缺前置"。
-function prereqClosure(seeds, byId) {
-  const out = new Set()
-  const stack = [...seeds]
-  while (stack.length) {
-    const id = stack.pop()
-    if (out.has(id)) continue
-    out.add(id)
-    for (const d of byId.get(id)?.depends ?? []) if (!out.has(d)) stack.push(d)
-  }
-  return out
-}
-
-// 「已学集合」—— 三个工具共用这一份，别再各算各的。
-//
-// 修过一处：原先 coach_next / coach_assign 只展开「游标自己」，
-// 训练员显式标过的几十个节点全当没看见 —— 他明明标了「位运算」，
-// 教练还说「数位 DP 缺前置 位运算」。三个工具里只有 coach_set_cursor 读了进度。
-//
-// 集合 = **种子（你现在站的地方）的前置闭包** ∪ **显式标为 学过/已验证 的节点**。
-//
-// 两条口径，都不是随手定的：
-//
-// 1. **「在学」不算。** 在学 = 开了头、还没达标。拿它当地基等于把「正在爬」
-//    当成「已经站在上面」。他的真实数据里就躺着反例：概率论和概率 DP 都标着
-//    「在学」—— 认了它，教练就会顺着「他会概率 DP」推出「他肯定也会概率论」，
-//    可他这学期才开概率论。（在学不算已学）
-//
-// 2. **显式标记的节点不展开它的前置。** 同一个道理：他会概率 DP ≠ 他学过
-//    概率论。闭包只对**种子**展开 —— 站在「动态规划基础」上，逻辑上就意味着
-//    「递归 & 分治」「枚举」也学过，这个闭包成立；标记不是。
-//
-// 种子取谁：coach_next / coach_assign 取**当前游标**；coach_set_cursor 取
-// **旧游标**（移走之前站的地方）。统一成一句话：**你站的位置 + 你声明会的**。
-function assumedLearned(progress, byId, seeds = []) {
-  const out = prereqClosure(seeds, byId)
+// 游标仅定位当前关注点；前置证据来自明确状态或本次显式声明，不推断闭包。
+function assumedLearned(progress, extra = []) {
+  const out = new Set(extra)
   for (const id of Object.keys(progress?.nodes ?? {})) {
     const s = nodeStatus(progress, id)
     // 只有 learned / verified 算。「在学」和「未学」一样，什么都不算。
@@ -1167,17 +1253,9 @@ function suggest(cursor, nodes) {
 // 判因的零件
 // ══════════════════════════════════════════════════════════════════
 
-// 判因分类 → 下一步去向。**映射写死在这，不让模型填。**
-// 理由是逻辑必然，不是我的偏好：
-//   「不会」→ 缺的是机制，光重做一遍还是不会，得回去补那个知识点；
-//   「不熟」→ 会，只是慢，那就换个题限时加练（重做原题没用，你已经知道怎么做了）；
-//   「不认真」→ 方法没问题，是手上毛躁，重写一遍并强制跑边界。
-// 让模型自由填这个字段，它一定会把「不认真」配上「补课」这类拧巴的组合。
-//
-// 单位跟着 #7 一起统一：这里给的是**他自己动手的净时间**（不是整块长度）。
-// backfill / drill 就是一个标准循环（净 40 → 整块 60，跟以前一样）；
-// redo 的净时长由教练按错误范围给出；短任务不套固定30分钟下限。
+// 兼容旧分类的接续建议；证据不足先核对，不自动分配训练。
 const MOVES = {
+  '待确认': { kind: 'clarify', label: '核对题意、输入与实际过程，再判断原因和接法', minutes: 0 },
   '不会': { kind: 'backfill', label: '回头把这个知识点补上', minutes: NET_DEFAULT_MIN },
   '不熟': { kind: 'drill', label: '换个题、限时加练同一套路', minutes: NET_DEFAULT_MIN },
   '不认真': { kind: 'redo', label: '重写本题，写完先自己跑边界', minutes: NET_FLOOR_MIN },
@@ -1555,6 +1633,23 @@ const reachableOf = (entry, rating) =>
 
 const SKILLTREE_HTML = () => join(DATA_DIR, 'skilltree.html')
 const VP_HTML = () => join(import.meta.dirname, 'assets', 'knowledge', 'vp.html')
+const PERSON_HTML = () => join(import.meta.dirname, 'assets', 'knowledge', 'person.html')
+
+// 页面能改的范围。**不包含 read / share / *.list** —— 那些是给模型看的，
+// 页面自己从 GET 拿数据；也不给任何一条能绕过 companion 工具直接写文件的路径。
+const PERSON_ACTIONS = new Set([
+  'profile.set',
+  'relation.add', 'relation.update', 'relation.remove',
+  'habit.add', 'habit.update', 'habit.remove', 'habit.feedback',
+  'library.add', 'library.progress', 'library.update', 'library.remove',
+  'episode.add', 'episode.update', 'episode.remove',
+  'promise.add', 'promise.update', 'promise.done', 'promise.remove',
+  'boundary.add', 'boundary.remove',
+  'pin.add', 'pin.remove',
+  'presence.set',
+  'pending.accept', 'pending.discard',
+  'style.accept', 'style.discard',
+])
 
 // ── /coach 路由：把技能树挂在 dsh 自己的 web 服务上 ──────────────────
 //
@@ -1575,7 +1670,7 @@ const VP_HTML = () => join(import.meta.dirname, 'assets', 'knowledge', 'vp.html'
 //
 // ⚠️ 走**可选注入**：没有 webServer 的环境（headless CLI）跳过这一块，
 // 工具照样能用。所以顶上的 inject 数组里**不写** webServer。
-function registerPages(ctx) {
+function registerPages(ctx, { proactiveWorker = null } = {}) {
   // ── 闸：优先用 dsh 自己的那套 ─────────────────────────────────────
   //
   // 后来改过。**dsh 0.1.5 给所有路由上了锁**（签名 cookie），而本插件
@@ -1640,6 +1735,11 @@ function registerPages(ctx) {
     if (pathname === '/coach/vp.html') {
       try { return send(res, 200, 'text/html; charset=utf-8', readFileSync(VP_HTML())) }
       catch (err) { return send(res, 404, 'text/plain; charset=utf-8', `VP 页面缺失（${err?.code ?? err?.message}）`) }
+    }
+
+    if (pathname === '/coach/person.html') {
+      try { return send(res, 200, 'text/html; charset=utf-8', readFileSync(PERSON_HTML())) }
+      catch (err) { return send(res, 404, 'text/plain; charset=utf-8', `人格档案页面缺失（${err?.code ?? err?.message}）`) }
     }
 
     if (['geist-latin-wght-normal.woff2', 'geist-mono-latin-400-normal.woff2'].some(font => pathname === `/coach/fonts/${font}`)) {
@@ -1787,6 +1887,187 @@ function registerPages(ctx) {
       return send(res, 405, 'text/plain; charset=utf-8', 'method not allowed')
     }
 
+    if (pathname === '/coach/api/person/archives' && req.method === 'GET') {
+      return sendJson(res, 200, { ok: true, archives: listEventArchives(DATA_DIR) })
+    }
+
+    if (pathname.startsWith('/coach/api/person/archives/') && req.method === 'GET') {
+      const name = decodeURIComponent(pathname.slice('/coach/api/person/archives/'.length))
+      const text = readEventArchive(DATA_DIR, name)
+      if (text === null) return sendJson(res, 404, { ok: false, reject: '归档不存在。' })
+      return send(res, 200, 'application/x-ndjson; charset=utf-8', text, {
+        'content-disposition': `attachment; filename="${name}"`,
+      })
+    }
+
+    if (pathname === '/coach/api/person') {
+      if (req.method === 'GET') {
+        try {
+          const now = new Date()
+          const person = loadPerson(DATA_DIR, now)
+          const companion = loadCompanionState(DATA_DIR, now)
+          const canonicalLastUserAt = lastSeenAt(proactiveWorker?.read?.() ?? null, companion)
+          let classWindow = null
+          let progress = null
+          try { classWindow = loadSchedule().classWindow } catch { /* 日程损坏不影响档案页 */ }
+          try { progress = loadProgress() } catch { /* 进度损坏时身体状态只按时间推 */ }
+          const presence = effectivePresence(person, now, {
+            lastUserAt: canonicalLastUserAt,
+            inClass: inClassWindow(classWindow, now),
+          })
+          const rawPresence = person?.presence ?? {}
+          const bodyPresence = ['sleep', 'nap'].includes(rawPresence.mode)
+            ? { mode: rawPresence.mode } : presence
+          const workloadScore = workloadScoreFor({
+            log: loadInteractionLog(DATA_DIR, now),
+            activities: loadActivityLedger(DATA_DIR),
+            now,
+          })
+          // 页面读取必须是只读的：不在 GET 里结算睡眠/自动开一段夜睡。
+          // 睡眠的推进由对话 turn 和 person 工具负责。
+          const sleepLedger = loadSleepLedger(DATA_DIR)
+          const body = advanceBody(companion.body, {
+            now, lastUserAt: canonicalLastUserAt, progress, presence: bodyPresence,
+            presenceExplicit: ['sleep', 'nap'].includes(rawPresence.mode),
+            presenceSince: rawPresence.since ?? '',
+            presenceUntil: rawPresence.until ?? '',
+            sleepLedger, workloadScore,
+          })
+          const life = advanceLife(companion.life, { now, presence, person, lastUserAt: canonicalLastUserAt })
+          const journal = advanceJournal(companion.journal, { now, person, presence, body, life })
+          return sendJson(res, 200, {
+            ok: true,
+            version: VERSION,
+            profile: person.profile,
+            relation: person.relation,
+            habits: person.habits,
+            library: person.library.map(libraryView),
+            episodes: person.episodes,
+            promises: person.promises,
+            boundaries: person.boundaries,
+            pinned: person.pinned,
+            context: studentContextSnapshot(person.context, now),
+            conflicts: person.conflicts,
+            presence: person.presence,
+            effectivePresence: presence,
+            pending: person.pending,
+            style: person.style,
+            rejectedCount: person.rejected.length,
+            reflection: person.reflection,
+            body,
+            roleState: companion.roleState,
+            activities: loadActivityLedger(DATA_DIR).activities.slice(-20),
+            life,
+            lifeLine: lifeLine(life, now),
+            journal,
+            journalArchive: loadJournalArchive(DATA_DIR).entries.slice(-10),
+            growth: loadGrowth(DATA_DIR).notes.slice(-10),
+            screen: {
+              consent: loadScreenConsent(DATA_DIR),
+              active: activeScreenConsent(loadScreenConsent(DATA_DIR), now),
+              captures: loadScreenCaptures(DATA_DIR).captures.slice(-10),
+            },
+            proactive: proactiveWorker?.status() ?? null,
+            archives: listEventArchives(DATA_DIR),
+            lastUserAt: canonicalLastUserAt,
+          })
+        } catch (err) {
+          return sendJson(res, 500, { ok: false, reject: String(err?.message ?? err) })
+        }
+      }
+      if (req.method === 'POST') {
+        let body = ''
+        for await (const chunk of req) {
+          body += chunk
+          if (body.length > 100_000) { req.destroy(); return }
+        }
+        let payload
+        try { payload = JSON.parse(body || '{}') }
+        catch { return sendJson(res, 400, { ok: false, reject: '请求体不是 JSON' }) }
+        const action = String(payload?.action ?? '')
+        if (action === 'proactive.settings') {
+          if (!proactiveWorker) return sendJson(res, 400, { ok: false, reject: '主动 worker 未接线。', action })
+          const result = proactiveWorker.setSettings({
+            ...(payload?.intensity !== undefined ? { intensity: payload.intensity } : {}),
+            ...(payload?.backgroundLlm !== undefined ? { backgroundLlm: payload.backgroundLlm } : {}),
+            ...(payload?.lifeImprov !== undefined ? { lifeImprov: payload.lifeImprov } : {}),
+            ...(payload?.autonomousReading !== undefined ? { autonomousReading: payload.autonomousReading } : {}),
+            ...(payload?.lifeImprovDailyLimit !== undefined ? { lifeImprovDailyLimit: payload.lifeImprovDailyLimit } : {}),
+            ...(payload?.external !== undefined ? { external: payload.external } : {}),
+            ...(payload?.weatherCity !== undefined ? { weatherCity: payload.weatherCity } : {}),
+            ...(payload?.weatherKey !== undefined ? { weatherKey: payload.weatherKey } : {}),
+            ...(payload?.weatherHost !== undefined ? { weatherHost: payload.weatherHost } : {}),
+            ...(payload?.newsSources !== undefined ? { newsSources: payload.newsSources } : {}),
+            ...(payload?.screenVision !== undefined ? { screenVision: payload.screenVision } : {}),
+          })
+          return sendJson(res, result.ok ? 200 : 400, { ...result, action })
+        }
+        if (action === 'conflict.resolve') {
+          const ok = resolveConflict(DATA_DIR, String(payload?.kind ?? ''), String(payload?.value ?? ''))
+          return sendJson(res, ok ? 200 : 400, { ok, reject: ok ? '' : '没有可裁决的冲突。', action, summary: ok ? '已按选中的说法保留。' : '' })
+        }
+        // 屏幕授权只认页面。开关（screenVision）说她「可以看」，
+        // 这份限时授权才说她「现在可以看」。
+        if (action === 'screen.consent' || action === 'screen.revoke') {
+          const result = action === 'screen.consent'
+            ? grantScreenConsent(DATA_DIR, { minutes: Number(payload?.minutes ?? 120), by: 'human' })
+            : revokeScreenConsent(DATA_DIR)
+          return sendJson(res, result.ok ? 200 : 400, {
+            ...result, action, summary: result.ok ? '屏幕授权已更新。' : '',
+          })
+        }
+        if (action === 'screen.review') {
+          const store = loadScreenCaptures(DATA_DIR)
+          const id = String(payload?.id ?? '')
+          const capture = id ? store.captures.find(item => item.id === id) ?? null : latestScreenCapture(store)
+          return sendJson(res, 200, { ok: true, reject: '', action, capture, summary: capture?.summary ?? '还没有截图。' })
+        }
+        if (action === 'screen.drop') {
+          const result = dropScreenCapture(DATA_DIR, String(payload?.id ?? ''))
+          return sendJson(res, result.ok ? 200 : 400, { ...result, action, summary: result.ok ? '删掉了这张截图。' : '' })
+        }
+        if (action === 'growth.accept' || action === 'growth.drop') {
+          const day = String(payload?.day ?? '')
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+            return sendJson(res, 400, { ok: false, reject: '日期不合法。', action })
+          }
+          const result = acceptGrowthNote(DATA_DIR, { day, accept: action === 'growth.accept' })
+          return sendJson(res, result.ok ? 200 : 400, { ...result, action })
+        }
+        if (action === 'proactive.arm' || action === 'proactive.disarm') {
+          if (!proactiveWorker) return sendJson(res, 400, { ok: false, reject: '主动 worker 未接线。', action })
+          const result = action === 'proactive.arm'
+            ? proactiveWorker.arm(proactiveWorker.status().sessionId)
+            : proactiveWorker.disarm()
+          return sendJson(res, result.ok ? 200 : 400, {
+            ok: result.ok, reject: result.reject || '', action, summary: result.summary || '',
+          })
+        }
+        if (!PERSON_ACTIONS.has(action)) {
+          return sendJson(res, 400, { ok: false, reject: `页面不能执行「${action || '空动作'}」。`, action })
+        }
+        try {
+          // origin=human：「采用」这类动作只认页面，模型调工具时拿不到这个标记。
+          const result = await createCompanionTool(DATA_DIR).execute(payload, { origin: 'human' })
+          return sendJson(res, result.ok ? 200 : 400, result)
+        } catch (err) {
+          // defineTool 的参数校验会抛 ToolArgsError；把它变成 400，不把栈露给页面。
+          return sendJson(res, 400, { ok: false, reject: String(err?.message || err), action, summary: '' })
+        }
+      }
+      return send(res, 405, 'text/plain; charset=utf-8', 'method not allowed')
+    }
+
+    // 截图原件：只有页面能看，索引里标了 deleted 的一律 404。
+    if (pathname === '/coach/api/screen-original' && req.method === 'GET') {
+      const query = new URL(req.url ?? '/', 'http://dsh.internal').searchParams
+      const id = String(query.get('id') ?? '')
+      const listed = loadScreenCaptures(DATA_DIR).captures.find(item => item.id === id)
+      const data = listed && !listed.deleted ? readScreenOriginal(DATA_DIR, id) : null
+      if (!data) return send(res, 404, 'text/plain; charset=utf-8', 'not found')
+      return send(res, 200, 'image/jpeg', data)
+    }
+
     if (pathname === '/coach/api/training-log' && req.method === 'GET') {
       try {
         const query = new URL(req.url ?? '/', 'http://dsh.internal').searchParams
@@ -1828,13 +2109,113 @@ function registerPages(ctx) {
 // 注入失败只是"小鲸少知道一点"，和"对话打不开"根本不是一个量级。
 //
 // 为什么**不做** compaction/prune（路线图 #2 的另一半）：
-// 它要防的是"规则被长对话压掉"，而规则在 AGENTS.md 里 —— 那是 system prompt，
+// 它要防的是"规则被长对话压掉"，而 coach:rules 是静态 system prompt，
 // 压根不参与压缩。真正会丢的是**位置**，而 pre-step 每轮都重注一遍，
 // 压掉的下一轮就回来了。所以那半条是多余的。
-function registerStateHook(ctx, teaching) {
-  ctx.on('agent/pre-step', async ({ messages, step }, next) => {
-    const decision = await next()
+// DSH 没有「助手消息发送前」的钩子：消息流完才落盘，拦不住。
+// 这里只记录发送后的诊断，不给下一轮强加改写要求。
+function applyPersonaReview(ctx) {
+  ctx.on('session/event', (session, event) => {
+    if (event?.type !== 'assistant/message') return
+    const message = event.data?.message || event.data
+    if (message?.role !== 'assistant' || message?.source?.kind !== 'model') return
+    if (Array.isArray(message.content) && message.content.some(block => block?.type === 'tool-call')) return
+    const text = Array.isArray(message.content)
+      ? message.content.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n')
+      : ''
+    if (!text.trim()) return
+    const reasons = auditText(text)
+    if (!reasons.length) return
+    appendPersonaAudit(DATA_DIR, {
+      at: new Date().toISOString(),
+      sessionId: typeof session?.id === 'string' ? session.id : '',
+      reasons,
+      text: text.slice(0, 300),
+    })
+
+  })
+}
+
+function registerStateHook(ctx, teaching, proactiveWorker = null) {
+  const requestContext = createRequestContext(ctx, 'coach:state', 400)
+  const guardPrompt = createPromptGuard(ctx)
+  ctx.on('agent/pre-step', async ({ messages, step, agent, signal }, next) => {
+    if (step === 1) requestContext.clear(agent)
+    // 先读档案和上次互动时间；状态提供背景，不截断当前请求。
+    // 睡眠/午休只在真的有一段时间没说话时才算；正在聊天时她当然是醒的。
+    const person = loadPerson(DATA_DIR)
+    const companion = loadCompanionState(DATA_DIR)
+    // 唯一真相是 proactive-state.lastUserAt；companion 里的是上一轮落盘值，
+    // 只用来算“这一轮开始前隔了多久”，不再作为第二真相。
+    const proactiveState = proactiveWorker?.read?.() ?? null
+    const canonicalLastUserAt = lastSeenAt(proactiveState, companion)
+    const hasUser = Array.isArray(messages) && messages.some(m => m?.role === 'user' && m?.source?.kind === 'user')
+    const gapLastUserAt = hasUser ? (companion.lastUserAt || canonicalLastUserAt) : canonicalLastUserAt
+    let classWindow = null
+    try { classWindow = loadSchedule().classWindow } catch { /* 日程损坏不影响其余状态注入 */ }
+    const nowForPresence = new Date()
+    const presenceNow = effectivePresence(person, nowForPresence, {
+      lastUserAt: canonicalLastUserAt,
+      inClass: inClassWindow(classWindow, nowForPresence),
+    })
+    let decision = await next()
+    // 状态注入的两条出口（原生上下文 / 旧宿主消息回退）共用一个入口。
+    // 动态 import，不走顶上的静态依赖 —— 和这个文件里 `node:sqlite` 一个套路：
+    // 包挪了位置 / 换了版本，注入就静默跳过，工具和对话照常用。
+    const inject = async (stateText) => {
+      if (requestContext.publish(agent, stateText)) return decision
+      const { createUserMessage } = await import('@deepseek-ai/dsh-llm')
+      const msg = createUserMessage({
+        content: [{ type: 'text', text: stateText }],
+        source: { kind: `plugin:${name}` },
+      })
+      return { ...decision, messages: [...decision.messages, msg] }
+    }
     try {
+      if (step === 1 && decision.kind === 'enter') decision = await guardPrompt(agent, decision, signal)
+      // 主动唤醒回合不塞教练状态/工具指令，避免“别调工具”和“先调 coach_status”
+      // 在同一轮打架。但当前身份、说话方式和边界要带上 —— 它们决定“开口的是谁”，
+      // 不是训练任务。只在第一步注入一次；后续工具往返不重复。
+      const proactiveWake = (Array.isArray(decision.messages) ? decision.messages : [])
+        .concat(Array.isArray(messages) ? messages : [])
+        .some(m => m?.role === 'user' && m?.source?.kind === PROACTIVE_SOURCE)
+      if (proactiveWake) {
+        if (step !== 1 || decision.kind !== 'enter') return decision
+        const wakeNow = new Date()
+        const wakeLines = [
+          '<coach_state>',
+          '（角色背景，不是用户的新请求；不据此催训练或开教学）',
+          ...personLines(person, wakeNow, { lastUserAt: canonicalLastUserAt, includeDetails: false }),
+          ...memoryLines(person, wakeNow, { lastUserText: '' })
+            .filter(line => line.startsWith('- 他明确划过的线') || line.startsWith('- 他一直让你记住')),
+          '</coach_state>',
+        ]
+        return await inject(wakeLines.join('\n'))
+      }
+      // 阅读回合同理：带上「她是谁」，不塞学生课程、游标和催办。否则
+      // 阅读时会收到「正在接续 DFS，沿着学生当前卡点」，把独处读成上课。
+      const readingTurn = (Array.isArray(decision.messages) ? decision.messages : [])
+        .concat(Array.isArray(messages) ? messages : [])
+        .some(m => m?.role === 'user' && m?.source?.kind === READING_SOURCE)
+      if (readingTurn) {
+        if (step !== 1 || decision.kind !== 'enter') return decision
+        const readingNow = new Date()
+        const readingLines = [
+          '<coach_state>',
+          '（这是你自己的阅读时间，不是训练员的新请求，也不是教学回合）',
+          ...personLines(person, readingNow, { lastUserAt: canonicalLastUserAt, includeDetails: false }),
+          ...memoryLines(person, readingNow, { lastUserText: '' })
+            .filter(line => line.startsWith('- 他明确划过的线') || line.startsWith('- 他一直让你记住')),
+          '- 现在按你自己的兴趣读一段公开材料（coach_read），读完写笔记，再决定要不要跟他说。',
+          '</coach_state>',
+        ]
+        return await inject(readingLines.join('\n'))
+      }
+      // 等他把话说完（coalesce）已经花过时间；这一轮不再叠 presence 延迟。
+      if (step === 1 && decision.kind === 'enter' && !decision.coalesced) {
+        const delay = presenceDelay(presenceNow)
+        if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay))
+      }
       // 只在每个 turn 的**第一步**注入一次。每步都塞的话，
       // 一次工具调用的往返就多一份一模一样的状态。
       if (step !== 1 || decision.kind !== 'enter') return decision
@@ -1845,40 +2226,124 @@ function registerStateHook(ctx, teaching) {
       const studying = Object.entries(p.nodes ?? {})
         .filter(([, r]) => r?.status === 'studying')
         .map(([id]) => id)
-      const teachingContext = teaching.context(p)
-      let classWindow = null
-      try { classWindow = loadSchedule().classWindow } catch { /* 日程损坏不影响其余状态注入 */ }
+      const teachingContext = teaching.context(p, p.lesson?.node)
+
+      // 时间感 / 心情 / 执教态：只读事实，现算。心情不写盘、不调模型。
+      const now = new Date()
+      const rawPresence = person?.presence ?? {}
+      const lastUserText = (() => {
+        const list = Array.isArray(decision.messages) ? decision.messages : []
+        const message = [...list].reverse().find(item => item?.role === 'user' && item?.source?.kind === 'user')
+        return Array.isArray(message?.content)
+          ? message.content.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n')
+          : ''
+      })()
+
+      // 状态供自然接话参考，睡眠与忙碌不替模型决定是否回答。
+      const presenceForState = hasUser
+        ? effectivePresence(person, now, { lastUserAt: now.toISOString(), inClass: inClassWindow(classWindow, now) })
+        : presenceNow
+      const bodyPresence = presenceForState
+      // 私聊条数按真人消息记；定时叫醒和工具回合不算。
+      if (hasUser) {
+        recordUserMessage(DATA_DIR, now, lastUserText)
+        // Repeated wording only; no interpretation, no model call.
+        try { observeHabit(DATA_DIR, { text: lastUserText, now }) } catch { /* counting is best effort */ }
+      }
+      const workloadScore = workloadScoreFor({
+        log: loadInteractionLog(DATA_DIR, now),
+        activities: loadActivityLedger(DATA_DIR),
+        now,
+      })
+      const sleepLedger = settleSleep(DATA_DIR, {
+        now, from: new Date(companion.body.updatedAt),
+        presenceMode: rawPresence.mode, presenceSince: rawPresence.since ?? '',
+        workloadScore, openingDebt: 0, userMessage: hasUser, lastUserAt: gapLastUserAt,
+      })
+      const body = advanceBody(companion.body, {
+        now,
+        lastUserAt: gapLastUserAt,
+        progress: p,
+        presence: bodyPresence,
+        presenceExplicit: ['sleep', 'nap'].includes(rawPresence.mode),
+        presenceSince: rawPresence.since ?? '',
+        presenceUntil: rawPresence.until ?? '',
+        sleepLedger, workloadScore,
+      })
+      // 状态维护挪到 60s 后台 tick（lib/life-tick.js）：那里有完整预算，
+      // 不在对话回合里等模型，也不会因为一天没人说话就停更。
+      const life = advanceLife(companion.life, { now, presence: presenceForState, person, lastUserAt: hasUser ? now.toISOString() : canonicalLastUserAt })
+      // 模型写的日记优先；归档还没有今天的条目时才退回模板，模板只是兜底。
+      const archive = loadJournalArchive(DATA_DIR)
+      const archivedJournal = journalFor(archive, { day: journalDayKey(now), kind: 'journal' })
+      const journal = archivedJournal
+        ? { day: archivedJournal.day, text: journalEntryText(archivedJournal).slice(0, 240), at: archivedJournal.updatedAt }
+        : advanceJournal(companion.journal, { now, person, presence: presenceForState, body, life })
+      const dreamEntry = [...(archive.entries ?? [])]
+        .filter((entry) => entry.kind === 'dream' && entry.state !== 'deleted'
+          && Date.parse(entry.updatedAt || entry.createdAt || 0) >= now.getTime() - 24 * 3600 * 1000)
+        .sort((a, b) => (a.updatedAt || a.createdAt).localeCompare(b.updatedAt || b.createdAt)).at(-1) ?? null
+      // 阅读/日记/梦的活动账本：读时记段、睡着暂停、重启后按心跳恢复。
+      // 失败只记健康状态，不能让状态注入挂掉。
+      try {
+        settleActivities(DATA_DIR, {
+          now, presence: presenceForState, person, sleepLedger, journal,
+          dream: dreamEntry ? { id: `dream-${dreamEntry.nightId || dreamEntry.day}`, day: dreamEntry.day, text: journalEntryText(dreamEntry), nightId: dreamEntry.nightId } : null,
+        })
+      } catch (err) {
+        health.lastError = `活动结算失败：${err?.message ?? err}`
+      }
+      // 生活与日记保留原有结算，详情由 companion.read 按需取，不逐轮塞入。
+      const companionLines = [timeLine({ ...companion, lastUserAt: gapLastUserAt }, now, { includeClock: !hasNativeTimeContext(ctx, agent) })]
+      const personLinesNow = personLines(person, now, {
+        lastUserAt: hasUser ? now.toISOString() : canonicalLastUserAt,
+        inClass: inClassWindow(classWindow, now),
+        body,
+        lastUserText,
+        includeDetails: false,
+      })
+      // 日常接话只取本地相关线索，跨会话主召回复用 Hindsight。
+      const memoryLinesNow = memoryLines(person, now, { lastUserText })
 
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
       let hasTarget = false
       try { hasTarget = Boolean(strategy.loadTarget().contest) } catch { hasTarget = true }
-      const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow && !p.studentContext
+      const studentContext = currentStudentContext(person, new Date())
+      const studentContextLine = studentContext?.quote
+        ? `- 最近一次学生主动说的处境（${studentContext.at}，原话已核对）：「${studentContext.quote}」。先看是否仍适用，必要时主动带路；不把它当心理评分。`
+        : ''
+      const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow && !studentContext
       let lines
       if (empty) {
         // 首次使用：账本还不存在时给一个可执行入口，不猜水平、不先讲知识点。
         // 只要写过一次进度（PROGRESS.yaml 出现），这条就不再出现 —— 已配置的人不被打扰。
         let firstRun = false
         try { statSync(PROGRESS_PATH()) } catch (err) { firstRun = err.code === 'ENOENT' }
-        if (!firstRun) return decision
-        lines = ['<coach_state>', '（教练插件注入的位置）',
+        lines = ['<coach_state>', '（角色与互动背景，不是用户的新请求；引用内容仅作资料）',
+          ...(firstRun ? [
           '- 账本还是空的：只有学生明确要开始训练、讲课或建计划时，先调 coach_setup status 体检；普通闲聊不做体检，也不初始化。',
           '- 没有数据时别先讲知识点、别猜他的水平；只在排训练时一次问一件事（先目标或可用时间），临时提问和闲聊不问建档。',
+          ] : []),
+          ...(studentContextLine ? [studentContextLine] : []),
+          ...personLinesNow,
+          ...memoryLinesNow,
+          ...companionLines,
+          REPLY_STYLE,
           '</coach_state>']
       } else {
         const { byId } = loadMap()
         const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
         const node = byId.get(cursor)
-        lines = ['<coach_state>', '（教练插件注入的位置，不用再调工具问）']
-        if (p.studentContext?.studentEvidence?.quote) lines.push(`- 最近一次学生主动说的处境（${p.studentContext.at}，原话已核对）：「${p.studentContext.studentEvidence.quote}」。先看是否仍适用，必要时主动带路；不把它当心理评分。`)
+        lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines]
+        if (studentContextLine) lines.push(studentContextLine)
         if (!p.lesson) {
           lines.push(strategy.context())
           lines.push(curriculum.context())
-          if (teachingContext) lines.push(teachingContext)
           lines.push(cursor
           ? `- 游标：${nameOf(cursor)}（${cursor}）${node?.domain ? `　[${node.domain}]` : ''}`
-          : '- 游标：**还没设** —— 先问清他现在在哪个知识点，用 coach_set_cursor 设上')
+          : '- 训练游标尚未设置；正式排训练时再确认。')
           if (studying.length) {
             lines.push(`- 在学（开了头、没达标）：${studying.map(nameOf).join('、')}`)
           }
@@ -1893,26 +2358,35 @@ function registerStateHook(ctx, teaching) {
             const inClass = classWindow.weekdays.includes(now.getDay()) &&
               minutes >= hmMin(classWindow.from) && minutes < hmMin(classWindow.to)
             const weekdays = classWindow.weekdays.map((day) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day]).join('、')
-            lines.push(`- 固定上课时段（本机时间）：${weekdays} ${classWindow.from}–${classWindow.to}；当前${inClass ? '在上课时段' : '在时段外，以练习或原定休息为主'}。学生明确要求现在讲课时照办。`)
+            lines.push(`- 固定上课时段（本机时间）：${weekdays} ${classWindow.from}–${classWindow.to}；当前${inClass ? '在上课时段' : '在时段外'}。学生明确要求现在讲课时照办。`)
           }
         }
         if (p.lesson) {
-          lines.push(`- 🎓 教学模式：正在教「${nameOf(p.lesson.node)}」；${LESSON_NEXT}`)
+          lines.push(`- 正在接续「${nameOf(p.lesson.node)}」；${LESSON_NEXT}`)
+          if (p.lesson.problem) lines.push(`- 本节题目线索（教练记录，题面待核对）：${String(p.lesson.problem).replace(/\s+/g, ' ').slice(0, 200)}`)
           const latest = p.lesson.evidence?.findLast((item) => item?.stage === 'response')?.text
           if (latest) lines.push(`- 最近学生回应（教练记录，原话未核对）：${String(latest).replace(/\s+/g, ' ').slice(0, 180)}`)
         }
+        if (teachingContext) {
+          if (p.lesson) lines.push('- 以下是同知识点的历史续课线索，以当前题意和回应为准。')
+          lines.push(teachingContext)
+        }
+        lines.push(REPLY_STYLE)
         lines.push('</coach_state>')
       }
 
-      // 动态 import，不走顶上的静态依赖 —— 和这个文件里 `node:sqlite` 一个套路：
-      // 包挪了位置 / 换了版本，注入就静默跳过，工具和对话照常用。
-      const { createUserMessage } = await import('@deepseek-ai/dsh-llm')
-      const msg = createUserMessage({
-        content: [{ type: 'text', text: lines.join('\n') }],
-        source: { kind: `plugin:${name}` },
+      // 只有真人发消息才更新「上次见面」；定时任务叫醒不算。身体状态每轮都推进。
+      saveCompanionState(DATA_DIR, {
+        lastUserAt: hasUser ? now.toISOString() : canonicalLastUserAt,
+        body,
+        roleState: companion.roleState,
+        life,
+        journal,
       })
+
+      const text = lines.join('\n')
       health.stateAt = new Date().toISOString()
-      return { ...decision, messages: [...decision.messages, msg] }
+      return await inject(text)
     } catch (err) {
       health.lastError = `状态注入失败：${err?.message ?? err}`
       return decision   // 注入失败绝不能影响对话本身
@@ -2058,7 +2532,7 @@ function wikiSearch(query, topK) {
   }
   return {
     results: out.slice(0, topK),
-    note: out.length ? '' : `没找到和「${q}」相关的页面。照实说"这个我不确定"，别硬编。`,
+    note: out.length ? '' : `本地索引未找到和「${q}」相关的页面；这只说明检索无结果。可根据已有题意推导，需要核对的结论另找可靠依据，不编造来源。`,
   }
 }
 
@@ -2185,6 +2659,9 @@ async function vpSyncOnce({ limit, includeProfile } = {}) {
 }
 
 function apply(ctx) {
+  // 人设和规则只读一次：system prompt 段和主动 worker 共用同一份文本。
+  const personaText = (() => { try { return readFileSync(join(import.meta.dirname, 'assets', 'persona', 'xiaojing-coach.md'), 'utf8') } catch { return '' } })()
+  const rulesText = (() => { try { return readFileSync(join(RULES_DIR, 'coach-rules.md'), 'utf8') } catch { return '' } })()
   // 随包地图升级：干净旧图换新（留 .prev 备份），改过的图只出差异报告。
   // 失败不拦插件加载 —— 地图读不出来的后果由 coach_setup status 如实报。
   try {
@@ -2198,8 +2675,124 @@ function apply(ctx) {
     mapUpgrade = { action: 'error', reject: String(err?.message || err) }
   }
   const memoryHealth = {}
-  applyHindsight(ctx, memoryHealth)
+  const memoryTaskControls = {}
+  applyHindsight(ctx, memoryHealth, memoryTaskControls)
   applyCompanion(ctx)
+  applyPersonaReview(ctx)
+  applyReflection(ctx, DATA_DIR)
+  // 旧版用 ctx.schedule 的 `小鲸主动联系` 日程已被 worker 取代。启动时清一次，
+  // arm/disarm 时再清一次：人设旧文案可能在本次会话里已经建过一条。
+  const cleanupLegacyProactiveSchedules = async () => {
+    try {
+      const schedule = typeof ctx.get === 'function' ? ctx.get('schedule') : null
+      if (!schedule || typeof schedule.catalog !== 'function' || typeof schedule.delete !== 'function') return
+      const catalog = await schedule.catalog()
+      for (const item of Array.isArray(catalog) ? catalog : []) {
+        if (item?.title !== '小鲸主动联系' || item.status === 'inactive') continue
+        await schedule.delete({ sessionId: item.sessionId, id: item.id })
+      }
+    } catch { /* 旧日程清理是尽力而为 */ }
+  }
+  let workerRef = null
+  const lifeTick = createLifeTick({
+    dataDir: DATA_DIR,
+    getRoute: () => workerRef?.status?.().route ?? null,
+    getLlm: () => (typeof ctx.get === 'function' ? ctx.get('llm') : null),
+    runReading: (at, { canContinue }) => runReadingSession({ ctx, dataDir: DATA_DIR, now: at, canContinue }),
+  })
+  const proactiveWorker = createProactiveWorker({
+    ctx,
+    lifeTick,
+    dataDir: DATA_DIR,
+    loadPerson: (dir) => loadPerson(dir),
+    loadProgress: () => loadProgress(),
+    loadSchedule: () => loadSchedule(),
+    loadTarget: () => strategy.loadTarget(),
+    loadCompanionState: (dir) => loadCompanionState(dir),
+    loadVp: () => strategy.loadVp(),
+    persona: personaText,
+    rules: rulesText,
+  })
+  workerRef = proactiveWorker
+  // 上一次进程死在任务中间：开机先把过期的租约放回队列，状态才不会一直显示「在跑」。
+  try { recoverExpiredTasks(DATA_DIR) } catch { /* 恢复失败不影响启动 */ }
+  proactiveWorker.start()
+  if (typeof ctx.effect === 'function') ctx.effect(() => () => proactiveWorker.stop())
+  void cleanupLegacyProactiveSchedules()
+  ctx.on('session/event', (session, event) => {
+    if (!session?.id) return
+    if (event?.type === 'request/header') {
+      const config = event.data?.header?.config
+      if (config && typeof config.provider === 'string' && typeof config.model === 'string') {
+        proactiveWorker.noteActiveRoute({ provider: config.provider, model: config.model })
+      }
+      return
+    }
+    if (event?.type === 'assistant/message') {
+      const message = event.data?.message || event.data
+      if (message?.role !== 'assistant') return
+      const blocks = Array.isArray(message.content) ? message.content : []
+      const text = blocks.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n')
+      // 带 tool-call 的那条通常只是「我查一下」的过程句；把它当成她对主动消息
+      // 的最终回复，contact.body 会记错，修复记忆也会拿错上一句。
+      const hasToolCall = blocks.some(block => block?.type === 'tool-call')
+      if (!hasToolCall && text.trim()) {
+        lastAssistantBySession.set(session.id, { text, at: Date.now() })
+        proactiveWorker.noteActiveReply(session.id, text, new Date())
+      }
+      return
+    }
+    if (event?.type !== 'user/message') return
+    const message = event.data?.message || event.data
+    if (message?.role !== 'user') return
+    // 主动唤醒消息真正进了会话 —— 这是送达回执，不是用户说话。
+    if (message?.source?.kind === PROACTIVE_SOURCE) {
+      proactiveWorker.confirmActiveDelivery(session.id, message.id, new Date())
+      return
+    }
+    if (message?.source?.kind !== 'user') return
+    const text = Array.isArray(message.content)
+      ? message.content.filter(block => block?.type === 'text' && typeof block.text === 'string').map(block => block.text).join('\n')
+      : ''
+    if (!text.trim()) return
+    proactiveWorker.noteActiveUser(session.id, new Date(), text)
+    // 保留这次纠正的原话和上下文，后续相关时再核对。
+    if (/(你错了|不是这样|不对吧|别这么说|你又来|说错了|你搞错)/.test(text)) {
+      const previous = lastAssistantBySession.get(session.id)
+      if (previous && Date.now() - previous.at < 15 * 60000) {
+        try {
+          const person = loadPerson(DATA_DIR)
+          const quote = redact(text).slice(0, 320)
+          if (!person.episodes.some(item => item.evidence === quote && (item.tags ?? []).includes('修复'))) {
+            person.episodes.push({
+              id: `repair-${Date.now()}`,
+              summary: `修复：我上次说「${redact(previous.text).slice(0, 80)}」，他纠正：「${redact(text).slice(0, 80)}」`,
+              at: localStamp(new Date()).slice(0, 10),
+              tags: ['修复'],
+              evidence: quote,
+              createdAt: new Date().toISOString(),
+            })
+            // 不要 slice(-30)：投影层已经只展示 30 条，直接截断会让 savePerson
+            // 的 diff 把最老一条当成“被删除”并 retract 掉，账本就丢了历史。
+            savePerson(DATA_DIR, person)
+          }
+        } catch { /* 修复记忆失败不影响对话 */ }
+      }
+    }
+  })
+  registerTool(ctx, createProactiveTool({
+    armWorker: (sessionId) => {
+      const result = proactiveWorker.arm(sessionId)
+      if (result.ok) void cleanupLegacyProactiveSchedules()
+      return result
+    },
+    disarmWorker: () => {
+      const result = proactiveWorker.disarm()
+      if (result.ok) void cleanupLegacyProactiveSchedules()
+      return result
+    },
+    workerStatus: () => proactiveWorker.status(),
+  }))
   // ── 人设与规则：静态 system prompt ──────────────────────────────
   //
   // 为什么走 `systemPrompt.section` 而不是把规则塞进消息流：
@@ -2221,12 +2814,13 @@ function apply(ctx) {
     if (!sp || typeof sp.section !== 'function') health.rules = 'missing'
     else {
       const sections = [
-        { name: 'coach:persona', order: -100, path: join(import.meta.dirname, 'assets', 'persona', 'xiaojing-coach.md') },
-        { name: 'coach:rules', order: 400, path: join(RULES_DIR, 'coach-rules.md') },
+        { name: 'coach:persona', order: -100, text: personaText },
+        { name: 'coach:rules', order: 400, text: rulesText },
       ]
       let ok = 0
       for (const section of sections) {
-        try { sp.section({ name: section.name, order: section.order, text: readFileSync(section.path, 'utf8') }); ok++ }
+        if (!section.text) continue
+        try { sp.section({ name: section.name, order: section.order, text: section.text }); ok++ }
         catch (err) { health.lastError = `规则段 ${section.name} 注入失败：${err?.message ?? err}` }
       }
       health.rules = ok === sections.length ? 'ok' : ok ? 'partial' : 'failed'
@@ -2238,46 +2832,111 @@ function apply(ctx) {
     health.lastError = String(err?.message || err)
   }
 
-  ctx.tools.register(defineTool(curriculumTool(curriculum)))
+  registerTool(ctx, defineTool(curriculumTool(curriculum)))
   const teaching = createTeachingNotes({ loadProgress, saveProgress, loadMap,
     getSessionQuery: () => ctx.get?.('sessionQuery') })
-  ctx.tools.register(defineTool({
+  registerTool(ctx, createCompanionTool(DATA_DIR, {
+    verifyEvidence: (quote, exec) => teaching.source(quote, exec),
+    getSessionQuery: () => ctx.get?.('sessionQuery'),
+  }))
+  registerTool(ctx, defineTool({
     name: 'coach_student_context',
-    description: '读、更新或清除最近一次学生主动说的学习处境。只留一条已核对原话，供下次带课时看见；长期经历仍以 Hindsight 召回为主。不要写入医疗或健康信息，不要推测情绪、代替学生说话或当作心理评分。',
+    description: '读、更新或清除最近一次学生主动说的学习处境。只留一条已核对原话，默认在原话发生当天结束时失效，不因重存旧话续期。仅学生原话明确跨天有效时才用 until，最多从原话起7天；长期经历通过 Hindsight 召回。不要写入医疗或健康信息，不要推测情绪、代替学生说话或当作心理评分。',
     parameters: {
       action: { type: 'string', enum: ['read', 'set', 'clear'], description: '默认 read；set 需当前会话的学生原话；clear 清除这条提醒。' },
       quote: { type: 'string', description: 'set 时填写当前会话学生原话，最多 1500 字。' },
+      until: { type: 'string', description: 'set 可选：仅原话明确跨天有效时给带时区的 ISO 日期时间；必须在未来且不超过原话发生后7天，不能替旧临时处境自动续期。' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
       quote: { type: 'string', required: true }, at: { type: 'string', required: true },
       messageId: { type: 'string', required: true },
     } }, render: (_args, v) => [{ type: 'text', text: !v.ok ? `❌ ${v.reject}` : v.quote
-      ? `学生最近一次主动说的处境（${v.at}，原话已核对）：「${v.quote}」；先确认现在还适不适用。`
+      ? `学生最近一次主动说的处境（${v.at}，原话已核对）：「${v.quote}」；按日期和当前原话判断时效，已说明不重复问；仅影响安排且仍不确定时再确认。`
       : '没有置顶的学生处境；按需从 Hindsight 召回过去的经历。' }] },
     execute: async (args = {}, exec) => {
       const action = args.action ?? 'read'
       const fail = reject => ({ ok: false, reject, quote: '', at: '', messageId: '' })
       if (!['read', 'set', 'clear'].includes(action)) return fail('action 只能是 read、set 或 clear。')
       let checked
+      // 在核对原话之前记下这次写开始的时间：清除墓碑用它判断谁更晚。
+      let startedAt = ''
       if (action === 'set') {
+        startedAt = new Date().toISOString()
         checked = await teaching.source(args.quote, exec)
         if (!checked.ok) return fail(checked.reject)
+        if (!checked.sourceAt) return fail('无法确认这段学生原话的发生时间，未写入临时处境。')
       }
-      const p = loadProgress()
+      const person = loadPerson(DATA_DIR)
       if (action === 'set') {
-        p.studentContext = { at: localStamp(new Date()), studentEvidence: checked.studentEvidence }
-        saveProgress(p)
-      } else if (action === 'clear' && p.studentContext) {
-        p.studentContext = null
-        saveProgress(p)
+        const now = new Date()
+        const sourceAt = Date.parse(checked.sourceAt)
+        if (sourceAt > now.getTime()) return fail('学生原话的发生时间在未来，未写入临时处境。')
+        const dayEnd = new Date(sourceAt)
+        dayEnd.setHours(24, 0, 0, 0)
+        let expiresAt = dayEnd.toISOString()
+        if (args.until !== undefined) {
+          const until = typeof args.until === 'string' && /^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/.test(args.until)
+            ? Date.parse(args.until) : NaN
+          if (!Number.isFinite(until) || until <= now.getTime() || until > sourceAt + 7 * 86400000) {
+            return fail('until 必须是带时区的未来 ISO 时间，且最多在原话发生后7天；未修改处境。')
+          }
+          expiresAt = new Date(until).toISOString()
+        }
+        person.context = {
+          quote: String(checked.studentEvidence.quote ?? args.quote ?? ''),
+          at: checked.sourceAt,
+          messageId: String(checked.studentEvidence.messageId ?? ''),
+          expiresAt,
+          expiryMode: args.until === undefined ? 'day' : 'explicit',
+        }
+        // 两条 set 并发时，旧原话可能比新原话更晚核对完。在写入锁内比较来源时间：
+        // 旧来源不许覆盖新来源；被拒时返回真正持久化的那条处境。
+        let conflict = null
+        const saved = savePerson(DATA_DIR, person, undefined, (current) => {
+          // 清除之后才开始的写可以重新设置；清除之前开始的旧写一律作废。
+          const clearedAt = Date.parse(current?.contextClearedAt ?? '')
+          if (Number.isFinite(clearedAt) && Date.parse(startedAt) <= clearedAt) {
+            conflict = { cleared: true }
+            return false
+          }
+          const existingAt = Date.parse(current?.context?.at ?? '')
+          if (current?.context?.quote && Number.isFinite(existingAt) && existingAt > sourceAt) {
+            conflict = current.context
+            return false
+          }
+          return true
+        })
+        if (!saved) {
+          if (conflict?.cleared) {
+            return { ok: true, reject: '', quote: '', at: '', messageId: '' }
+          }
+          if (conflict) {
+            // 冲突回执也要和正常读取一样过滤时效：过期记录不能借冲突分支复活。
+            const active = studentContextSnapshot(conflict)
+            if (active?.status !== 'active') {
+              return { ok: true, reject: '', quote: '', at: '', messageId: '' }
+            }
+            return { ok: true, reject: '', quote: String(active.quote ?? ''),
+              at: String(active.at ?? ''), messageId: String(active.messageId ?? '') }
+          }
+          return fail('处境写入失败，稍后再试。')
+        }
+      } else if (action === 'clear') {
+        person.context = null
+        person.contextClearedAt = new Date().toISOString()
+        if (!savePerson(DATA_DIR, person)) return fail('处境清除失败，稍后再试。')
+        try {
+          const p = loadProgress()
+          if (p.studentContext) { p.studentContext = null; saveProgress(p) }
+        } catch { /* legacy cleanup */ }
       }
-      const context = p.studentContext
-      return { ok: true, reject: '', quote: String(context?.studentEvidence?.quote ?? ''),
-        at: String(context?.at ?? ''), messageId: String(context?.studentEvidence?.messageId ?? '') }
+      const context = action === 'clear' ? null : currentStudentContext(person)
+      return { ok: true, reject: '', quote: String(context?.quote ?? ''),
+        at: String(context?.at ?? ''), messageId: String(context?.messageId ?? '') }
     },
   }))
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_note',
     description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课。' +
       'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
@@ -2285,7 +2944,7 @@ function apply(ctx) {
       action: { type: 'string', enum: ['read', 'write', 'revise'], description: '默认 read；write 新增，revise 按 noteId 更正原笔记。' },
       noteId: { type: 'string', description: 'revise 必填；从 read 的笔记中取得。' },
       includeHistory: { type: 'boolean', description: 'read 时显式查看旧版本；默认只显示当前生效文本。' },
-      node: { type: 'string', description: '地图节点 id。写入默认游标；读取默认最近有笔记的未完动作，其次游标，无游标时读最近笔记。显式指定始终优先。' },
+      node: { type: 'string', description: '地图节点 id。显式指定优先；未指定时读写均优先当前课时节点。无当前课时才写入默认游标，读取默认最近有笔记的未完动作、其次游标、再最近笔记。' },
       limit: { type: 'integer', description: '读取最近几条，默认 5，最多 20。' },
       summary: { type: 'string', description: 'write/revise 必填，实际讲授位置和教练判断，最多 1000 字；区分观察与推测。' },
       nextStep: { type: 'string', description: 'write/revise 必填，下次续课建议，最多 500 字；后续教练可据新表现调整。' },
@@ -2331,7 +2990,7 @@ function apply(ctx) {
   // 课程图回答“有哪些知识点”，策略层回答“为什么现在学这个”。两者分开，
   // 避免把 rating 或游标误当成区域赛目标。
   const strategyText = (v) => [{ type: 'text', text: v.ok ? v.text : `❌ ${v.reject}` }]
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_vp_connect',
     description: '连接 VP 账号。start 返回登录授权页，finish 交换一次性授权码；账号数据按 VP user id 分目录，disconnect 只删本地 token，不删缓存。',
     parameters: {
@@ -2371,7 +3030,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_vp_sync',
     description: '从当前 VP 账号增量读取一页比赛、提交、事件和个人时间线。hasMore 为 true 时继续调用。只返回本页计数、累计总数和最近的比赛摘要（最多 20 场）；要看某场的提交细节或复盘，按需调 coach_vp_contests / coach_vp_replay。VP 平台只读，游标和缓存按账号隔离。同步后写入或更新带账号前缀的 VP 训练记录，导入被拒绝时返回 ok:false。',
     parameters: {
@@ -2415,7 +3074,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_vp_contests',
     description: '列出当前 VP 账号参加过的比赛，按最近开始时间排序。小鲸在调用 coach_vp_replay 前先用它拿到可读的比赛名称，不要求用户记 Contest ID。',
     parameters: {},
@@ -2437,7 +3096,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_vp_replay',
     description: '读取当前 VP 账号指定比赛的细粒度回放。返回题目、队伍提交和秒级时间轴；代码不回传，页面可视化从这个数据绘制。',
     parameters: { contestId: { type: 'integer', required: true }, limit: { type: 'integer', description: '官方 runs 上限，默认 50000' } },
@@ -2458,7 +3117,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_target',
     description: '设置或读取比赛目标；profiles 看已核题解样本；contests 查中国区56场资料索引，其中45场区域赛、38场有可复算现场榜。可按年份/赛站查询4题与5题队逐题AC数；榜单分布不是个人可做题、奖牌预测或考纲，须结合本人VP。目标先于知识点。',
     parameters: {
@@ -2505,7 +3164,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_vp_import',
     description: '导入 VP 或模拟赛记录。它保存比赛过程证据，让教练根据读题、耗时、提交和题目选择复盘，不再只看 CF rating。重复 eventId 会更新，不会重复堆积。',
     parameters: {
@@ -2536,14 +3195,14 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_postmortem',
     description: '记录 VP 复盘：findings 分 hypothesis（待确认）、confirmed（已核实短板）、resolved（已解决）。先 coach_curriculum assess 获取本场原始 VP 事实 id。未提交不等于未读题；全场 AC 队数不能单独证明本队可做。提交间隔不是败因，强制交未完成代码还会产生罚时。可选 decisionSnapshot 记录当时可选题、手上进度、剩余时间，只填真实回忆；工具核引用，不证明因果。',
     parameters: {
       eventId: { type: 'string', required: true }, competencies: { type: 'array', items: { type: 'string' } },
       missedReads: { type: 'array', items: { type: 'string' } }, decisionErrors: { type: 'array', items: { type: 'string' } },
       teamIssues: { type: 'array', items: { type: 'string' } }, rootCauses: { type: 'array', items: { type: 'string' } },
-      nextActions: { type: 'array', items: { type: 'string' } }, note: { type: 'string' }, date: { type: 'string' },
+      nextActions: { type: 'array', items: { type: 'string' } }, note: { type: 'string' },
       decisionSnapshot: { type: 'object', description: '可选赛中决策快照；只记录学生或回放确认的事实。', additionalProperties: false, properties: {
         alternatives: { type: 'array', required: true, items: { type: 'string' } },
         workInProgress: { type: 'string', required: true }, remainingMinutes: { type: 'integer', required: true },
@@ -2564,7 +3223,7 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_focus',
     description: '汇总目标、比赛样本、当前课程与近30天 VP 事实。成功不算问题；只有引用事实的 confirmed 结论增加短板计数。返回独立能力起点、待确认观察、已确认问题、验收缺口与来源。排序是取舍参考，不是掌握度；没有目标时拒绝猜方向。',
     parameters: {},
@@ -2614,7 +3273,7 @@ function apply(ctx) {
         `资料目录：${regionalSummary.regionals}场区域赛，其中${regionalSummary.scoredRegionals}场有现场榜逐题统计（${regionalSummary.scoredProblems}题）。当前题解样本：${regionalSamples}场、${v.profile.coverage.reviewedSolutions}题；三种覆盖不能混同。\n样本：${v.profile.title || '未选择'}（${v.profile.status}）；适用边界：${v.profile.limitations.join('；')}`,
         ...v.focus.map((f, i) => `${i + 1}. ${f.title}（${f.id}）\n   比赛价值：${f.contestUse}\n   为什么现在：${f.whyNow}\n   关联知识点：${f.nodes.join('、') || '按比赛能力训练'}\n   近30天场次：确认短板${f.gapCount} / 完成基线${f.baselineCount} / 待确认${f.observationCount}`),
         course.exists ? `课程阶段：${course.phaseTitle}（${course.phaseId}）\n本周主线截至：${course.focusUntil || '未设'}${course.focusExpired ? '（已到期，先复盘）' : ''}\n课程主线：${course.focusNodes.join('、') || '能力证据驱动'}\n比赛能力：${course.phaseCompetencies.join('、') || '地图知识点'}` : '课程阶段：尚未建立，用 coach_curriculum assess/read/create 建立长期路线。',
-        course.pendingNodes.length ? `课程未完成动作：${course.pendingNodes.join('、')}` : '',
+        course.pendingNodes.length ? `课程里押着的动作：${course.pendingNodes.join('、')}` : '',
         course.exitCheckResults.length ? `验收进展：${course.exitCheckResults.map(check => `${check.target}：${check.passed ? `已满足（${check.matchedEvents}次，跨${check.distinctDays}日）` : check.missing.join('，')}`).join('；')}` : '',
         v.postponed.length ? `暂缓：${v.postponed.join('、')}` : '没有暂缓项。',
         '教练据此解释取舍并给一个动作；排序不是掌握度，也不是奖牌概率。',
@@ -2622,15 +3281,15 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_setup',
     description:
       '教练环境的搭建与体检。三个动作：' +
       '`status`（体检：数据目录、地图、训练库、OI Wiki 各就位没有 —— ' +
-      '**用户第一次用、或工具报"查不到数据"时先跑它**）；' +
+      '仅在用户明确要正式开始训练、配置环境且需要体检，或工具报告具体数据故障时使用；普通初聊不体检）；' +
       '`init`（建数据目录 + 铺地图 + 建训练库。幂等，不覆盖已有文件）；' +
       '`sync`（从 Codeforces 公开接口拉他的提交和题库 —— **不需要登录、不需要 key**，' +
-      '但要先问他要 CF handle）。' +
+      'CF handle 能从已有明确资料确认就沿用，未知时才问）。' +
       '⚠️ 同步只搬运**事实**（过了哪些题、什么难度），**不推断他会不会** —— ' +
       '那是检测的活。同步给的"接触证据"只用来缩小起点范围。',
     parameters: {
@@ -2718,12 +3377,17 @@ function apply(ctx) {
 
         base.note = `建了 ${made.knowledge.length} 个地图文件${made.db ? '，训练库是新建的' : '，训练库本来就在'}；` +
           `题库 ${pool.imported} 道${pool.note ? `（${pool.note}）` : ''}`
+        const mapFiles = made.knowledge.filter((name) => name === 'MAP.yaml' || name === 'DEPENDS.yaml')
+        const otherKnowledge = made.knowledge.filter((name) => name !== 'MAP.yaml' && name !== 'DEPENDS.yaml')
         base.items = [
           { name: '数据目录', status: 'ok', detail: DATA_DIR },
-          { name: '地图', status: made.knowledge.length ? 'ok' : '已有', detail: made.knowledge.join(',') || '没动（已存在）' },
+          { name: '地图', status: made.knowledge.length ? 'ok' : '已有', detail: mapFiles.join(',') || '没动（已存在）' },
+          { name: '知识文件', status: otherKnowledge.length ? 'ok' : '已有', detail: otherKnowledge.join(',') || '没动（已存在）' },
           { name: '训练库', status: 'ok', detail: dbPath },
           { name: '题库', status: pool.imported ? 'ok' : '缺', detail: pool.imported ? `${pool.imported} 道（CF/洛谷/牛客）` : pool.note },
         ]
+        // 和 status 同一口径：题库灌库失败不能再报 ok:true。
+        base.ok = base.items.every((item) => item.status !== '缺')
         return base
       }
 
@@ -2778,10 +3442,15 @@ function apply(ctx) {
       base.rating = rating
       base.submissions = subs
       base.library = lib
+      const missingKnowledge = KNOWLEDGE_FILES.filter((name) => !exists(join(DATA_DIR, name)))
+      const missingRequiredKnowledge = missingKnowledge.filter((name) => REQUIRED_KNOWLEDGE_FILES.includes(name))
       base.items = [
         { name: '数据目录', status: exists(DATA_DIR) ? 'ok' : '缺', detail: DATA_DIR },
         { name: '地图', status: exists(MAP_PATH()) ? 'ok' : '缺', detail: MAP_PATH() },
+        { name: '知识文件', status: missingRequiredKnowledge.length ? '缺' : missingKnowledge.length ? '空' : 'ok',
+          detail: missingKnowledge.length ? `缺 ${missingKnowledge.join('、')}` : 'COMPETENCIES / CONTEST_PROFILES / NODE_SCOPES' },
         { name: '训练库', status: dbOk ? (subs ? 'ok' : '空') : '缺', detail: dbOk ? `${subs} 条提交 / ${lib} 道题，rating ${rating}` : dbPath },
+        { name: '题库', status: lib ? 'ok' : '缺', detail: lib ? `${lib} 道` : '题库是空的 —— 跑 action=init 灌题池' },
         { name: 'OI Wiki', status: wiki.chunks.length ? 'ok' : '缺', detail: `${wiki.chunks.length} 块` },
       ]
       const mapItem = base.items.find((i) => i.name === '地图')
@@ -2791,23 +3460,28 @@ function apply(ctx) {
         else if (mapUpgrade.action === 'conflict') mapItem.detail += `；有随包更新待合并（见 ${MAP_REPORT_FILE}）`
         else if (mapUpgrade.action === 'error') mapItem.detail += `；自动升级失败：${mapUpgrade.reject}`
       }
-      base.ok = ['数据目录', '地图'].every((n) => base.items.find((i) => i.name === n)?.status === 'ok')
-      base.note = !dbOk ? '还没有训练库 —— 跑 action=init 建一个，再 action=sync 拉数据。'
-        : !subs ? '训练库是空的 —— 跑 action=sync（要先有 CF handle）。'
-          : !wiki.chunks.length ? 'OI Wiki 知识库没装，讲知识点之前查不了 —— 别凭记忆讲。'
-            : '都就位了。'
+      // “就绪”只看组件在不在；训练库为空不算坏，但题库/Wiki 缺失会让 coach_pool / coach_wiki 用不了。
+      base.ok = base.items.every((item) => item.status !== '缺')
+      const gaps = []
+      if (!dbOk) gaps.push('还没有训练库 —— 跑 action=init 建一个，再 action=sync 拉数据。')
+      else if (!subs) gaps.push('训练库是空的 —— 跑 action=sync（要先有 CF handle）。')
+      if (!lib) gaps.push('题库是空的 —— 跑 action=init 灌题池，否则 coach_pool 挑不出题。')
+      if (missingRequiredKnowledge.length) gaps.push(`知识文件缺 ${missingRequiredKnowledge.join('、')} —— 跑 action=init 补。`)
+      else if (missingKnowledge.length) gaps.push(`可选知识文件未生成：${missingKnowledge.join('、')}。`)
+      if (!wiki.chunks.length) gaps.push('OI Wiki 知识库没装，讲知识点之前查不了 —— 别凭记忆讲。')
+      base.note = gaps.length ? gaps.join(' ') : '都就位了。'
       return base
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_import',
     description:
       '导入提交记录。**洛谷和牛客的记录只能这么进来** —— 这两个平台没有公开的提交接口，' +
       '正路是浏览器扩展导出文件（见 assets/extension/）或者你自己写的脚本，' +
       '然后把这个文件交给它。CF 不用走这里（`coach_setup sync` 能直接拉）。' +
       '格式：JSON 数组或 JSONL，每条至少要有 `platform` / `problem_id` / `verdict`。' +
-      '**按题去重**：同一道题的多次提交只留一条 —— 一份「全部提交记录」倒进来不会把 AC 集合淹掉。',
+      '**按题去重**：同一道题只算一道题；AC 之前的提交链会保留，用来算 WA→AC 间隔；重复导入同一份文件不会翻倍。',
     parameters: {
       path: {
         type: 'string',
@@ -2886,9 +3560,12 @@ function apply(ctx) {
 
       try {
         const r = importRecords({ dbPath: DB_PATH(), records, handle: args.handle, DatabaseSync })
+        const note = r.note || (r.inserted === 0 && r.duplicates > 0
+          ? `没有新记录：${r.duplicates} 条都已存在${r.skipped ? `；另有 ${r.skipped} 条认不出` : ''}（重复导入不会翻倍）。`
+          : '')
         return {
-          ok: r.inserted > 0 || r.skipped === 0,
-          note: r.note ?? '',
+          ok: r.inserted > 0 || r.duplicates > 0 || r.skipped === 0,
+          note,
           inserted: r.inserted,
           skipped: r.skipped,
           byPlatform: Object.entries(r.byPlatform ?? {}).map(([platform, count]) => ({ platform, count })),
@@ -2899,15 +3576,15 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_wiki',
     description:
-      '查本地 OI Wiki 知识库 —— **讲任何知识点、算法、概念之前必须先查它**，不要凭记忆讲。' +
+      '按需查本地 OI Wiki 知识库，核对定义、定理、复杂度或陌生边界；已有题意足以解释时可直接推导，不必先查库。' +
       '三个动作：' +
       '`node`（给地图节点 id，拿它的 OI Wiki 页面 —— 精确表，优先用它）；' +
       '`search`（自由文本，先撞节点名再扫正文）；' +
       '`page`（给路径读全文，路径来自前两个动作）。' +
-      '查不到就照实说「这个我不确定」，**绝不硬编**。',
+      '检索无结果不等于结论未知；分清已有依据与仍需核对的部分，不编造内容或来源。',
     parameters: {
       action: {
         type: 'string', required: true, enum: ['node', 'search', 'page'],
@@ -2944,7 +3621,7 @@ function apply(ctx) {
       },
       render: (_a, v) => {
         if (!v.available) {
-          return [{ type: 'text', text: 'OI Wiki 知识库没装（缺 assets/oiwiki/）。照实说「我查不到，别当标准答案」。' }]
+          return [{ type: 'text', text: '本地 OI Wiki 知识库未安装；已有题意仍可用于推导，需要核对的内容另找可靠依据。' }]
         }
         if (v.text) {
           return [{ type: 'text', text: `── ${v.note}${v.truncated ? '（已截断）' : ''}\n${v.text}` }]
@@ -2972,17 +3649,16 @@ function apply(ctx) {
       const q = args.action === 'node' ? args.node : args.query
       if (!q) return { ...empty, note: `action=${args.action} 还差 ${args.action === 'node' ? 'node' : 'query'} 参数` }
       const { results, note } = wikiSearch(q, Math.min(Math.max(Number(args.topK) || 5, 1), 10))
-      // 查到了就报查询词；**查不到必须把「照实说」那句带出去** ——
-      // 早先这里写死 note=''，把 wikiSearch 给的提示吞了，等于白写。
+      // 检索为空只报告本地结果，不替教练作知识或推导判断。
       return { ...empty, ok: results.length > 0, pages: results, note: results.length ? `「${q}」` : note, available }
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_ping',
     description:
       '教练插件存活探针。只在你需要确认「教练插件是否加载、数据目录是否可达」时调用；' +
-      '平时回答训练问题**不要**调它。返回插件版本、当前施工阶段、数据目录，以及四个关键数据文件的存在状态。',
+      '平时回答训练问题**不要**调它。返回插件版本、规则加载状态、最近状态注入时间、数据目录，以及 MAP / DEPENDS / skilltree 三个关键数据文件的存在状态。',
     parameters: {},
     output: {
       schema: {
@@ -3046,7 +3722,7 @@ function apply(ctx) {
   }))
 
   // ── coach_next：给游标，出下一层候选 ──────────────────────────
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_next',
     description:
       '给一个**当前知识点**（游标），列出它的直接后继（技能树的下一层），并标出每个后继的前置满足情况。' +
@@ -3063,8 +3739,7 @@ function apply(ctx) {
         type: 'array',
         items: { type: 'string' },
         description:
-          '额外认定已掌握的知识点 id（可选）。游标的前置闭包会**自动**算作已学，' +
-          '这个参数用来补那些闭包覆盖不到、但你确定他已经会的点（如「位运算」）。',
+          '本次有依据认定已学的知识点 id（可选），只用于候选判断，不保存状态、不证明掌握，也不自动推断它们的前置。',
       },
       limit: { type: 'number', description: '最多返回几个候选，默认 20' },
     },
@@ -3190,7 +3865,7 @@ function apply(ctx) {
         const head = [
           `${v.cursorName}（${v.domain}）的直接后继 ${v.candidates.length} 个，` +
             `其中前置满足 ${v.readyCount}、待补 ${v.blockedCount}；前置满足不等于应独立开课`,
-          `假定已学（游标闭包 + 显式标记，${v.assumedLearned.length}）：${v.assumedLearned.join(' / ')}`,
+          `已学依据（显式状态与本次声明，${v.assumedLearned.length}）：${v.assumedLearned.join(' / ')}`,
           // rating 拿不到时**必须说出来**。原先这行是
           // `v.trainerRating ? ... : ''` —— 查不到就整行消失，读起来和
           // "这行本来就不该有"一模一样。而 rating=0 会**关掉整个难度护栏**
@@ -3277,9 +3952,7 @@ function apply(ctx) {
       }
 
       const node = byId.get(cursor)
-      // 已学集合 = 游标闭包 ∪ 训练员显式标过的（学过/已验证）。共用实现见 assumedLearned。
-      // `extra` 仍然接住：模型可以临时声明「这个他会」而不必先落盘标记。
-      const assumed = assumedLearned(progress, byId, [cursor, ...extra])
+      const assumed = assumedLearned(progress, extra)
       const rating = await currentRating()
 
       const candidates = (dependents.get(cursor) ?? []).map((id) => {
@@ -3384,7 +4057,7 @@ function apply(ctx) {
   //   ③ 前置必须都满足       → 挡住「学这个之前你得先学那个」这类空头指令
   //   ④ 时间盒必须是一天内的正整数分钟
   // 校验不过就**拒绝**，并把理由说清楚 —— 拒绝比给个错指令好。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_assign',
     description:
       '布置**一个**训练动作。给训练员下指令时**必须**走这个工具，不要在正文里自由发挥 —— ' +
@@ -3408,13 +4081,21 @@ function apply(ctx) {
         type: 'number',
         description: '1–960 的整数分钟。地图 practice 是自己动手的净时间（默认40，另加20收尾）；diagnostic/vp或纯能力动作是整项时长。',
       },
+      tailMinutes: {
+        type: 'number',
+        description: 'practice 的收尾预算（0–60 整数分钟），默认 20（解决遗留 10 + 重写 10）。明确只手算、短练习或不需要重写时由你指定；不为短练习自动压缩。',
+      },
+      rewrite: {
+        type: 'boolean',
+        description: 'practice 收尾是否保留重写，默认 true。false 时收尾预算全部留给解决遗留，不再强制重写。',
+      },
       teachMinutes: {
         type: 'number',
         description:
           'practice 开全新地图知识点时先讲的时间（分钟）；diagnostic/vp 不要求讲解。' +
           '不给会被拒绝 —— 直接扔题让他自己卡，那是给学过的人的练法。' +
           '讲多久**你自己定**（不参考任何固定值），看你判断他需要多少。' +
-          `给了讲解则最低 ${TEACH_FLOOR_MIN} 分钟，整项动作不得超过960分钟。已经在学或学过的节点不用给。` +
+          '讲解预算为非负整数，整项动作不得超过960分钟。已经在学或学过的节点不用给。' +
           '这是计划时长，不能证明已经讲过或学生理解了。',
       },
       why: { type: 'string', description: '为什么挑它（一句话，进台账，供训练员质疑时举证）' },
@@ -3479,7 +4160,7 @@ function apply(ctx) {
             text: `❌ 这条指令布置不了：${v.reject}\n\n` +
               (v.competency
                 ? '不要用候选列表代替指令；按拒绝原因核对能力、课程版本或时长，再调本工具。'
-                : `**不要**改用候选列表交差 —— 先调 coach_next 重新挑一个就绪的，再调本工具。`),
+                : '**不要**改用候选列表交差 —— 按上面的原因修正后再调本工具；只有目标节点本身不适合时才换节点。'),
           }]
         }
         const table = v.blocks
@@ -3501,11 +4182,7 @@ function apply(ctx) {
             v.competencies.length ? `目标对齐　✓ ${v.competencies.join('、')}` : '',
             ``,
             table,
-            v.teachMinutes
-              ? `\n⚠️ **先讲再出题**：上面那段"先讲一遍"是要你**现在讲给他听**的 —— ` +
-                '拿一道例题，从条件推到做法（推导）→ 推完再命名 → 最后说变体和边界。' +
-                '一段一个自然步骤，讲完停一下留他插话的口子。**讲完再让他动手。**'
-              : '',
+            v.teachMinutes ? '\n讲解预算已记录；是否已讲、讲法和接下来做什么，按当前题意与学生回应判断。' : '',
             v.pendingRecorded
               ? `📌 这个动作**押上了**${v.pendingReplaced ? '（这个节点上一条押着的被它覆盖）' : ''} —— ` +
                 '跨会话也查得到：coach_status 会报它。做完走 coach_log（自动销），不做了走 coach_unassign。'
@@ -3525,7 +4202,13 @@ function apply(ctx) {
       const identity = trainingIdentity(node, competency)
       const deliverable = String(args?.deliverable ?? '').trim()
       const kind = String(args?.kind ?? 'practice').trim()
-      const tail = kind === 'practice' && !competency ? TAIL_MIN : 0
+      // 收尾预算默认仍是 20 分钟的训练循环；但教练明确只手算/短练习时可以调到 0，
+      // 不靠交付物关键词猜，也不改默认值。
+      const requestedTail = args?.tailMinutes
+      const tail = kind === 'practice' && !competency
+        ? (requestedTail === undefined ? TAIL_MIN : requestedTail)
+        : 0
+      const rewrite = args?.rewrite !== false
       let why = String(args?.why ?? '').trim()
       // 需求 #7：这个数现在是**净时间**（他自己动手做多久），不是整块长度。
       // 整块 = 净 + TAIL_MIN（收尾固定 20），下面 blocks 和 totalMinutes 都照这个算。
@@ -3537,7 +4220,8 @@ function apply(ctx) {
         accepted: false, reject,
         cursor, node, nodeName: byId.get(node)?.name ?? '',
         domain: byId.get(node)?.domain ?? '',
-        minutes: Number.isInteger(net) ? net : 0, teachMinutes: 0, tailMinutes: tail, totalMinutes: 0, boxNote: '',
+        minutes: Number.isInteger(net) ? net : 0, teachMinutes: 0,
+        tailMinutes: Number.isInteger(tail) ? tail : 0, totalMinutes: 0, boxNote: '',
         deliverable, why, mapStamp: stamp, blocks: [], selfTarget: false,
         // 需求 #6：拒绝时也把这两个字段摆出来 —— 白名单式的 schema
         // （additionalProperties: false + required:true）要求每个出口同形，
@@ -3545,6 +4229,9 @@ function apply(ctx) {
         pendingRecorded: false, pendingReplaced: false, targetAligned: false, competencies: [],
         targetWarning: '',
       })
+      if (!Number.isInteger(tail) || tail < 0 || tail > 60) {
+        return deny('tailMinutes 必须是 0–60 的整数分钟。')
+      }
 
       // ① 游标认不认得。「没设」和「打错」分开提示，别让模型去猜。
       if (!identity.ok) return deny(identity.reject)
@@ -3560,7 +4247,8 @@ function apply(ctx) {
         const near = suggest(node, [...byId.values()])
         return deny(
           `地图里没有「${node}」这个知识点，别自己造。` +
-          (near.length ? `相近的有：${near.join(' / ')}` : '先调 coach_next 看候选。'))
+          (near.length ? `相近的有：${near.join(' / ')}；` : '') +
+          '也可以先调 coach_next 看候选。')
       }
       if (!competency && byId.get(node)?.role === 'integrated' && kind === 'practice') return deny(`「${node}」是随题融合的概念/技巧，不单独布置章节训练。请选一项具体题型或比赛能力，把它当作解题步骤来讲和练。`)
       let route
@@ -3590,24 +4278,27 @@ function apply(ctx) {
       // （没人依赖它），停在那种节点上时，"下一层"是空的，
       // 教练就一个动作都给不出来了 —— 它只能眼睁睁看着人卡住。
       //
-      // 已经 verified 的不许再指回来：学完了就该往前走。
+      // 已验证节点可按明确理由复习，不必先撤掉旧验证状态。
       if (!competency && node === cursor) {
-        if (nodeStatus(loadProgress(), cursor) === 'verified' && route.binding?.purpose !== 'review') {
-          return deny(`「${cursor}」已经验证过了 —— 学完了就往前走，` +
-            '别在验证过的地方打转。用 coach_next 看下一层，或者往前沿退。')
+        const reviewWithoutCourse = !route.binding && args?.purpose === 'review'
+          && String(args?.routeReason ?? '').trim().length >= 10
+        if (nodeStatus(loadProgress(), cursor) === 'verified' && route.binding?.purpose !== 'review' && !reviewWithoutCourse) {
+          return deny(`「${cursor}」已有验证记录；需要复习时请用 purpose=review，` +
+            '并以至少10字的 routeReason 说明当前依据和接续安排。不用为复习而降低旧状态。')
         }
       } else if (!competency && !(dependents.get(cursor) ?? []).includes(node) && !route.binding) {
         return deny(`「${node}」不是「${cursor}」的下一层。先调 coach_next 看它到底能开哪些。`)
       }
       // ④ 前置必须都满足 —— 挡住「你得先学那个」这类空头指令
       //
-      // 已学集合走**共用实现**：闭包(游标) ∪ 显式标为 学过/已验证 的节点。
-      // 原先这里只展开游标自己，训练员标过的几十个节点全被当没看见。
-      const assumed = assumedLearned(loadProgress(), byId, [cursor])
+      const assumed = assumedLearned(loadProgress())
       const inline = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d) && byId.get(d)?.role === 'integrated')
       const missing = (byId.get(node)?.depends ?? []).filter((d) => !assumed.has(d) && byId.get(d)?.role !== 'integrated')
-      if (missing.length) {
-        return deny(`「${node}」还缺前置：${missing.join('、')}。它现在还开不了。`)
+      // 诊断正是用来核实未知起点的：前置没有记录时允许观察，不改变任何掌握状态。
+      // 正式推进练习仍要求前置有据。
+      if (missing.length && kind !== 'diagnostic') {
+        return deny(`「${node}」还缺前置：${missing.join('、')}。它现在还开不了；` +
+          '如果目的是核实起点，用 kind=diagnostic 做一次观察。')
       }
       // ⑤ 时间盒下限（需求 #7：比的是**净时间**，不是整块长度）
       if (!['practice', 'diagnostic', 'vp'].includes(kind)) return deny('kind 只能是 practice/diagnostic/vp。')
@@ -3647,13 +4338,25 @@ function apply(ctx) {
           '那是给学过的人的练法。\n' +
           '补上 `teachMinutes`（讲多久你定，看你判断他需要多少），再调一次。')
       }
-      if (teach > 0 && teach < TEACH_FLOOR_MIN) {
-        return deny(`讲解 ${teach} 分钟太短 —— 讲一道例题至少 ${TEACH_FLOOR_MIN} 分钟，` +
-          '再短就只是念一遍结论，等于没讲。讲多久你定，整项时长需在一天内。')
-      }
 
       const n = { name: identity.name, domain: identity.domain }
       const solve = net   // 需求 #7：净时间直接就是「自己做」那一段
+      // 收尾预算按教练给的数拆；不给 rewrite 时全部算解决遗留。
+      const resolveTail = rewrite ? Math.ceil(tail / 2) : tail
+      const rewriteTail = rewrite ? tail - resolveTail : 0
+      // 实际分段只算一次：回执、账本、排程说明都读同一份，别再让排程按总时长猜默认循环。
+      const planBlocks = [
+        ...(teach > 0
+          ? [{ kind: 'teach', label: '讲解计划（按当前卡点选择例子、图示或推导）', minutes: teach }]
+          : []),
+        { kind: kind === 'practice' ? 'solve' : kind,
+          label: kind === 'vp' ? '完整 VP（比赛过程与复盘另按交付物记录）' : kind === 'diagnostic' ? '诊断（限时观察当前表现）' : '自己做（限时，到点必须停）',
+          minutes: solve },
+        ...(tail ? [
+          { kind: 'resolve', label: '解决遗留（做出来了就复盘思路，没做出来就听讲）', minutes: resolveTail },
+          ...(rewriteTail > 0 ? [{ kind: 'rewrite', label: '重写', minutes: rewriteTail }] : []),
+        ] : []),
+      ]
 
       // 需求 #7 的两句提醒（只影响这段话，不挡布置）：
       //   · 压到默认以下 → 提醒它压的是**止损点**，不是块
@@ -3679,7 +4382,8 @@ function apply(ctx) {
         // 存**拆开的**几个数，不存一个总数：总数在"整块 / 净时间"两种口径下
         // 含义不同，存总数等于把口径混进账本（那正是 #7 要治的病）。
         solveMinutes: solve, tailMinutes: tail, teachMinutes: teach,
-        totalMinutes: net + teach + tail, why, kind,
+        totalMinutes: net + teach + tail, why, kind, rewrite,
+        resolveMinutes: resolveTail, rewriteMinutes: rewriteTail, blocks: planBlocks,
         ...(competency ? { competency } : {}),
       }
       if (route.binding) pend[identity.key].curriculum = route.binding
@@ -3698,37 +4402,23 @@ function apply(ctx) {
         pendingRecorded, pendingReplaced: replacedPending,
         targetAligned: targetRoute.targetAligned, competencies: targetRoute.competencyIds,
         targetWarning: route.targetWarning || '',
-        blocks: [
-          // 讲解段排在最前面，`kind: teach` —— 卷面上看得见，
-          // 它才不会变成"讲完就忘了排"的那个动作
-          ...(teach > 0
-            ? [{
-              kind: 'teach',
-              label: '先讲一遍（一道例题：推导 → 命名 → 扩展，讲完停一下留插话的口子）',
-              minutes: teach,
-            }]
-            : []),
-          { kind: kind === 'practice' ? 'solve' : kind, label: kind === 'vp' ? '完整 VP（比赛过程与复盘另按交付物记录）' : kind === 'diagnostic' ? '诊断（限时观察当前表现）' : '自己做（限时，到点必须停）', minutes: solve },
-          ...(tail ? [
-            { kind: 'resolve', label: '解决遗留（做出来了就复盘思路，没做出来就听讲）', minutes: 10 },
-            { kind: 'rewrite', label: '重写', minutes: 10 },
-          ] : []),
-        ],
+        blocks: planBlocks,
       }
     },
   }))
 
   // ── coach_lesson：短回合教学记录 ───────────────────────────────
   // 只记学生回应和结果；讲解深浅由教练根据当下回应决定。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_lesson',
-    description: '记录一节互动课：先用一句人话讲核心并停下，依据学生回应决定补例子、练习或收课。advance 记真实回应；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断写简短续课笔记。独立完成必须在 end 提供具体证据。单纯概念问答不必开课时。',
+    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。',
     parameters: {
       action: { type: 'string', required: true, enum: ['start', 'advance', 'correct', 'end', 'status'] },
       node: { type: 'string', description: 'start 必填：地图节点 id' },
       problem: { type: 'string', description: 'start 可选：这节课用的题号或题面线索' },
       evidence: { type: 'string', description: 'advance 必填：学生这轮的原话、手算或卡点；correct 必填：上一条回应的准确更正；end 填简短收课判断，若报 independent 必须包含独立尝试的题目和结果' },
       outcome: { type: 'string', enum: ['independent', 'hinted', 'failed', 'unknown'], description: 'end 必填：独立做出 / 带提示 / 没做出来 / 未核实' },
+      nextStep: { type: 'string', description: 'end 可选：最多500字的具体接续建议，可记录已尝试的讲法和下一种接法；是可调整的教练建议，不是学生掌握证据' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       ok: { type: 'boolean', required: true }, reject: { type: 'string', required: true },
@@ -3755,7 +4445,7 @@ function apply(ctx) {
             stage: 'active', stageIndex: 0, next: LESSON_NEXT,
             evidenceCount: Array.isArray(lesson.evidence) ? lesson.evidence.length : 0,
             startedAt: String(lesson.startedAt || ''),
-            text: `【教学模式】正在教「${name}」。先用一句话讲核心，保留必要的适用条件，然后停下来听他怎么理解。\n${LESSON_NEXT}` +
+            text: `正在接续「${name}」。从学生现在的疑问继续，把题意与做法之间的理由讲明白。\n${LESSON_NEXT}` +
               (latest ? `\n最近学生回应（教练记录，原话未核对）：${String(latest).replace(/\s+/g, ' ').slice(0, 180)}` : '') +
               (lesson.problem ? `\n题：${lesson.problem}` : '') }
         }
@@ -3797,12 +4487,16 @@ function apply(ctx) {
         }
         if (action === 'end') {
           if (!p.lesson) return deny('没有进行中的课时。')
+          if (args.nextStep !== undefined && (typeof args.nextStep !== 'string' || !args.nextStep.trim() || args.nextStep.length > 500)) {
+            return deny('nextStep 必须是有内容的接续建议，最多500字。')
+          }
           const outcome = String(args?.outcome ?? '').trim()
           if (!['independent', 'hinted', 'failed', 'unknown'].includes(outcome)) return deny('end 必须给 outcome：independent/hinted/failed/unknown。')
           const lesson = p.lesson
           const evidence = String(args?.evidence ?? '').trim()
           lesson.evidence = Array.isArray(lesson.evidence) ? lesson.evidence : []
-          if (outcome === 'independent' && evidence.length < 2) {
+          const hasResult = /AC|WA|TLE|通过|做出|写出|完成|没做出|提交|过了|错的|对了/i.test(evidence)
+          if (outcome === 'independent' && (evidence.length < 8 || !hasResult)) {
             return deny('记为 independent 需要本次独立尝试的题目和结果；只说听懂了还不能算。')
           }
           if (evidence.length >= 2) lesson.evidence.push({ stage: 'end', at: new Date().toISOString(), text: evidence.slice(0, 500) })
@@ -3813,13 +4507,14 @@ function apply(ctx) {
             outcome === 'hinted' ? '有提示的尝试' : '本次未做出'
           const hasSummary = responses.length > 0 || evidence.length >= 2
           if (hasSummary) {
-            const summary = `课时结果：${result}。${evidence ? `教练小结：${evidence}` :
-              `课堂回应（教练记录，原话未核对）：${responses.slice(-2).join('；')}`}`
+            const summary = `课时结果：${result}。` +
+              (lesson.problem ? `题目线索（教练记录，题面未核对）：${String(lesson.problem).replace(/\s+/g, ' ').slice(0, 80)}；` : '') +
+              (evidence ? `教练小结：${evidence}` : `课堂回应（教练记录，原话未核对）：${responses.slice(-2).join('；')}`)
             const record = p.nodes[lesson.node] || {}
             p.nodes[lesson.node] = { ...record, lessonNotes: [...(Array.isArray(record.lessonNotes) ? record.lessonNotes : []), {
               at: new Date().toISOString(), summary: summary.slice(0, 1000),
-              nextStep: outcome === 'unknown' ? '独立做题尚未核实；下次根据当前目标判断是否需要实作验证。' :
-                '下次根据这节课的记录和训练目标决定练习或复习。', studentEvidence: null,
+              nextStep: args.nextStep?.trim() ?? (outcome === 'unknown' ? '独立做题尚未核实；下次根据当前目标判断是否需要实作验证。' :
+                '下次根据这节课的记录和训练目标决定练习或复习。'), studentEvidence: null,
             }] }
           }
           p.lesson = null
@@ -3838,7 +4533,7 @@ function apply(ctx) {
   }))
 
   // ── coach_status：看进度 ──────────────────────────────────────
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_status',
     description:
       '看训练员当前的进度：游标在哪、学过哪些、验证过哪些。' +
@@ -3862,6 +4557,11 @@ function apply(ctx) {
           memoryState: { type: 'string', required: true },
           memoryLastSuccessAt: { type: 'string', required: true },
           memoryLastFailureAt: { type: 'string', required: true },
+          memoryRecallState: { type: 'string', required: true },
+          memoryRetainState: { type: 'string', required: true },
+          memoryLastRetainSuccessAt: { type: 'string', required: true },
+          memoryLastRetainFailureAt: { type: 'string', required: true },
+          memoryLastRetainError: { type: 'string', required: true },
           studentContext: { type: 'object', required: true, additionalProperties: false, properties: {
             quote: { type: 'string', required: true }, at: { type: 'string', required: true },
             messageId: { type: 'string', required: true },
@@ -4046,10 +4746,12 @@ function apply(ctx) {
                 : `　⚠️ **还没有教学记录** —— 现在开卷会被拒，先讲`)
               : ''),
           v.teachingContext,
-          v.memoryState === 'unavailable' ? '⚠️ 记忆召回暂不可用；不能把想不起往事当作从未发生。' :
-            v.memoryState === 'disabled' ? '记忆桥未启用；过往经历请查已有账本与原话。' :
-              v.memoryState === 'starting' ? '记忆桥已启用，尚未成功召回。' : '',
-          v.studentContext.quote ? `学生最近一次主动说的处境（${v.studentContext.at}，原话已核对）：「${v.studentContext.quote}」；先确认现在还适不适用。` : '',
+          v.memoryRecallState === 'unavailable' ? '⚠️ 记忆召回暂不可用；不能把想不起往事当作从未发生。' :
+            v.memoryRecallState === 'disabled' ? '记忆桥未启用；过往经历请查已有账本与原话。' :
+              v.memoryRecallState === 'starting' ? '记忆桥已启用，尚未成功召回。' : '',
+          v.memoryRetainState === 'failed' ? `⚠️ 记忆保存失败：${v.memoryLastRetainError || '请检查记忆服务与待写任务'}；不能宣称新内容已经记住。` :
+            v.memoryRetainState === 'pending' ? '长期记忆有待写内容，正在等待有上限的补发；尚未确认入库。' : '',
+          v.studentContext.quote ? `学生最近一次主动说的处境（${v.studentContext.at}，原话已核对）：「${v.studentContext.quote}」；按日期和当前原话判断时效，已说明不重复问；仅影响安排且仍不确定时再确认。` : '',
           v.targetMismatch ? `⚠️ ${v.targetMismatch}` : '',
           // 押着的卷放最前面之一：它是个**卡住下一步的约束**（有新卷就开不了），
           // 埋在底下等于没报。
@@ -4074,7 +4776,7 @@ function apply(ctx) {
           // 卡住 / 弃考摆最前面：两条都是"马上该换个做法"的信号，
           // 埋到历史记录后面等于没报。
           v.stuck.length
-            ? '⚠️ **卡住**（最近一次检测没过 —— 换法子重讲，别继续喂题）：' +
+            ? '⚠️ **复检观察**（最近一次检测没过；先核对难度、过程与错因，再决定讲解或练习）：' +
               v.stuck.map((s) => `${s.name}（${s.why}）`).join('　·　')
             : '',
           v.cancelled.length
@@ -4252,8 +4954,16 @@ function apply(ctx) {
         memoryState: memoryHealth.state,
         memoryLastSuccessAt: memoryHealth.lastSuccessAt,
         memoryLastFailureAt: memoryHealth.lastFailureAt,
-        studentContext: { quote: String(p.studentContext?.studentEvidence?.quote ?? ''),
-          at: String(p.studentContext?.at ?? ''), messageId: String(p.studentContext?.studentEvidence?.messageId ?? '') },
+        memoryRecallState: memoryHealth.recallState || memoryHealth.state,
+        memoryRetainState: memoryHealth.retainState || 'disabled',
+        memoryLastRetainSuccessAt: memoryHealth.lastRetainSuccessAt || '',
+        memoryLastRetainFailureAt: memoryHealth.lastRetainFailureAt || '',
+        memoryLastRetainError: memoryHealth.lastRetainError || '',
+        studentContext: (() => {
+          const context = currentStudentContext(loadPerson(DATA_DIR))
+          return { quote: String(context?.quote ?? ''), at: String(context?.at ?? ''),
+            messageId: String(context?.messageId ?? '') }
+        })(),
         domain: byId.get(p.cursor)?.domain ?? '',
         updated: p.updated,
         verifiedCount: verified.length,
@@ -4304,9 +5014,9 @@ function apply(ctx) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_journal',
-    description: '只读查看某天或最近几天的训练日志；和网页训练日志使用同一份聚合结果。计划、实际、课时、检测与 VP 记录分开报；缺实际记录表示未知，不表示没做。回答“昨天发生了什么”时先用它。',
+    description: '只读查看某天或最近几天的训练日志；和网页训练日志使用同一份聚合结果。计划、实际、课时、检测与 VP 记录分开报；缺实际记录表示未知，不表示没做。查询昨天训练、练题或计划事实时按需使用；普通日常回忆与共同经历优先接续已有对话，跨会话按需查 Hindsight，不用训练日志代替。',
     parameters: {
       date: { type: 'string', description: '可选，指定 YYYY-MM-DD 的一天；省略时看最近三天。' },
       days: { type: 'integer', description: '可选，未指定 date 时看最近 1–14 天，默认 3。' },
@@ -4370,7 +5080,7 @@ function apply(ctx) {
   // 因为"验证完 区间 DP 之后该去哪"是一个判断（哪个分支、复习还是开新节），
   // 不是规则能算的。自动推进 = 程序替 LLM 做决定，正是要治的病。
   // 该推的时候，单独调 coach_set_cursor。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_mark',
     description:
       '标记一个知识点的状态。**只有两级能手动标**：' +
@@ -4445,7 +5155,7 @@ function apply(ctx) {
   }))
 
   // ── coach_set_cursor：移动游标 ────────────────────────────────
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_set_cursor',
     description:
       '把游标移到某个知识点 —— 也就是「他现在在哪」。' +
@@ -4501,13 +5211,7 @@ function apply(ctx) {
 
       // 只警告不拦：复习旧节、横向补漏都要能移。
       //
-      // 种子取**旧游标**（from），不是新节点：新节点的直接前置必然落在自己的
-      // 闭包里，拿它当种子，这条警告就永远不可能触发。
-      // 于是三个工具统一成一条规则：**你站的位置 + 你声明会的**。
-      //
-      // 口径收紧过：原先收「所有非未学节点」并展开闭包 —— 那既把
-      // 「在学」当地基，又会顺着「他会概率 DP」假定「他学过概率论」。
-      const assumed = assumedLearned(p, byId, from ? [from] : [])
+      const assumed = assumedLearned(p)
       const missing = (byId.get(node).depends ?? []).filter((d) => !assumed.has(d))
 
       return {
@@ -4536,19 +5240,17 @@ function apply(ctx) {
   // 另外两样**不让模型干**（程序算机械的，LLM 做判断的）：
   //   · 去向由分类**推导**（MOVES），不是自由填 —— 让它填只会填出拧巴的组合
   //   · 提交序列 / WA→AC 秒数由工具**自己查库**，不靠它回忆
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_diagnose',
     description:
-      '读训练员的代码判因 —— 他贴代码过来（做题 WA 了、检测没过），' +
-      '你要说清楚**为什么错**，不是复述「你 WA 了」。\n' +
-      '三类判据：「不会」= 缺机制 / 方向就错了 / 关键步骤没想到；' +
-      '「不熟」= 思路对但慢、超时、写了很久（问题在速度不在方法）；' +
-      '「不认真」= 会做却栽在边界、数组没清空、爆 int、多组数据。\n' +
+      '核对训练员代码中的具体问题或待确认观察。区分实现现象与学生能力、态度和失败原因；' +
+      '仅凭边界错误、超时或代码引文不能判断不会、不熟或不认真。category 默认待确认；' +
+      '旧三类仅兼容已有过程证据支持的判断，不必勉强分类。题面和过程不足时可先保留观察或不作判因。\n' +
       '**每条判因必须引用训练员代码里的原文片段**（evidence.quote），' +
       '工具会当场校验那段原文真在他的代码里 —— 抄不出来就拒绝你。' +
-      '这是故意的：说不出在哪一行，就说明你还没读进去，别急着下结论。\n' +
+      '引用只证明这段代码存在，不证明你的原因解释。\n' +
       'kind 二选一：「wrong」= 这行写错了，「missing」= 这附近应该有什么但没有。\n' +
-      '去向不用你填（由分类推导）；提交记录和 WA→AC 秒数也不用你查（工具自己算）。' +
+      '下一步返回可调整的建议；待确认不自动布置练习。提交记录由工具按已有库内数据读取。' +
       '提交历史是这道题的库内历史，不保证都属于本次练习；代码引文存在也不证明你的因果解释。' +
       '所以你只管一件事：**把他的代码读懂**，说清依据覆盖范围。',
     parameters: {
@@ -4559,15 +5261,13 @@ function apply(ctx) {
       },
       category: {
         type: 'string',
-        required: true,
-        enum: ['不会', '不熟', '不认真'],
-        description: '判因分类。三者只能选一个，选不出来的话说明你还没读懂',
+        enum: ['待确认', '不会', '不熟', '不认真'],
+        description: '可选，默认待确认；旧三类需过程证据支持，不能从代码错误直接推断学生态度或能力。',
       },
       node: {
         type: 'string',
         required: true,
-        description: '这次失败**归属哪个知识点**（地图里的 id）。它不一定等于题目的标签 —— ' +
-          '数位 DP 的题栽在位运算上，就该填位运算。必须在地图里，不许自己造',
+        description: '本次代码观察涉及的知识点（地图里的 id），不一定等于题目标签；未知原因不强行归为学生短板。必须选已有节点，不编造。',
       },
       evidence: {
         type: 'array',
@@ -4591,7 +5291,7 @@ function apply(ctx) {
             why: {
               type: 'string',
               required: true,
-              description: '这一处为什么导致失败。讲机制，不要讲现象',
+              description: '解释可核对的代码现象、风险机制或成立条件；真实失败原因未核实时写明待确认，不把引文存在当成因果证明。',
             },
           },
         },
@@ -4599,8 +5299,7 @@ function apply(ctx) {
       summary: {
         type: 'string',
         required: true,
-        description: '一句话判因，人话。目标长这样：「你 WA 在边界 —— 按左闭右开写的转移，' +
-          '题目要求闭区间。不是不会 DP，是状态定义没想清」',
+        description: '简短观察或有依据的原因说明。例如「这里可能访问到长度之外的位置；需核对实际 n 和题目范围，尚不能判断本次失败原因或是否手误」。',
       },
       problem: {
         type: 'string',
@@ -4695,7 +5394,7 @@ function apply(ctx) {
             `  ${v.evidenceBoundary}`,
             '',
             '── 下一步 ──',
-            `  ${v.nextMove.label}（自己做 ${v.nextMove.minutes} 分钟）`,
+            `  建议（可调整）：${v.nextMove.label}` + (v.nextMove.minutes > 0 ? `（参考净时间 ${v.nextMove.minutes} 分钟）` : ''),
             '',
             v.recorded
               ? `已记进台账：这个知识点第 ${v.diagnosisCount} 次判因。`
@@ -4708,7 +5407,7 @@ function apply(ctx) {
     async execute(args) {
       const { byId, stamp } = loadMap()
       const code = String(args?.code ?? '')
-      const category = String(args?.category ?? '').trim()
+      const category = String(args?.category ?? '待确认').trim()
       const node = String(args?.node ?? '').trim()
       const summary = String(args?.summary ?? '').trim()
       const problem = String(args?.problem ?? '').trim()
@@ -4760,11 +5459,10 @@ function apply(ctx) {
         }
         checked.push({ quote: quote.trim(), kind, why, found: true })
       }
-      // ⑤ 「不认真」必须指出**具体写错的那一处**
+      // 兼容旧标签的引文约束仍在，但不能据此推断态度。
       if (category === '不认真' && !checked.some((e) => e.kind === 'wrong')) {
         return deny('分类是「不认真」，但证据里没有一条指出**具体写错的那一处**（kind=wrong）。' +
-          '不认真 = 会做但栽在细节上，那就必须点出栽在哪个细节。' +
-          '如果只能说他这里缺了什么，那更像「不会」—— 回去改分类，别硬套。')
+          '引用只能说明代码现象；没有过程依据时改用待确认，不把缺失代码推成不会。')
       }
       // ⑥ 知识点必须真实存在 —— 挡住编造
       if (!byId.has(node)) {
@@ -4825,7 +5523,155 @@ function apply(ctx) {
   //
   // 所以流程是两步：先调这个拿**真实的候选池**，再用你自己的判断从中挑三道，
   // 交给 coach_test；缺池时仍可走已核实题面的 source=web 通道。
-  ctx.tools.register(defineTool({
+  // ── coach_read：真实阅读会话的取材/续读/存笔记 ───────────────
+  //
+  // 阅读不是训练任务，也不该由旁路模型替她写。真实会话里的她先用 web_search
+  // 找到公开材料，再调 open 抓正文/续读；读完后调 save 保存读到的字数和笔记。
+  // 正文指纹由这里算，避免模型自己编一个对不上的 readingHash。
+  registerTool(ctx, defineTool({
+    name: 'coach_read',
+    description:
+      '真实阅读会话的取材工具。open：不带参数续读书架里没读完的，或给 url 抓一篇公开文章（自动提取正文、上书架、记录正文指纹）；返回这一段的正文和位置。' +
+      'save：保存这次读到的字数、笔记和是否继续，推进读到位置；读完的 article 自动标 done。' +
+      '正文指纹和位置由工具维护，不要自己伪造 readingHash。只读公开材料，不编造正文。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['open', 'save'], description: 'open 取下一段；save 保存本次阅读' },
+      bookId: { type: 'string', description: 'open/save：书架条目 id；open 不填会续读最近没读完的' },
+      url: { type: 'string', description: 'open：公开文章地址，http(s)；给了就抓取并上书架' },
+      title: { type: 'string', description: 'open + url：文章标题；不填用页面标题或搜索标题' },
+      limit: { type: 'integer', enum: READ_OPTIONS, description: 'open：这次最多取多少字的段落，默认 6000' },
+      readChars: { type: 'integer', enum: READ_OPTIONS, description: 'save：这次实际读了多少字，只能是 1000/3000/6000' },
+      note: { type: 'string', description: 'save：40–160 字读书笔记，第一人称，只写材料内容和当下反应' },
+      continue: { type: 'boolean', description: 'save：下次还想不想接着读这篇' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          ok: { type: 'boolean', required: true },
+          reject: { type: 'string', required: true },
+          action: { type: 'string', required: true },
+          bookId: { type: 'string', required: true },
+          title: { type: 'string', required: true },
+          start: { type: 'integer', required: true },
+          end: { type: 'integer', required: true },
+          total: { type: 'integer', required: true },
+          text: { type: 'string', required: true },
+          offset: { type: 'integer', required: true },
+          done: { type: 'boolean', required: true },
+        },
+      },
+      render: (_args, v) => {
+        if (!v.ok) return [{ type: 'text', text: `❌ 读不了：${v.reject}` }]
+      if (v.action === 'open') {
+        return [{ type: 'text', text: `📖《${v.title}》第 ${v.start}–${v.end} 字（共 ${v.total} 字）\n\n${v.text}` }]
+      }
+      return [{ type: 'text', text: `📝《${v.title}》读到 ${v.offset}/${v.total} 字${v.done ? '，这篇读完了' : ''}。` }]
+      },
+    },
+    async execute(args, exec) {
+      const action = String(args?.action ?? '')
+      const sessionId = String(exec?.agent?.session?.id ?? '')
+      const deny = (reject, bookId = '') => ({
+        ok: false, reject, action, bookId, title: '', start: 0, end: 0, total: 0, text: '', offset: 0, done: false,
+      })
+      const companion = createCompanionTool(DATA_DIR)
+      if (action === 'open') {
+        const limit = READ_OPTIONS.includes(args?.limit) ? args.limit : Math.max(...READ_OPTIONS)
+        const url = String(args?.url ?? '').trim()
+        let bookId = String(args?.bookId ?? '').trim()
+        if (url) {
+          if (!/^https?:\/\//i.test(url)) return deny('url 必须是 http(s) 地址。')
+          const web = typeof ctx.get === 'function' ? ctx.get('web') : null
+          if (!web?.fetch) return deny('宿主没有网页抓取服务。')
+          let page
+          try { page = await web.fetch({ url }) } catch (error) { return deny(`抓取失败：${error?.message || error}`) }
+          if (Number.isFinite(page?.statusCode) && (page.statusCode < 200 || page.statusCode >= 300)) {
+            return deny(`抓取返回 ${page.statusCode}`)
+          }
+          const text = readableText(page)
+          if (text.length < 300 || looksBinary(text)) return deny('抓到的正文太短或不是文本。')
+          let book = loadPerson(DATA_DIR).library.find(item => String(item.source ?? '') === url)
+          if (!book) {
+            const excerpt = text.slice(0, 60000)
+            const title = String(args?.title ?? '').trim() || pageTitleOf(page) || url
+            // 只拿到一部分页面（宿主截断，或我们自己的 6 万字上限）时，
+            // 读完保存的这一截不等于读完整篇。
+            const partial = page?.truncated === true || text.length > excerpt.length
+            const added = await companion.execute({
+              action: 'library.add', title, source: url, kind: 'article', excerpt,
+              readingOffset: 0, readingHash: readingTextHash(excerpt),
+              fetchedAt: new Date().toISOString(), scope: partial ? 'excerpt' : 'article',
+            })
+            if (!added.ok) return deny(added.reject || '上书架失败')
+            book = loadPerson(DATA_DIR).library.find(item => String(item.source ?? '') === url)
+          }
+          if (!book) return deny('上书架后找不到条目。')
+          bookId = book.id
+        }
+        const person = loadPerson(DATA_DIR)
+        const book = bookId ? person.library.find(item => item.id === bookId) : pickContinuation(person)
+        if (!book) return deny('书架里没有在读的正文；给一个 url。')
+        const source = readingSource(person, { bookId: book.id, limit })
+        if (!source?.text) return deny('这篇已经读完了。', book.id)
+        // 发一段就记一张凭据：save 只能保存刚发出去的那一段。
+        issueReadReceipt(DATA_DIR, {
+          sessionId, bookId: book.id, hash: source.contentHash, start: source.start, end: source.end,
+          task: readingTurnActive(sessionId),
+        })
+        return {
+          ok: true, reject: '', action, bookId: book.id, title: source.title,
+          start: source.start, end: source.end, total: source.total, text: source.text,
+          offset: book.readingOffset ?? 0, done: false,
+        }
+      }
+      if (action === 'save') {
+        const bookId = String(args?.bookId ?? '').trim()
+        if (!bookId) return deny('save 需要 bookId。')
+        // 阅读回合被关掉之后，任何工具调用都不能再替她推进进度。
+        if (readingTurnActive(sessionId) && loadState(DATA_DIR).settings?.autonomousReading !== true) {
+          return deny('自主阅读已经关掉了，这次不用再保存。', bookId)
+        }
+        const person = loadPerson(DATA_DIR)
+        const book = person.library.find(item => item.id === bookId)
+        if (!book) return deny('书架上找不到这一条。')
+        const source = readingSource(person, { bookId, limit: Math.max(...READ_OPTIONS) })
+        if (!source?.text) return deny('这篇已经读完了。', bookId)
+        const receipt = consumeReadReceipt(DATA_DIR, {
+          sessionId, bookId, hash: source.contentHash, start: source.start,
+        })
+        if (!receipt) return deny('没有可保存的读取凭据：先 open 拿到这一段再 save，同一段不能保存两次。', bookId)
+        // 后台阅读回合已经结束（取消/超时/关掉开关）：它的迟到提交一律作废，
+        // 不能借「已不活跃的会话」当成普通人工阅读放行。
+        if (receipt.task && (!readingTurnActive(sessionId) || loadState(DATA_DIR).settings?.autonomousReading !== true)) {
+          return deny('这次阅读回合已经结束了，不用再保存。', bookId)
+        }
+        const available = Math.max(1, receipt.end - receipt.start)
+        const requested = READ_OPTIONS.includes(args?.readChars) ? args.readChars : available
+        const readChars = Math.max(1, Math.min(available, requested))
+        const nextOffset = source.start + readChars
+        // 读完这一截不等于读完整篇：截断抓取/章节摘录永远不算「读完」。
+        const finished = nextOffset >= source.total && source.scope === 'article'
+        const state = finished ? 'done' : args?.continue === false ? 'paused' : 'reading'
+        const note = typeof args?.note === 'string' ? mergeReadingNote(book.note, args.note) : book.note
+        const updated = await companion.execute({
+          action: 'library.update', id: bookId, note,
+          readingOffset: nextOffset, readingHash: source.contentHash,
+          progress: source.total ? Math.min(1, nextOffset / source.total) : 0, state,
+        })
+        if (!updated.ok) return deny(updated.reject || '更新书架失败', bookId)
+        return {
+          ok: true, reject: '', action, bookId, title: source.title,
+          start: source.start, end: nextOffset, total: source.total, text: '',
+          offset: nextOffset, done: finished,
+        }
+      }
+      return deny('action 只能是 open 或 save。')
+    },
+  }))
+
+  registerTool(ctx, defineTool({
     name: 'coach_pool',
     description:
       '查一个知识点的候选题池（出卷的第一步）。返回该节点标签下的题，' +
@@ -4883,14 +5729,17 @@ function apply(ctx) {
         },
       },
       render: (_args, v) => {
-        if (!v.ok) return [{ type: 'text', text: `❌ 题池不可用：${v.reject}\n可核实真实题面，再由 coach_test 的 source=web 组卷。` }]
+        const integrated = loadMap().byId.get(v.node)?.role === 'integrated'
+        if (!v.ok) return [{ type: 'text', text: `❌ 题池不可用：${v.reject}\n` + (integrated
+          ? '可核实真实题面，挑一道当例题讲；不为随题融合的概念单独组卷。'
+          : '可核实真实题面，再由 coach_test 的 source=web 组卷。') }]
         const lines = [
           `【题池】${v.nodeName}　[${v.domain}]`,
           `标签匹配：${v.matchKind === 'exact' ? '精确' : '子串'}（${v.matchedTags.join(' / ')}）`,
           `池子里 ${v.poolSize} 道，其中他做过的 ${v.solvedExcluded} 道已剔除` +
           (v.trainerRating ? `　他当前 rating ${v.trainerRating}` : ''),
         ]
-        if (loadMap().byId.get(v.node)?.role === 'integrated') lines.push('⚠️ 这是随题融合的概念/技巧；题池只能用来找真实例题，不要据此开独立章节卷。')
+        if (integrated) lines.push('⚠️ 这是随题融合的概念/技巧；题池只能用来找真实例题，不要据此开独立章节卷。')
         if (v.warnings.length) lines.push('⚠️ ' + v.warnings.join('\n⚠️ '))
         for (const b of v.bands) {
           lines.push('', `── ${b.band}（锚点 ${b.anchorRating}）──`)
@@ -4919,9 +5768,9 @@ function apply(ctx) {
             (inBand.length
               ? `落在区间里的是 **${inBand.map((b) => b.band).join('、')}档**。`
               : `没有档正好落进去 —— 最接近的是 **${nearest.band}档（锚点 ${nearest.anchorRating}）**。`) +
-            '三档各挑一道，但心里得有数哪档是主力。')
+            (integrated ? '三档只用来看难度分布，不据此开独立卷。' : '三档各挑一道，但心里得有数哪档是主力。'))
         }
-        lines.push('', '从每档挑一道交 coach_test，三档各一道。')
+        if (!integrated) lines.push('', '从每档挑一道交 coach_test，三档各一道。')
         return [{ type: 'text', text: lines.join('\n') }]
       },
     },
@@ -5094,7 +5943,7 @@ function apply(ctx) {
   //
   // 开完卷落盘（PROGRESS.yaml 的 pending）。出卷到判卷中间隔着几十分钟、
   // 甚至跨会话，靠对话上下文记不住 —— 那不是记性问题，是结构问题。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_test',
     description:
       '开一张章节检测卷。你**先调 coach_pool** 拿候选池，再从中挑三道：易/中/难 各一道，' +
@@ -5129,7 +5978,7 @@ function apply(ctx) {
             },
             problemId: { type: 'string', required: true, description: '题号，如 P1040 / 1015D / NC15121' },
             band: { type: 'string', required: true, enum: ['易', '中', '难'] },
-            // ── 以下四个字段：题库里来的题（默认）不用给 ──
+            // ── source 默认 pool；verified 两种来源都必填；title/url/rating 仅 source=web 需要 ──
             source: {
               type: 'string', enum: ['pool', 'web'],
               description: '题从哪来。pool=题库（默认，不写就是这个）；web=你上网找的',
@@ -5446,7 +6295,7 @@ function apply(ctx) {
   //   · **抓不到**（站点挡 IP / 要 cookie / 超时）→ 不拒。那是"这条路我走不通"，
   //     不是"这题没核实过"。允许附自己的 gist 落账，但记 how='manual'
   //     —— 自报与自动核对**分开存**，以后读账的人知道每条可信到什么程度。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_verify',
     description:
       '批量核实题目是否适合指定知识点；贴错标签的题用 status=rejected + reason 排除此节点的题池，不影响其他节点。\n' +
@@ -5642,13 +6491,14 @@ function apply(ctx) {
   //
   // 只依赖卷子本身（pending 里存了整份题目信息），不连数据库 ——
   // 判卷不该因为库被搬走或者锁了就失败。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_grade',
     description:
       '给正押着的那张检测卷判卷。收每题 AC 与否、实际分钟数和明确的独立性事实（未知就省略）。\n' +
       '判定：难易加权（易1/中2/难3，满分 6），**通过线 4 分且总用时不超过限时**。\n' +
       '分够但超时 → overTime；分不够 → failed。卷面通过且所有做出的题明确独立，才产生本次 verified。\n' +
       '接受过提示/题解/他人帮助，或独立性未知：只记过卷，保留原状态，不冒充独立掌握。\n' +
+      '失败或超时记录本次观察，保留旧验证与状态；不自动认定基础退化。另有证据支持时可用 coach_mark 调整当前状态。\n' +
       '本次独立验证不证明隔日保持或迁移；下一步由教练结合课程和表现判断。',
     parameters: {
       results: {
@@ -5751,8 +6601,10 @@ function apply(ctx) {
         } else if (v.outcome === 'overTime') {
           lines.push('  本次超过限时。结合做题过程判断是建模、实现还是速度问题，再决定补讲或限时加练。')
         } else {
-          lines.push('  结合没做出题的题面、代码和过程，用 coach_diagnose 判因，再决定补讲、练习或重写。')
+          lines.push('  结合没做出题的题面、思路和过程判断卡点。手上有他这次的代码时，再走 coach_diagnose 判因；' +
+            '没有代码就先看题意、手算或让他讲思路，不为凑判因索要或补造代码。再决定补讲、练习或重写。')
         }
+        if (v.outcome !== 'passed') lines.push('  本次观察不自动认定基础退化，保留原有状态与验证历史；核对新旧难度和实际过程后再决定是否调整。')
         return [{ type: 'text', text: lines.join('\n') }]
       },
     },
@@ -5827,7 +6679,7 @@ function apply(ctx) {
       const limit = Number(p.totalMinutes) || 0
       const passScore = Number(p.passScore) || PASS_SCORE
       const maxScore = Number(p.maxScore) || graded.reduce((s, x) => s + x.weight, 0)
-      // 超时和分数不够是**两种病**：前者是不熟，后者是不会。
+      // 卷面结果与原因分开记录，不能单凭分数或用时判断能力退化。
       const outcome = score < passScore ? 'failed'
         : (limit > 0 && minutes > limit) ? 'overTime' : 'passed'
       const solvedProblems = graded.filter((g) => g.solved)
@@ -5836,8 +6688,8 @@ function apply(ctx) {
       const verified = outcome === 'passed' && independence === 'independent'
 
       const node = String(p.node ?? '')
-      const status = verified ? 'verified'
-        : nodeStatus(prog, node) === 'none' ? 'studying' : nodeStatus(prog, node)
+      const prevStatus = nodeStatus(prog, node)
+      const status = verified ? 'verified' : prevStatus === 'none' ? 'studying' : prevStatus
 
       // 「验证于哪个段位」= 他拿下的题里 cfRating 最高的那个。
       // 含义是"他证明过的上限"。没过就是 0 —— 没证明过任何段位。
@@ -5873,8 +6725,6 @@ function apply(ctx) {
         ...(independence === 'unknown' ? {} : { independent: independence === 'independent' }),
       })
       nodeRec.checks = checks
-      // 未达到独立验证条件不降级旧状态；未学节点只记录正在学习。
-      const prevStatus = nodeStatus(prog, node)
       nodeRec.status = status
       // ⚠️ 修过：这条路**以前没写 `at`**。
       // `at` 的语义是「什么时候变成这个状态的」，而 verified 恰恰是**最该有日期的那一跳** ——
@@ -5914,7 +6764,7 @@ function apply(ctx) {
   //   ② **撤不是删**：往 checks 里落一条 outcome=abandoned。
   //      「开了卷没做」本身就是信号（卷子出难了？那天没时间？），
   //      抹掉它等于把一条证据洗掉，而且洗得无声无息。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_cancel',
     description:
       '撤掉手上正押着的那张检测卷 —— **只有他说「不做了 / 今天没时间 / 换个时间」时才用**。\n' +
@@ -5925,8 +6775,7 @@ function apply(ctx) {
     parameters: {
       reason: {
         type: 'string', required: true,
-        description: '为什么撤（一句话，进台账）。不知道原因就先问他 —— ' +
-          '「开了卷没做」这件事的原因本身有价值（是没时间？还是卷子出难了？）',
+        description: '已知的撤卷原因，进台账；未知如实记未说明，不编理由。用户已说明或不愿解释时不追问。',
       },
     },
     output: {
@@ -5953,9 +6802,7 @@ function apply(ctx) {
             `原因记下了：${v.reason}\n` +
             `这个知识点的状态**没动** —— 没做检测不等于没学。累计检测记录 ${v.checks} 条。\n` +
             `\n` +
-            `现在可以用 coach_test 开新卷了。**撤完先别急着开** —— ` +
-            `如果他是"没时间"，先去 coach_schedule 看看哪天有空；` +
-            `如果他是"不想做"，那得先聊清楚，别硬塞一张新的。`,
+            '是否另排训练按当前请求决定；不自动追问原因或重新排课。',
         }]
       },
     },
@@ -5970,8 +6817,7 @@ function apply(ctx) {
       // 撤卷要写理由。没理由的撤 = 随手把一张卷抹掉，
       // 而"为什么没做"正是这件事里唯一有价值的部分。
       if (!reason) {
-        return deny('没说为什么撤。先问他一句 —— 「开了卷没做」的原因本身有价值' +
-          '（是没时间、还是卷子出难了），记下来下次排的时候有用。')
+        return deny('没说为什么撤。请填已知原因；未知就如实记“未说明”，不用为填写参数反复追问。')
       }
 
       const prog = loadProgress()
@@ -6032,7 +6878,7 @@ function apply(ctx) {
   // ⚠️ **不碰知识点状态**：撤动作不等于没学，也不等于学了（自评 ≠ 掌握）。
   // ⚠️ 也别拿它躲一次难看的落地：他做了就该走 coach_log —— 那条路会记下
   //    「独立没独立」，是这套系统里最硬的一条掌握证据。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_unassign',
     description:
       '撤掉**押着的训练动作**（coach_assign 布置的、他还没做的）。' +
@@ -6042,9 +6888,9 @@ function apply(ctx) {
     parameters: {
       node: {
         type: 'string',
-        description: '撤哪个节点的动作。不填 = 手上只有一条时撤那条；有多条会被拒绝并列出来。',
+        description: '撤哪个节点的动作，必须指定；不填会被拒绝并列出押着的动作。',
       },
-      competency: { type: 'string', description: '撤哪个比赛能力动作，与 node 二选一；都不填时手上只有一条可直接撤。' },
+      competency: { type: 'string', description: '撤哪个比赛能力动作，与 node 二选一；必须指定一个。' },
       reason: { type: 'string', description: '为什么撤（一句话，回显用）' },
     },
     output: {
@@ -6097,11 +6943,9 @@ function apply(ctx) {
         if (!keys.length) {
           return deny('手上没有押着的动作，没什么可撤的。要布置走 coach_assign。')
         }
-        if (keys.length > 1) {
-          return deny(`手上有 ${keys.length} 个押着的动作，得说清撤哪个：` +
-            keys.map((k) => `${byId.get(k)?.name ?? k}（${String(pend[k]?.at ?? '')}）`).join(' / '))
-        }
-        node = keys[0]
+        // 不猜“唯一那条”：撤动作必须点名，避免空参数误删。
+        return deny('要撤哪个请明确给 node 或 competency：' +
+          keys.map((k) => `${byId.get(k)?.name ?? k}（${String(pend[k]?.at ?? '')}）`).join(' / '))
       }
       if (!Object.prototype.hasOwnProperty.call(pend, node)) {
         return deny(`「${byId.get(node)?.name ?? node}」上没有押着的动作 —— ` +
@@ -6132,7 +6976,7 @@ function apply(ctx) {
   // planned 只能从 coach_plan 进来 —— 这两个工具就是教练的手。
   // 缺了它，教练看得到知识点却看不到时间，排程就只能靠人代劳，
   // 而人代劳的那一刻，这套东西就不再是"教练"了。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_schedule',
     description:
       '看他这几天**到底有多少时间能用来训练**。给的是**整张表**：' +
@@ -6378,13 +7222,13 @@ function apply(ctx) {
         // 教练会拿它当"这几天都没事"去排块。
         return {
           ok: false, reject: `${err.message}`, today: '', windowFrom: '', windowTo: '',
-          planTo: '', blockKinds: [], days: [],
+          planTo: '', blockKinds: [], days: [], readiness: [],
         }
       }
     },
   }))
 
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_plan',
     description:
       '把计划**写进日程表**。排块只有这一个入口 —— 他自己在页面上只能标「有事」，' +
@@ -6472,9 +7316,24 @@ function apply(ctx) {
         if (v.rest) return [{ type: 'text', text: `【休息日】${v.date}：当天不排训练。${v.replaced ? `已替换原来 ${v.replaced} 个训练块。` : ''}` }]
         const L = [`【排好了】${v.date}` +
           (v.replaced ? `（覆盖掉原来那 ${v.replaced} 个块）` : '')]
+        // 排程说明以 coach_assign 真实保存的分段为准；没有对应布置时才退回默认循环。
+        let pendingActions = {}
+        try { pendingActions = loadProgress().pendingActions ?? {} } catch { pendingActions = {} }
         for (const b of v.planned) {
-          L.push(`  ★ ${b.from}–${b.to}　${b.kindName}　${b.nodeName}` +
-            (b.kind === 'cycle' && b.minutes === CYCLE_TOTAL_MIN ? '　（40 自己做 → 10 解决遗留 → 10 重写）' : ''))
+          let segments = ''
+          if (b.kind === 'cycle' && b.minutes === CYCLE_TOTAL_MIN) {
+            const key = b.node || (b.competency ? `competency:${b.competency}` : '')
+            const assigned = key ? pendingActions[key] : null
+            const known = assigned && assigned.kind === 'practice' && assigned.totalMinutes === b.minutes
+              && Number.isInteger(assigned.solveMinutes) && Number.isInteger(assigned.resolveMinutes)
+              && Number.isInteger(assigned.rewriteMinutes)
+            segments = known
+              ? (assigned.rewriteMinutes > 0
+                ? `　（${assigned.solveMinutes} 自己做 → ${assigned.resolveMinutes} 解决遗留 → ${assigned.rewriteMinutes} 重写）`
+                : `　（${assigned.solveMinutes} 自己做 → ${assigned.resolveMinutes} 解决遗留，不重写）`)
+              : '　（40 自己做 → 10 解决遗留 → 10 重写）'
+          }
+          L.push(`  ★ ${b.from}–${b.to}　${b.kindName}　${b.nodeName}${segments}`)
         }
         // 回一条**完整时间轴**，而不是「还剩多少分钟」。
         // 排完他得能一眼看出这块夹在哪两件事之间 —— 那个位置才决定来不来得及。
@@ -6533,7 +7392,7 @@ function apply(ctx) {
 
   // 撤块。**和排块分开是对的**：合成一个参数的话，教练迟早会在该撤的时候
   // 顺手重排 —— 而重排会把他没意见的块也一起换掉，那正是"计划固化"想防的事。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_unplan',
     description:
       '**撤掉**已经排好的块。他说「这个时间不合理」「那天临时有事」时用它。\n' +
@@ -6541,9 +7400,7 @@ function apply(ctx) {
       '要改得他自己在页面上改。\n' +
       '给 from（那个块的**开始时间**）撤那一个；给 all=true 撤掉整天的训练块或休息日标记。' +
       '两个都不给会被拒，并把这天的候选列给你挑。\n' +
-      '⚠️ **撤完不要立刻重排。** 先问清他为什么撤（太早？那天想歇？' +
-      '还是这个点根本坐不住？），把撤完的样子报给他。' +
-      '马上塞一个新的进去，很可能又塞在他不想要的位置上。',
+      '撤完报告结果，不擅自重排。原因已说明就不再追问；仅原因未知且影响后续安排时再确认。',
     parameters: {
       date: { type: 'string', required: true, description: '哪天，YYYY-MM-DD' },
       // ⚠️ 可选参数**不写 required** —— dsh 的 defineTool 只认 `required: true`
@@ -6624,7 +7481,7 @@ function apply(ctx) {
           ...v.left.map((b) => ({ a: b.from, z: b.to, t: `${b.kindName}　${b.nodeName}`, mark: '★ ' })),
         ].sort((x, y) => x.a.localeCompare(y.a))
         for (const it of axis) L.push(`  ${it.mark}${it.a}–${it.z}　${it.t}`)
-        L.push('', '**别顺手重排。** 先问清他为什么撤 —— 知道原因比补一个块重要。')
+        L.push('', '不擅自重排；原因已说明就不再追问。仅原因未知且影响后续安排时再确认。')
         return [{ type: 'text', text: L.join('\n') }]
       },
     },
@@ -6658,12 +7515,13 @@ function apply(ctx) {
   // plannedMin **不让调用方填**：那天表上排了多久是事实，工具自己算。
   // 让他填就等于同一个数有两个来源，而"计划 60 实际 95"这个差值的全部意义
   // 就在于这两个数是各自独立得到的。
-  ctx.tools.register(defineTool({
+  registerTool(ctx, defineTool({
     name: 'coach_log',
     description:
       '记一条节点练习或比赛能力动作的**实际用时**：他做完一个块之后，报「做了多久、是不是独立做出来的」。\n' +
       '**每次他报告完成情况就调一次**（不管是做出来了还是没做出来、超时了还是提前），' +
       '这是系统学会"他真实速度是多少"的唯一来源 —— 不记，排程永远只能靠猜。\n' +
+      '原生会话必须把这次报告的**完整原话**放进 `studentQuote`；`actualMin` 要能在原话里核到（他说「半小时」就填 30）。\n' +
       '计划时长不用你填：那天表上排了多久，工具自己从 SCHEDULE.yaml 里算。\n' +
       'independent = **有没有看题解 / 问人**。这一栏比时长还重要 —— ' +
       '「30 分钟独立做出来」和「30 分钟看了题解才做出来」在掌握度上是两回事。\n' +
@@ -6738,7 +7596,7 @@ function apply(ctx) {
         // **事实给他，判断留给教练。**
         const echo = v.actualMin === undefined ? '实际用时未报告，保留未知' : `记住了：${v.actualMin} 分钟`
         // ⚠️ **做对了要夸，别接着挑毛病**。
-        //   判因工具的出口只有 不会/不熟/不认真 三档 —— 拿它去判一份对的代码，
+        //   正确代码的复盘沿原有完成入口记录，不为调用判因工具硬找错误。
         //   它也只能挑出错处来。出口里没有"对了"这个选项。
         // 这个渲染是小鲸最容易照抄的模板，把它写成正向的，它就不会
         // 自己再往判因那边滑。做对了**不调 coach_diagnose** —— 见 AGENTS.md 规则 6。
@@ -6823,8 +7681,7 @@ function apply(ctx) {
         if (independent === true && (assisted || !explicitIndependent)) return deny('原话没有明确独立完成，或明确接受过提示/题解；不要记 independent=true。未知就省略。')
         if (independent === false && !assisted) return deny('这段原话未明确报告接受帮助；独立性未知请省略 independent。')
         if (actualMin !== undefined) {
-          const reported = [...quote.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)\s*(分钟|小时|min(?:ute)?s?\b|hours?\b)/gi)]
-            .map(m => Math.round(Number(m[1]) * (/小时|hour/i.test(m[2]) ? 60 : 1)))
+          const reported = minutesInReport(quote)
           if (!reported.includes(actualMin)) return deny('实际分钟数没有对应这段学生原话；未报时长请省略 actualMin，不用计划时间或猜测数字代填。')
         }
         studentEvidence = { ...source.studentEvidence, start: source.start, end: source.end }
@@ -6951,11 +7808,69 @@ function apply(ctx) {
     },
   }))
 
+  // 后台任务的可见面：队列在盘上，重启不丢，这里给它一个入口。
+  registerTool(ctx, defineTool({
+    name: 'coach_task',
+    description: '查看/取消/重试后台任务。默认生活任务；queue=memory 查看记忆保存补发。list 看队列，cancel 取消；retry 仅在用户明确要求重试时用。只有当前配置的记忆库会补发，关闭记忆桥不会发请求；重试可能产生后端提炼费用，不因记录失败就自动无限重试。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['list', 'cancel', 'retry'] },
+      id: { type: 'string', description: 'cancel / retry：任务 id' },
+      queue: { type: 'string', enum: ['life', 'memory'], description: '默认life；memory是Hindsight保存补发任务，不返回聊天正文。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          ok: { type: 'boolean', required: true },
+          reject: { type: 'string', required: true },
+          action: { type: 'string', required: true },
+          summary: { type: 'string', required: true },
+        },
+      },
+      render: (_args, result) => [{ type: 'text', text: result.ok ? result.summary : result.reject }],
+    },
+    async execute(args = {}) {
+      const action = String(args.action ?? 'list')
+      const memoryQueue = args.queue === 'memory'
+      const taskDir = memoryQueue ? join(DSH_HOME, 'data', 'acmer-coach') : DATA_DIR
+      const line = (task) => {
+        const state = { queued: '排队', claimed: '在跑', done: '完成', failed: '失败', cancelled: '取消' }[task.state] ?? task.state
+        const retry = task.lastError ? `：${task.lastError}` : ''
+        return `[${task.id}] ${task.kind}${task.key ? ` ${task.key}` : ''} ${state}（第 ${task.attempts} 次）${retry}`
+      }
+      if (action === 'list') {
+        const { active, finished } = listTasks(taskDir)
+        if (!active.length && !finished.length) return { ok: true, reject: '', action, summary: '后台任务队列是空的。' }
+        const parts = []
+        if (active.length) parts.push(`在跑/排队 ${active.length} 条：\n${active.map(line).join('\n')}`)
+        if (finished.length) parts.push(`最近 ${finished.length} 条：\n${finished.map(line).join('\n')}`)
+        return { ok: true, reject: '', action, summary: parts.join('\n') }
+      }
+      const id = String(args.id ?? '')
+      if (!id) return { ok: false, reject: `${action} 要给任务 id（先用 list 看）。`, action, summary: '' }
+      if (action === 'cancel') {
+        const result = cancelTask(taskDir, id)
+        if (memoryQueue && result.ok) await memoryTaskControls.refresh?.()
+        return result.ok
+          ? { ok: true, reject: '', action, summary: `取消了 [${result.task.id}] ${result.task.kind}。` }
+          : { ok: false, reject: result.reject, action, summary: '' }
+      }
+      if (action === 'retry') {
+        const result = retryTask(taskDir, id)
+        if (memoryQueue && result.ok) await memoryTaskControls.refresh?.()
+        return result.ok
+          ? { ok: true, reject: '', action, summary: `把 [${result.task.id}] ${result.task.kind} 放回队列了。` }
+          : { ok: false, reject: result.reject, action, summary: '' }
+      }
+      return { ok: false, reject: `不认识的动作：${action}`, action, summary: '' }
+    },
+  }))
+
   // 每个 turn 注入当前位置与续课线索，教学判断仍交给小鲸。
-  registerStateHook(ctx, teaching)
+  registerStateHook(ctx, teaching, proactiveWorker)
 
   // 技能树页面（可选注入 —— 没有 webServer 的环境跳过，工具照常工作）
-  ctx.inject(['webServer'], (sctx) => { registerPages(sctx) })
+  ctx.inject(['webServer'], (sctx) => { registerPages(sctx, { proactiveWorker }) })
 }
 
 export { apply, inject, name, VERSION }

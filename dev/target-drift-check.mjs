@@ -116,7 +116,11 @@ test('a legacy course without a target binding is labelled but never blocked', (
     assert.match(read.targetNote, /旧版本/)
     assert.equal(read.boundTarget, '')
 
-    const assigned = curriculum.assignment({ node: 'B', revision: read.revision })
+    const revised = curriculum.execute({ action: 'revise', expectedRevision: read.revision, reason: '补绑当前目标，恢复漂移检测' })
+    assert.equal(revised.ok, true, revised.reject)
+    assert.equal(revised.targetState, 'fresh', 'first revise of a legacy course should bind the current target')
+
+    const assigned = curriculum.assignment({ node: 'B', revision: revised.revision })
     assert.equal(assigned.ok, true, '旧课程不能被升级动作锁死')
     assert.equal(assigned.targetWarning, '')
     assert.doesNotMatch(curriculum.context(), /旧版本/, '旧课程没绑定目标，不该每轮念叨')
@@ -167,5 +171,26 @@ test('skipping a phase rebinds the course to the current target', () => {
     const after = curriculum.execute({ action: 'read' })
     assert.equal(after.targetState, 'fresh', after.targetNote)
     assert.equal(after.boundTarget, '香港站 2026-12-15 金牌')
+  } finally { cleanup() }
+})
+
+test('an expired contest does not hide a changed target while its course is active', () => {
+  const { dir, strategy, curriculum, cleanup } = fixture()
+  try {
+    assert.equal(setTarget(strategy, 0, '西安站', '2026-10-01', '银牌').ok, true)
+    assert.equal(curriculum.execute({ action: 'create', expectedRevision: 0,
+      goal: '区域赛稳定表现', baseline: '起点已核实', weeklyHours: 30, phases: [phase],
+      reason: '根据真实训练表现建立课程路线' }).ok, true)
+    assert.equal(setTarget(strategy, 1, '香港站', '2026-12-15', '金牌').ok, true)
+    const active = curriculum.execute({ action: 'read' })
+    assert.equal(active.targetState, 'stale')
+    assert.match(active.targetNote, /香港站/)
+    assert.match(curriculum.assignment({ node: 'B', revision: active.revision }).targetWarning, /西安站/)
+
+    const path = join(dir, 'CURRICULUM.yaml')
+    const completed = parse(readFileSync(path, 'utf8'))
+    completed.status = 'complete'
+    writeFileSync(path, stringify(completed, { lineWidth: 0 }), 'utf8')
+    assert.equal(curriculum.execute({ action: 'read' }).targetState, 'archived', 'completed history does not need replanning')
   } finally { cleanup() }
 })

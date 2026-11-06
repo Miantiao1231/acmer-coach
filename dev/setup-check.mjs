@@ -123,8 +123,8 @@ console.log('\n── 7. 记录导入（洛谷/牛客走这条；CF 有公开接
   ]
   const r1 = await ic({ records: luogu })
   check('导入成功', r1.ok === true, r1.note || `${r1.inserted} 条`)
-  check('同一题多次提交 → 只留一条 AC（不是把提交数当题数）', r1.inserted === 2,
-    `inserted=${r1.inserted}（3 条输入：P1001 的 AC 覆盖了它的失败提交，P1002 只有失败）`)
+  check('同一题只算一道题，AC 前的失败链保留', r1.inserted === 3,
+    `inserted=${r1.inserted}（3 条输入：P1001 失败+AC，P1002 失败）`)
 
   const { DatabaseSync } = await import('node:sqlite')
   const db = new DatabaseSync(process.env.COACH_DB, { readOnly: true })
@@ -160,8 +160,25 @@ console.log('\n── 7. 记录导入（洛谷/牛客走这条；CF 有公开接
   writeFileSync(f, luogu.map((r) => JSON.stringify(r)).join('\n'))
   const r5 = await ic({ path: f })
   check('能吃 JSONL 文件', r5.ok === true, `inserted=${r5.inserted}`)
+  check('重复导入会说清楚', /都已存在/.test(r5.note || ''), r5.note || '(空)')
   const r6 = await ic({ path: join(home, '不存在.json') })
   check('文件不存在 → 如实报错', r6.ok === false && r6.note.includes('读不了'), r6.note.slice(0, 50))
+  const r9 = await ic({ records: [
+    { platform: 'luogu', problem_id: 'P1001', verdict: '6' },
+    { platform: 'atcoder', problem_id: 'abc999_z', verdict: 'AC' },
+  ] })
+  check('重复+坏记录也有说明', r9.ok === true && /都已存在/.test(r9.note || '') && /认不出/.test(r9.note || ''), r9.note || '(空)')
+  const r7 = await ic({ records: [
+    { platform: 'luogu', problem_id: 'P1003', verdict: 'AC', submitted_at: '2026-09-01T12:00:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1003', verdict: 'AC', submitted_at: '2026-09-01T13:00:00+08:00' },
+  ] })
+  check('同一题重复 AC 只留一条', r7.inserted === 1, `inserted=${r7.inserted}`)
+  const r8 = await ic({ records: [
+    { platform: 'luogu', problem_id: 'P1004', verdict: '6', submitted_at: '2026-09-01T10:00:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1004', verdict: '6', submitted_at: '2026-09-01T10:05:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1004', verdict: '12', submitted_at: '2026-09-01T10:06:00+08:00' },
+  ] })
+  check('AC 之前的失败保留给 WA→AC 间隔', r8.inserted === 3, `inserted=${r8.inserted}`)
 }
 
 if (process.env.COACH_TEST_NET === '1') {

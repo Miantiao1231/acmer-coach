@@ -23,6 +23,8 @@ writeFileSync(join(tmp, 'MAP.yaml'), 'meta: {version: 3}\nnodes:\n  - id: A\n   
 writeFileSync(join(tmp, 'DEPENDS.yaml'), 'meta: {version: 1}\nrequires:\n  A: []\n')
 writeFileSync(join(tmp, 'skilltree.html'), '<html></html>')
 process.env.COACH_DATA_DIR = tmp
+process.env.DSH_HOME = tmp
+process.env.COACH_DB = join(tmp, 'unused.db')
 
 const mod = await import('../index.js?wiki=1')
 const registered = []
@@ -82,7 +84,7 @@ console.log('\n── 5. 查不到时必须说实话（不许硬凑）──')
 {
   const r = await call({ action: 'search', query: 'zzz不存在的知识点qqq', topK: 5 })
   check('无关查询 → 0 结果', r.pages.length === 0, `${r.pages.length} 个`)
-  check('并且给出「照实说」的提示', r.note.includes('不确定'), r.note)
+  check('零检索结果只说明本地索引未命中，不代替推理判断', r.note.includes('本地索引未找到') && !r.note.includes('这个我不确定'), r.note)
 }
 
 console.log('\n── 6. 输出形状合规（dsh 严格校验）──')

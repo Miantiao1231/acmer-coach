@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { loadPerson, savePerson } from '../lib/person.js'
 
 function shape(schema, value) {
   if (schema.type === 'object') {
@@ -18,6 +19,41 @@ function shape(schema, value) {
   } else if (schema.type === 'integer') assert.ok(Number.isInteger(value))
   else assert.equal(typeof value, schema.type)
 }
+
+test('old seven-day student context is retained in history but excluded from read, status and hooks', async t => {
+  const now = new Date(2026, 10, 5, 12)
+  t.mock.timers.enable({ apis: ['Date'], now: now.getTime() })
+  const dir = mkdtempSync(join(tmpdir(), 'coach-context-expiry-'))
+  const envKeys = ['COACH_DATA_DIR', 'COACH_DB', 'DSH_HOME']
+  const previous = Object.fromEntries(envKeys.map(key => [key, process.env[key]]))
+  try {
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    process.env.DSH_HOME = dir
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: [{id: A, name: A, depends: []}]\n')
+    writeFileSync(join(dir, 'PROGRESS.yaml'), 'version: 1\nnodes: {}\n')
+    const person = loadPerson(dir)
+    person.context = { quote: '十月最后一天的临时处境', at: new Date(2026, 9, 31, 9).toISOString(),
+      messageId: 'old-context', expiresAt: new Date(2026, 10, 7, 9).toISOString() }
+    assert.equal(savePerson(dir, person), true)
+    const history = readFileSync(join(dir, 'person-events.jsonl'), 'utf8')
+    const tools = new Map(), hooks = new Map()
+    const { apply } = await import(`../index.js?context-expired=${dir}`)
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, get() {}, on: (name, handler) => hooks.set(name, handler) })
+    assert.equal((await tools.get('coach_student_context').execute({ action: 'read' })).quote, '')
+    assert.equal((await tools.get('coach_status').execute({})).studentContext.quote, '')
+    const decision = await hooks.get('agent/pre-step')({ step: 1, messages: [] }, async () => ({ kind: 'enter', messages: [] }))
+    assert.doesNotMatch(decision.messages.at(-1).content[0].text, /十月最后一天的临时处境/)
+    assert.equal(loadPerson(dir).context.quote, person.context.quote)
+    assert.equal(readFileSync(join(dir, 'person-events.jsonl'), 'utf8'), history)
+  } finally {
+    for (const key of envKeys) {
+      if (previous[key] === undefined) delete process.env[key]
+      else process.env[key] = previous[key]
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 test('coaching rules keep a weekly outcome and batch selective review into class time', () => {
   const rules = readFileSync(join(process.cwd(), 'assets', 'rules', 'coach-rules.md'), 'utf8')
@@ -45,6 +81,19 @@ test('integrated map concepts cannot be assigned or examined as standalone units
     const paper = await tools.get('coach_test').execute({ node: '动态规划基础', problems: [] })
     assert.equal(paper.ok, false)
     assert.match(paper.reject, /随题融合/)
+    const pool = tools.get('coach_pool').output.render({ node: '动态规划基础' }, {
+      ok: true, reject: '', node: '动态规划基础', nodeName: '动态规划基础', domain: '动态规划',
+      matchKind: 'exact', matchedTags: ['dp'], poolSize: 6, solvedExcluded: 1, trainerRating: 1500,
+      bands: [{ band: '中', anchorRating: 1600, candidates: [] }], warnings: [], mapStamp: '',
+    }).map(block => block.text).join('\n')
+    assert.match(pool, /不要据此开独立章节卷|不开独立卷/)
+    assert.doesNotMatch(pool, /coach_test/, 'an integrated concept is not turned into a standalone paper')
+    const unit = tools.get('coach_pool').output.render({ node: 'A' }, {
+      ok: true, reject: '', node: 'A', nodeName: 'A', domain: '',
+      matchKind: 'exact', matchedTags: ['dp'], poolSize: 6, solvedExcluded: 1, trainerRating: 1500,
+      bands: [{ band: '中', anchorRating: 1600, candidates: [] }], warnings: [], mapStamp: '',
+    }).map(block => block.text).join('\n')
+    assert.match(unit, /coach_test/, 'an ordinary unit still points at the paper tool')
   } finally {
     if (previous.data === undefined) delete process.env.COACH_DATA_DIR; else process.env.COACH_DATA_DIR = previous.data
     if (previous.db === undefined) delete process.env.COACH_DB; else process.env.COACH_DB = previous.db
@@ -281,7 +330,42 @@ test('teaching notes survive reload, reach the native hook and never certify mas
   }
 })
 
-test('one verified student context survives reload, is visible before planning, and can be cleared', async () => {
+test('expired legacy PROGRESS context migrates once but cannot leak on its first hook read', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 5, 12).getTime() })
+  const dir = mkdtempSync(join(tmpdir(), 'coach-context-migrate-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, memory: process.env.COACH_HINDSIGHT }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: []\n')
+    writeFileSync(join(dir, 'PROGRESS.yaml'), [
+      'version: 1', 'cursor: ""', 'updated: 2026-10-01', 'nodes: {}',
+      'studentContext:', '  at: 2026-10-01 10:00:00',
+      '  studentEvidence:', '    quote: 旧处境原话', '    messageId: m9', '',
+    ].join('\n'))
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    process.env.COACH_HINDSIGHT = '0'
+    const tools = new Map(), hooks = new Map()
+    const { apply } = await import('../index.js?context-migrate')
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on: (name, handler) => hooks.set(name, handler), get: () => undefined })
+    const decision = await hooks.get('agent/pre-step')({ step: 1, messages: [] }, async () => ({ kind: 'enter', messages: [] }))
+    assert.doesNotMatch(decision.messages.at(-1).content[0].text, /旧处境原话/)
+    const status = await tools.get('coach_status').execute({})
+    assert.equal(status.studentContext.quote, '')
+    assert.equal(status.studentContext.messageId, '')
+    assert.equal(loadPerson(dir).context.quote, '旧处境原话')
+    assert.doesNotMatch(readFileSync(join(dir, 'PROGRESS.yaml'), 'utf8'), /studentContext/)
+  } finally {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db], ['COACH_HINDSIGHT', previous.memory]]) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('verified context uses its source day, supports explicit cross-day expiry and cannot refresh an old quote', async t => {
+  const now = new Date(2026, 10, 5, 12)
+  t.mock.timers.enable({ apis: ['Date'], now: now.getTime() })
   const dir = mkdtempSync(join(tmpdir(), 'coach-student-context-'))
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, memory: process.env.COACH_HINDSIGHT }
   try {
@@ -290,7 +374,8 @@ test('one verified student context survives reload, is visible before planning, 
     process.env.COACH_DB = join(dir, 'unused.db')
     process.env.COACH_HINDSIGHT = '0'
     const quote = '我一直想进 WF，但是没有人带我，我很不安。'
-    const query = { readSession: async id => ({ session: { id }, events: [{ type: 'user/message', seq: 4,
+    let sourceTime = new Date(2026, 10, 5, 10).getTime()
+    const query = { readSession: async id => ({ session: { id }, events: [{ type: 'user/message', seq: 4, time: sourceTime,
       data: { id: 'm4', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: quote }] } }] }) }
     const register = async suffix => {
       const tools = new Map(), hooks = new Map()
@@ -306,6 +391,8 @@ test('one verified student context survives reload, is visible before planning, 
     const exec = { agent: { session: { id: 's1' } } }
     assert.equal((await tool.execute({ action: 'set', quote: '学生没说过的句子' }, exec)).ok, false)
     assert.equal((await tool.execute({ action: 'set', quote }, exec)).ok, true)
+    assert.equal(loadPerson(dir).context.at, new Date(sourceTime).toISOString())
+    assert.equal(loadPerson(dir).context.expiresAt, new Date(2026, 10, 6).toISOString())
     const second = await register('reload')
     const status = await second.tools.get('coach_status').execute({})
     shape(second.tools.get('coach_status').output.schema, status)
@@ -314,6 +401,31 @@ test('one verified student context survives reload, is visible before planning, 
     const injected = await second.hooks.get('agent/pre-step')({ step: 1, messages: [] },
       async () => ({ kind: 'enter', messages: [] }))
     assert.match(injected.messages.at(-1).content[0].text, /没有人带我/)
+    const until = new Date(2026, 10, 6, 16).toISOString()
+    assert.equal((await tool.execute({ action: 'set', quote, until }, exec)).ok, true)
+    assert.equal(loadPerson(dir).context.expiryMode, 'explicit')
+    t.mock.timers.tick(24 * 3600000)
+    const third = await register('explicit-reload')
+    assert.equal((await third.tools.get('coach_student_context').execute({ action: 'read' })).quote, quote)
+    const oldReset = await third.tools.get('coach_student_context').execute({ action: 'set', quote }, exec)
+    assert.equal(oldReset.ok, true)
+    assert.equal(oldReset.quote, '', 're-saving yesterday\'s quote cannot reactivate it today')
+    assert.equal(loadPerson(dir).context.at, new Date(sourceTime).toISOString())
+    assert.equal(loadPerson(dir).context.expiryMode, 'day')
+    const beforeInvalid = JSON.stringify(loadPerson(dir).context)
+    for (const until of ['bad-date', '2026-11-07T16:00:00', new Date(2026, 10, 6, 11).toISOString(), new Date(2026, 10, 14).toISOString()]) {
+      assert.equal((await tool.execute({ action: 'set', quote, until }, exec)).ok, false)
+      assert.equal(JSON.stringify(loadPerson(dir).context), beforeInvalid)
+    }
+    for (sourceTime of [undefined, 'broken', null]) {
+      const missing = await tool.execute({ action: 'set', quote }, exec)
+      assert.equal(missing.ok, false)
+      assert.match(missing.reject, /时间/)
+      assert.equal(JSON.stringify(loadPerson(dir).context), beforeInvalid)
+    }
+    sourceTime = new Date(2026, 10, 6, 10).toISOString()
+    assert.equal((await tool.execute({ action: 'set', quote }, exec)).ok, true, 'legal ISO source times remain supported')
+    assert.equal(loadPerson(dir).context.at, sourceTime)
     assert.equal((await second.tools.get('coach_student_context').execute({ action: 'clear' })).ok, true)
     assert.equal((await second.tools.get('coach_status').execute({})).studentContext.quote, '')
   } finally {

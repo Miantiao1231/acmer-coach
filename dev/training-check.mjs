@@ -10,11 +10,12 @@ import { DatabaseSync } from 'node:sqlite'
 
 async function fixture(run, { cursor = 'A' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-training-'))
-  const old = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  const old = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, home: process.env.DSH_HOME }
   writeFileSync(join(dir, 'MAP.yaml'), stringify({ meta: { version: 1 }, nodes: [{ id: 'A', name: '基础', depends: [] }] }))
   writeFileSync(join(dir, 'PROGRESS.yaml'), stringify({ version: 1, cursor, nodes: { A: { status: 'studying' } } }))
   process.env.COACH_DATA_DIR = dir
   process.env.COACH_DB = join(dir, 'unused.db')
+  process.env.DSH_HOME = dir
   try {
     const { apply } = await import(`../index.js?training-${Date.now()}-${Math.random()}`)
     const tools = new Map()
@@ -27,13 +28,118 @@ async function fixture(run, { cursor = 'A' } = {}) {
     }
     await run({ call, tools, dir, read: file => parse(readFileSync(join(dir, file), 'utf8')), write: (file, doc) => writeFileSync(join(dir, file), stringify(doc)) })
   } finally {
-    for (const [key, value] of [['COACH_DATA_DIR', old.data], ['COACH_DB', old.db]]) {
+    for (const [key, value] of [['COACH_DATA_DIR', old.data], ['COACH_DB', old.db], ['DSH_HOME', old.home]]) {
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
     }
     rmSync(dir, { recursive: true, force: true })
   }
 }
+
+test('a studying cursor supplies no prerequisite evidence when finding, assigning or moving', async () => fixture(async ({ call, write, read }) => {
+  write('MAP.yaml', { meta: { version: 1 }, nodes: [
+    { id: 'A', name: '基础', depends: [] }, { id: 'B', name: '后继', depends: ['A'] },
+  ] })
+  const next = await call('coach_next', {})
+  assert.deepEqual(next.assumedLearned, [])
+  assert.equal(next.candidates.find(x => x.id === 'B').ready, false)
+  const rejected = await call('coach_assign', { node: 'B', minutes: 10, teachMinutes: 10, deliverable: '解释小例子' })
+  assert.equal(rejected.accepted, false)
+  assert.match(rejected.reject, /前置.*A/)
+  const moved = await call('coach_set_cursor', { node: 'B' })
+  assert.deepEqual(moved.prereqMissing, ['A'])
+  assert.equal(read('PROGRESS.yaml').nodes.A.status, 'studying')
+  const declared = await call('coach_next', { cursor: 'A', learned: ['A'] })
+  assert.equal(declared.candidates.find(x => x.id === 'B').ready, true)
+  await call('coach_mark', { node: 'A', status: 'learned' })
+  const known = await call('coach_next', { cursor: 'A' })
+  assert.equal(known.candidates.find(x => x.id === 'B').ready, true)
+}))
+
+test('an explicitly justified review can revisit a verified cursor without a course or status downgrade', async () => fixture(async ({ call, write, read }) => {
+  const original = { status: 'verified', at: '2026-10-01', checks: [{ date: '2026-10-01', outcome: 'passed' }] }
+  write('PROGRESS.yaml', { version: 1, cursor: 'A', nodes: { A: original } })
+  const args = { node: 'A', purpose: 'review', routeReason: '学生明确报告遗忘，复习后回到当前主线',
+    minutes: 10, deliverable: '用小例子重新解释状态转移' }
+  const result = await call('coach_assign', args)
+  assert.equal(result.accepted, true, result.reject)
+  assert.deepEqual(read('PROGRESS.yaml').nodes.A, original)
+  assert.equal(read('PROGRESS.yaml').pendingActions.A.deliverable, args.deliverable)
+  for (const routeReason of ['', '复习']) assert.equal((await call('coach_assign', { ...args, routeReason })).accepted, false)
+  assert.equal((await call('coach_assign', { ...args, purpose: 'progress' })).accepted, false)
+  assert.equal((await call('coach_assign', { ...args, minutes: 0 })).accepted, false)
+  write('MAP.yaml', { meta: { version: 1 }, nodes: [
+    { id: 'A', name: '基础', depends: ['B'] }, { id: 'B', name: '前置', depends: [] },
+  ] })
+  const missing = await call('coach_assign', args)
+  assert.equal(missing.accepted, false)
+  assert.match(missing.reject, /前置.*B/)
+}))
+
+test('a five-minute example is a valid teaching plan without a fixed explanation sequence', async () => fixture(async ({ call, tools, write }) => {
+  write('PROGRESS.yaml', { version: 1, cursor: 'A', nodes: {} })
+  const args = { node: 'A', minutes: 10, teachMinutes: 5, deliverable: '解释小例子的箭头含义' }
+  const short = await call('coach_assign', args)
+  assert.equal(short.accepted, true, short.reject)
+  assert.equal(short.teachMinutes, 5)
+  const text = tools.get('coach_assign').output.render(args, short).map(x => x.text || '').join('\n')
+  assert.doesNotMatch(text, /现在讲给他听|推完再命名|最后说变体|讲完再让他动手|一段一个自然步骤/)
+  assert.doesNotMatch(short.blocks.find(x => x.kind === 'teach').label, /推导.*命名|讲完停/)
+  for (const teachMinutes of [-1, 0.5, 961]) {
+    assert.equal((await call('coach_assign', { ...args, teachMinutes })).accepted, false)
+  }
+  assert.equal((await call('coach_assign', { ...args, teachMinutes: 0 })).accepted, false, 'a new node still needs a teaching budget')
+}))
+
+test('wiki is optional verification and an empty index result does not prescribe uncertainty', async () => fixture(async ({ call, tools }) => {
+  const wiki = tools.get('coach_wiki')
+  assert.doesNotMatch(wiki.description, /任何.*必须先查|不要凭记忆讲|查不到.*不确定/)
+  const result = await call('coach_wiki', { action: 'search', query: 'zzz不存在的知识点qqq' })
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.pages, [])
+  assert.match(result.note, /本地.*未找到|未检索到/)
+  const text = wiki.output.render({}, result).map(x => x.text || '').join('\n')
+  assert.doesNotMatch(text, /这个我不确定|照实说|别当标准答案/)
+}))
+
+test('code observations can stay pending without guessing a student attitude or assigning practice', async () => fixture(async ({ call, tools, read }) => {
+  const args = { code: 'int main(){ int a[10]; int n=10; a[n]=1; return 0; }', node: 'A',
+    evidence: [{ quote: 'a[n]=1;', kind: 'wrong', why: '下标等于数组长度；仍需核对原题范围和运行输入' }],
+    summary: '这行有越界风险，尚无依据判断是没理解范围还是手误' }
+  for (const category of [undefined, '待确认', '不会', '不熟', '不认真']) {
+    const result = await call('coach_diagnose', { ...args, ...(category ? { category } : {}) })
+    assert.equal(result.ok, true, result.reject)
+    assert.equal(result.category, category || '待确认')
+    assert.match(result.evidenceBoundary, /因果.*未核实/)
+    if (!category || category === '待确认') {
+      assert.equal(result.nextMove.minutes, 0)
+      const text = tools.get('coach_diagnose').output.render(args, result).map(x => x.text || '').join('\n')
+      assert.doesNotMatch(text, /自己做 0 分钟|必须重写|限时加练/)
+    }
+  }
+  assert.equal(read('PROGRESS.yaml').nodes.A.status, 'studying')
+  assert.ok(read('PROGRESS.yaml').nodes.A.diagnoses.every(x => x.verification === 'quote-only'))
+  const forged = await call('coach_diagnose', { ...args, evidence: [{ ...args.evidence[0], quote: 'not_in_this_code();' }] })
+  assert.equal(forged.ok, false, 'pending observations still need real code quotes')
+  assert.doesNotMatch(tools.get('coach_diagnose').description + tools.get('coach_diagnose').parameters.properties.category.description,
+    /选不出来.*没读懂|不认真.*会做却栽在边界/)
+}))
+
+test('unplanning respects an already stated reason without requiring another question', async () => fixture(async ({ call, tools }) => {
+  // 排程只收今天 ~ 今天+6，写死日期会在跨天后失效。
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  assert.equal((await call('coach_plan', { date, blocks: [{ from: '19:00', node: 'A', kind: 'vp', minutes: 60 }] })).ok, true)
+  const result = await call('coach_unplan', { date, from: '19:00' })
+  assert.equal(result.ok, true, result.reject)
+  assert.equal(result.removedCount, 1)
+  const tool = tools.get('coach_unplan')
+  const text = tool.description + tool.output.render({}, result).map(x => x.text || '').join('\n')
+  assert.doesNotMatch(text, /先问清他为什么撤/)
+  assert.match(text, /原因已.*不.*问|已说明.*不.*问/)
+  assert.match(text, /不.*擅自重排|不.*立刻重排|别顺手重排/)
+}))
 
 test('a failed progress write cannot report the pending action as cleared', async () => fixture(async ({ call, read }) => {
   assert.equal((await call('coach_assign', { competency: 'contest-reading', kind: 'diagnostic', minutes: 15, deliverable: '说明三题的模型条件' })).accepted, true)
@@ -306,6 +412,18 @@ test('competency VP can be scheduled and withdrawn without fake nodes', async ()
   assert.equal((await call('coach_schedule', { from: date, days: 1 })).days[0].actual[0].competency, 'contest-reading')
   assert.equal((await call('coach_unplan', { date, all: true })).removed[0].competency, 'contest-reading')
 }, { cursor: '' }))
+
+test('a bad parameter is fixed at the parameter, not by switching the map node', async () => fixture(async ({ call, tools }) => {
+  const render = (_args, value) => tools.get('coach_assign').output.render(_args, value).map(block => block.text).join('\n')
+  const badTail = await call('coach_assign', { node: 'A', minutes: 10, deliverable: '交出小例子', tailMinutes: -1 })
+  assert.equal(badTail.accepted, false)
+  const parameterText = render({}, badTail)
+  assert.match(parameterText, /tailMinutes/)
+  assert.doesNotMatch(parameterText, /coach_next/, 'a parameter error must not send the coach to pick another node')
+  const unknownNode = await call('coach_assign', { node: '不存在', minutes: 10, deliverable: '交出小例子' })
+  assert.equal(unknownNode.accepted, false)
+  assert.match(render({}, unknownNode), /coach_next/, 'a genuinely wrong target still points at the candidate list')
+}))
 
 test('explicit durations preserve defaults and reject invalid lengths, busy collisions and overlap atomically', async () => fixture(async ({ call, read, write }) => {
   const now = new Date()

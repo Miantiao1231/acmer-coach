@@ -9,10 +9,11 @@ import { evaluateExitChecks } from '../lib/curriculum-planning.js'
 
 async function fixture(run, nodeRecord = { status: 'studying' }) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-grading-'))
-  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, home: process.env.DSH_HOME }
   try {
     process.env.COACH_DATA_DIR = dir
     process.env.COACH_DB = join(dir, 'unused.db')
+    process.env.DSH_HOME = dir
     writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes:\n  - {id: A, name: 基础, depends: []}\n')
     const path = join(dir, 'PROGRESS.yaml')
     writeFileSync(path, stringify({ version: 1, cursor: 'A', nodes: { A: nodeRecord }, pending: {
@@ -29,7 +30,7 @@ async function fixture(run, nodeRecord = { status: 'studying' }) {
     await run({ grade: tools.get('coach_grade'), call: (name, args) => tools.get(name).execute(args),
       ledger: () => parse(readFileSync(path, 'utf8')), bytes: () => readFileSync(path, 'utf8') })
   } finally {
-    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db], ['DSH_HOME', previous.home]]) {
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
     }
@@ -118,7 +119,34 @@ test('explicit independence never certifies a failing or overtime paper', async 
     assert.equal(result.status, 'studying')
     assert.equal(result.verifiedAt, 0)
     assert.equal(independentExit(ledger()).passed, false)
+    if (outcome === 'failed') {
+      const text = grade.output.render({}, result).map(block => block.text).join('\n')
+      assert.doesNotMatch(text, /题面、代码和过程，用 coach_diagnose/)
+      assert.match(text, /手上有他这次的代码时/)
+      assert.match(text, /没有代码.*(题意|手算|思路)/)
+    }
   })
+})
+
+test('a failed or overtime recheck preserves historical evidence until a separate supported judgment', async () => {
+  const previousCheck = { date: '2026-09-01', outcome: 'passed', score: 6, maxScore: 6, passScore: 4,
+    minutes: 45, limit: 90, verifiedAt: 1600, selfReported: 0, problems: [] }
+  for (const status of ['verified', 'learned']) {
+    for (const [reported, outcome] of [
+      [results({ independent: true, solved: false }), 'failed'],
+      [results({ independent: true, minutes: 40 }), 'overTime'],
+    ]) await fixture(async ({ grade, ledger }) => {
+      const result = await grade.execute({ results: reported })
+      assert.equal(result.outcome, outcome)
+      assert.equal(result.status, status)
+      assert.equal(result.verified, false, 'the recheck does not create new verification')
+      assert.equal(ledger().nodes.A.status, status)
+      assert.equal(ledger().nodes.A.at, '2026-09-01')
+      assert.equal(ledger().nodes.A.checks.length, 2)
+      assert.deepEqual(ledger().nodes.A.checks[0], previousCheck)
+      assert.match(grade.output.render({}, result)[0].text, /不自动.*退化|未自动.*降|保留.*状态/)
+    }, { status, at: '2026-09-01', checks: [previousCheck] })
+  }
 })
 
 test('unknown or assisted passing records preserve historical verified and learned states', async () => {

@@ -7,6 +7,188 @@ import { spawnSync } from 'node:child_process'
 
 const user = text => ({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] })
 const enter = messages => async () => ({ kind: 'enter', messages })
+
+test('native memory snapshots are scoped to the session and disappear when no current query exists', async t => fixture(t, async ({ ctx, hooks, tick }) => {
+  const contexts = new Map()
+  ctx.get = name => name === 'systemPrompt' ? { refreshContext() {}, context(definition) { contexts.set(definition.name, definition) } }
+    : name === 'sessionProjections' ? { stateOf() { return {} } } : undefined
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const agent = { session: { id: 'native-memory-fixture' } }, messages = [user('上次约定过什么')]
+  const hook = hooks.get('agent/pre-step')[0]
+  const result = await hook({ messages, step: 1, agent }, enter(messages))
+  assert.equal(result.messages.length, 1)
+  const memory = contexts.get('coach:memory')
+  assert.match(memory.text({ agent }), /hindsight_memories/)
+  assert.equal(memory.text({ agent: { session: {} } }), '')
+  await hook({ messages: [], step: 1, agent }, enter([]))
+  assert.equal(memory.text({ agent }), '')
+}))
+
+test('memory requests redact clear secrets from direct, derived and retained text', async t => fixture(t, async ({ ctx, hooks, tools, calls, tick, dir }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  const secret = 'sk-FAKEFIXTURE0000000000000000'
+  const source = `我贴的日志 api_key=${secret}`
+  ctx.get = () => ({ readSession: async () => ({ events: [{ type: 'user/message', data: user(source) }] }) })
+  applyHindsight(ctx); await tick()
+  for (const text of [source, '继续']) {
+    const messages = [user(text)]
+    await hooks.get('agent/pre-step')[0]({ messages, step: 1, agent: { session: { id: 's1' } } }, enter(messages))
+  }
+  await tools.get('coach_recall').execute({ query: source })
+  const session = { id: 'redaction' }, event = hooks.get('session/event')[0]
+  event(session, { type: 'user/message', data: user(source) })
+  event(session, { type: 'assistant/message', data: { role: 'assistant', source: { kind: 'model' }, content: [{ type: 'text', text: source }] } })
+  event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  await tick(); await tick()
+  const payloads = calls.filter(call => call.url.endsWith('/recall') || call.url.endsWith('/memories'))
+  assert.equal(payloads.length, 4)
+  for (const call of payloads) {
+    assert.doesNotMatch(JSON.stringify(call.body), new RegExp(secret))
+    assert.match(JSON.stringify(call.body), /REDACTED/)
+  }
+  assert.doesNotMatch(readFileSync(join(dir, 'data', 'acmer-coach', 'tasks.json'), 'utf8'), new RegExp(secret))
+}))
+
+test('the existing task tool can inspect and retry a failed memory save without a new chat turn', async t => fixture(t, async ({ ctx, tools, calls, tick, dir }) => {
+  mkdirSync(join(dir, 'knowledge'), { recursive: true })
+  writeFileSync(join(dir, 'knowledge', 'MAP.yaml'), 'meta: {version: 3}\nnodes: []\n')
+  const { claimTask, failTask, loadTaskQueue } = await import('../lib/task-queue.js')
+  const outbox = join(dir, 'data', 'acmer-coach')
+  const seed = claimTask(outbox, { kind: 'memory.retain', key: 'manual-retry', lane: 'memory', maxAttempts: 1,
+    payload: { endpoint: 'http://127.0.0.1:18888/v1/default/banks/fixture-coach',
+      item: { document_id: 'fixture-retry', content: '下次画图', metadata: { source: 'fixture' } } } }).task
+  failTask(outbox, seed.id, { fence: seed.fence, error: 'HTTP 503' })
+  const { apply } = await import(`../index.js?memory-task=${Math.random()}`)
+  apply(ctx); await tick()
+  const taskTool = tools.get('coach_task')
+  assert.match((await taskTool.execute({ action: 'list', queue: 'memory' })).summary, new RegExp(seed.id))
+  assert.equal((await taskTool.execute({ action: 'retry', queue: 'memory', id: seed.id })).ok, true)
+  await tick(); await tick()
+  assert.equal(loadTaskQueue(outbox).tasks[0].state, 'done')
+  assert.equal(calls.filter(call => call.url.endsWith('/memories')).length, 1)
+  assert.equal((await tools.get('coach_status').execute({})).memoryRetainState, 'accepted')
+}))
+
+test('cancelling an in-flight memory save is not misreported as a disk failure', async t => {
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  try {
+    await fixture(t, async ({ ctx, hooks, tools, calls, tick, dir }) => {
+      mkdirSync(join(dir, 'knowledge'), { recursive: true })
+      writeFileSync(join(dir, 'knowledge', 'MAP.yaml'), 'meta: {version: 3}\nnodes: []\n')
+      const { apply } = await import(`../index.js?memory-cancel=${Math.random()}`)
+      const { loadTaskQueue } = await import('../lib/task-queue.js')
+      apply(ctx); await tick()
+      const session = { id: 'cancel-fixture' }, event = hooks.get('session/event')[0]
+      event(session, { type: 'user/message', data: user('留个接续位置') })
+      event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+      await tick(); await tick()
+      assert.equal(calls.filter(call => call.url.endsWith('/memories')).length, 1)
+      const pending = loadTaskQueue(join(dir, 'data', 'acmer-coach')).tasks[0]
+      assert.equal((await tools.get('coach_task').execute({ action: 'cancel', queue: 'memory', id: pending.id })).ok, true)
+      release(); await tick(); await tick()
+      const status = await tools.get('coach_status').execute({})
+      assert.equal(status.memoryRetainState, 'idle')
+      assert.equal(status.memoryLastRetainError, '')
+    }, { response: async request => {
+      if (request.url.endsWith('/memories')) await gate
+      return new Response('{}', { status: 200 })
+    } })
+  } finally { release() }
+})
+
+test('failed retains survive restart with stable identity and recall cannot hide write failure', async t => {
+  let failed = true
+  await fixture(t, async ({ ctx, hooks, tools, calls, tick, dir }) => {
+    const { applyHindsight } = await import('../lib/hindsight.js')
+    const { loadTaskQueue } = await import('../lib/task-queue.js')
+    const health = {}
+    applyHindsight(ctx, health); await tick()
+    const event = hooks.get('session/event')[0], session = { id: 'durable' }
+    event(session, { type: 'user/message', data: user('下次请先给我画图') })
+    event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+    await tick(); await tick()
+    const pending = loadTaskQueue(join(dir, 'data', 'acmer-coach')).tasks[0]
+    assert.equal(pending?.state, 'queued')
+    assert.equal(pending.attempts, 1)
+    await tools.get('coach_recall').execute({ query: '查约定' })
+    assert.equal(health.recallState, 'ready')
+    assert.equal(health.retainState, 'pending')
+    assert.equal(health.state, 'unavailable')
+    assert.match(health.lastRetainError, /503/)
+    failed = false
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() })
+    t.mock.timers.tick(61000)
+    const secondHealth = {}
+    applyHindsight(ctx, secondHealth)
+    await tick(); await tick(); await tick()
+    const completed = loadTaskQueue(join(dir, 'data', 'acmer-coach')).tasks[0]
+    assert.equal(completed.state, 'done')
+    assert.equal(completed.attempts, 2)
+    assert.equal(secondHealth.retainState, 'accepted')
+    assert.equal(secondHealth.lastRetainError, '')
+    const writes = calls.filter(call => call.url.endsWith('/memories'))
+    assert.equal(writes.length, 2)
+    assert.deepEqual(writes[0].body, writes[1].body)
+  }, { response: request => new Response('{}', { status: request.url.endsWith('/memories') && failed ? 503 : 200 }) })
+})
+
+test('retain retries stay scoped, stop while disabled, and end after three attempts', async t => fixture(t, async ({ ctx, hooks, calls, tick, dir }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  const { loadTaskQueue } = await import('../lib/task-queue.js')
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() })
+  applyHindsight(ctx); await tick()
+  const event = hooks.get('session/event')[0], session = { id: 'bounded' }
+  event(session, { type: 'user/message', data: user('保存这个约定') })
+  event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  await tick(); await tick()
+  const writes = () => calls.filter(call => call.url.endsWith('/memories'))
+  assert.equal(writes().length, 1)
+  process.env.COACH_HINDSIGHT = '0'
+  t.mock.timers.tick(61000)
+  applyHindsight(ctx); await tick()
+  assert.equal(writes().length, 1)
+  process.env.COACH_HINDSIGHT = '1'
+  process.env.HINDSIGHT_BANK = 'other-fixture'
+  applyHindsight(ctx); await tick(); await tick()
+  assert.equal(writes().length, 1, 'a different bank must not receive old-bank tasks')
+  process.env.HINDSIGHT_BANK = 'fixture-coach'
+  for (let i = 0; i < 2; i++) {
+    applyHindsight(ctx); await tick(); await tick(); await tick()
+    t.mock.timers.tick(301000)
+  }
+  assert.equal(writes().length, 3)
+  const terminal = loadTaskQueue(join(dir, 'data', 'acmer-coach')).tasks[0]
+  assert.equal(terminal.state, 'failed')
+  const health = {}
+  applyHindsight(ctx, health); await tick(); await tick()
+  assert.equal(writes().length, 3)
+  assert.equal(health.retainState, 'failed')
+  assert.equal(health.state, 'unavailable')
+  assert.match(health.lastRetainError, /503/)
+}, { response: request => new Response('{}', { status: request.url.endsWith('/memories') ? 503 : 200 }) }))
+
+test('a full retain queue reports failure instead of evicting an unfinished message', async t => fixture(t, async ({ ctx, hooks, calls, tick, dir }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  const { writeJsonFile } = await import('../lib/json-store.js')
+  const outbox = join(dir, 'data', 'acmer-coach'), at = new Date().toISOString()
+  const tasks = Array.from({ length: 200 }, (_, i) => ({ id: `unfinished-${i}`, kind: 'memory.retain', key: `foreign-${i}`,
+    payload: { endpoint: 'http://other-fixture.invalid' }, createdAt: at, runAt: at, state: 'queued' }))
+  assert.equal(writeJsonFile(outbox, 'tasks.json', { version: 1, tasks }), true)
+  const health = {}
+  applyHindsight(ctx, health); await tick()
+  const event = hooks.get('session/event')[0], session = { id: 'full' }
+  event(session, { type: 'user/message', data: user('这句不能静默挤掉旧记录') })
+  event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  await tick(); await tick()
+  assert.equal(calls.some(call => call.url.endsWith('/memories')), false)
+  assert.equal(health.retainState, 'failed')
+  assert.match(health.lastRetainError, /queue-full/)
+  const stored = JSON.parse(readFileSync(join(outbox, 'tasks.json'), 'utf8')).tasks
+  assert.equal(stored.length, 200)
+  assert.equal(stored[0].id, 'unfinished-0')
+}))
 async function fixture(t, run, { enabled = true, bank = 'fixture-coach', response, env = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-hindsight-'))
   const keys = ['COACH_HINDSIGHT', 'HINDSIGHT_URL', 'HINDSIGHT_BANK', 'HINDSIGHT_API_KEY', 'DSH_HOME', 'COACH_DATA_DIR', 'COACH_DB',
@@ -25,11 +207,14 @@ async function fixture(t, run, { enabled = true, bank = 'fixture-coach', respons
     return new Response(JSON.stringify(request.url.endsWith('/recall')
       ? { results: [{ type: 'world', text: '学生明确偏好先最小反例再完整推理。' }] } : {}), { status: 200 })
   })
-  const ctx = { on: (name, fn) => { const list = hooks.get(name) || []; list.push(fn); hooks.set(name, list) },
+  const cleanups = []
+  const ctx = { effect: fn => { const cleanup = fn(); if (typeof cleanup === 'function') cleanups.push(cleanup) },
+    on: (name, fn) => { const list = hooks.get(name) || []; list.push(fn); hooks.set(name, list) },
     tools: { register(tool) { tools.set(tool.name, tool) } }, inject() {} }
   const tick = () => new Promise(resolve => setImmediate(resolve))
   try { await run({ ctx, calls, hooks, tools, dir, tick }) }
   finally {
+    for (const cleanup of cleanups) cleanup()
     fetch.mock.restore()
     for (const [k, value] of Object.entries(previous)) { if (value === undefined) delete process.env[k]; else process.env[k] = value }
     rmSync(dir, { recursive: true, force: true })
@@ -40,9 +225,11 @@ test('public coach apply mounts packaged bridge only when explicitly enabled', a
   for (const enabled of [false, true]) await fixture(t, async ({ ctx, hooks, calls, tools, tick }) => {
     const { apply } = await import(`../index.js?hindsight-${Math.random()}`)
     apply(ctx); await tick()
-    assert.equal(hooks.get('session/event')?.length || 0, enabled ? 1 : 0)
+    // 只数记忆 retain 钩子；人格复核和后台反思也挂在 session/event 上，但它们不碰 bank。
+    const retainHooks = (hooks.get('session/event') || []).filter(fn => String(fn).includes('retain-'))
+    assert.equal(retainHooks.length, enabled ? 1 : 0)
     assert.equal((hooks.get('agent/pre-step') || []).length, 3)
-    assert.equal(tools.size, 34)
+    assert.equal(tools.size, 38)
     assert.equal(tools.has('coach_recall'), true)
     if (!enabled) {
       assert.equal(calls.length, 0)
@@ -79,6 +266,53 @@ test('disabled memory still injects time without making a network request', asyn
   assert.equal((await tools.get('coach_recall').execute({ query: '旧课' })).ok, false)
   assert.equal(calls.length, 0)
 }, { enabled: false }))
+
+test('native request clock replaces the legacy bridge clock even before its first injection', async t => fixture(t, async ({ ctx, calls, hooks }) => {
+  const session = { id: 'native-clock-session' }
+  ctx.get = name => name === 'sessionProjections' ? {
+    stateOf: (candidate, key) => candidate === session && key === 'timeContext'
+      ? { lastMessageTime: null, lastInjectionTime: null, lastTurnInjectionTime: null } : undefined,
+  } : null
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx)
+  const messages = [user('今天聊聊天')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1, agent: { session } }, enter(messages))
+  assert.deepEqual(result.messages, messages, '宿主已有请求时钟，不应再追加旧 runtime 消息')
+  assert.equal(calls.length, 0)
+}, { enabled: false }))
+
+test('automatic recall keeps sourced memories and does not call a separate conflict model', async t => fixture(t, async ({ ctx, hooks, dir, tick }) => {
+  const { loadPerson, savePerson } = await import('../lib/person.js')
+  const { saveState, emptyState } = await import('../lib/proactive-state.js')
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  const dataDir = join(dir, 'knowledge')
+  const person = loadPerson(dataDir)
+  person.episodes.push({ id: 'past-contest', at: '2026-10-25', summary: '训练员2026-10-25参加比赛', tags: [], createdAt: new Date().toISOString() })
+  person.boundaries.push({ id: 'local-boundary', text: '训练员不喜欢长篇说教', evidence: '不喜欢长篇说教', createdAt: new Date().toISOString() })
+  assert.equal(savePerson(dataDir, person), true)
+  const state = emptyState()
+  state.route = { provider: 'fixture', model: 'fixture' }
+  state.settings.arbiter = true
+  assert.equal(saveState(dataDir, state), true)
+  let modelCalls = 0
+  ctx.get = name => name === 'llm' ? { async *stream() {
+    modelCalls += 1
+    yield { type: 'text-delta', text: '{"drop_ids":["m0","m1"],"conflicts":[]}' }
+  } } : null
+  applyHindsight(ctx); await tick()
+  const messages = [user('下次比赛和讲题约定是什么？')]
+  const result = await hooks.get('agent/pre-step')[0]({ messages, step: 1 }, enter(messages))
+  const text = result.messages.at(-1).content[0].text
+  assert.match(text, /2026-11-08/)
+  assert.match(text, /完整证明/)
+  assert.match(text, /future-contest/)
+  assert.match(text, /teaching-preference/)
+  assert.equal(modelCalls, 0)
+  assert.doesNotMatch(text, /学生最新原话与已核对账本优先/)
+}, { response: request => new Response(JSON.stringify(request.url.endsWith('/recall') ? { results: [
+  { id: 'future-contest', document_id: 'future-source', text: '训练员计划2026-11-08参加比赛' },
+  { id: 'teaching-preference', document_id: 'preference-source', text: '训练员不喜欢长篇说教，但希望讲算法时给出完整证明' },
+] } : {}), { status: 200 }) }))
 
 test('explicit environment disable overrides saved settings', async t => fixture(t, async ({ ctx, calls, hooks, tools, dir }) => {
   const data = join(dir, 'data', 'acmer-coach')
@@ -132,6 +366,20 @@ test('recall uses only real user text, first step, typed plugin messages, and pr
   assert.deepEqual(await pre({ messages, step: 2 }, enter(messages)), await enter(messages)())
   assert.equal(calls.length, before)
 }))
+
+test('a low-information opener recalls recent context instead of searching for "在吗"', async t => {
+  await fixture(t, async ({ ctx, calls, hooks, tick }) => {
+    const { applyHindsight } = await import('../lib/hindsight.js')
+    applyHindsight(ctx); await tick()
+    const pre = hooks.get('agent/pre-step')[0]
+    const messages = [user('在吗')]
+    await pre({ messages, step: 1 }, enter(messages))
+    const recalled = calls.find(c => c.url.endsWith('/recall'))
+    assert.ok(recalled, 'generic opener still triggers recall')
+    assert.notEqual(recalled.body.query, '在吗')
+    assert.match(recalled.body.query, /最近的训练进展|训练员的重要偏好/)
+  })
+})
 
 test('legacy coach-only bank mission upgrades once for private continuity while custom missions stay untouched', async t => {
   const oldMission = '只提炼与算法训练相关的事实：训练员卡过的题/知识点、弱项标签、错题类型、学习方法偏好、目标与里程碑。忽略日常寒暄和与训练无关的闲聊。'
@@ -248,6 +496,24 @@ test('a native schedule reply is remembered without retaining its trigger instru
   assert.doesNotMatch(write.body.items[0].content, /内部续聊指令|SCHEDULE REMINDER/)
 }))
 
+test('a plugin proactive turn is remembered without retaining its wake instruction', async t => fixture(t, async ({ ctx, hooks, calls, tick }) => {
+  const { applyHindsight } = await import('../lib/hindsight.js')
+  applyHindsight(ctx); await tick()
+  const event = hooks.get('session/event')[0]
+  const session = { id: 'proactive-session' }
+  event(session, { type: 'user/message', data: { id: 'wake-1', role: 'user', source: { kind: 'plugin:acmer-coach/proactive' },
+    content: [{ type: 'text', text: '<coach_proactive>这是你主动找他的时刻。只输出正文。</coach_proactive>' }] } })
+  event(session, { type: 'assistant/message', data: { message: { id: 'reply-1', role: 'assistant', source: { kind: 'model' },
+    content: [{ type: 'text', text: '训练员，昨天那道题还卡着吗？' }] } } })
+  event(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  await tick(); await tick()
+  const write = calls.find(call => call.url.endsWith('/memories'))
+  assert.match(write.body.items[0].content, /小鲸主动联系/)
+  assert.match(write.body.items[0].content, /昨天那道题还卡着吗/)
+  assert.doesNotMatch(write.body.items[0].content, /coach_proactive|只输出正文/)
+  assert.equal(write.body.items[0].metadata.kind, 'companion-followup')
+}))
+
 test('unavailable service still injects clock and can recover on a later turn', async t => {
   let down = true
   await fixture(t, async ({ ctx, hooks, tick }) => {
@@ -323,7 +589,7 @@ test('authentication is sent only in headers; logs contain neither key nor stude
 
 test('test preload prevents public apply from contacting a bank inherited from the launch shell', async t => fixture(t, async ({ dir }) => {
   const code = `let requests=0, eventHooks=0; globalThis.fetch=async()=>{requests++;throw Error('unexpected network')};
-    const {apply}=await import('./index.js'); apply({tools:{register(){}},inject(){},on(name){if(name==='session/event')eventHooks++}});
+    const {apply}=await import('./index.js'); apply({tools:{register(){}},inject(){},on(name,fn){if(name==='session/event'&&String(fn).includes('retain-'))eventHooks++}});
     await new Promise(r=>setImmediate(r));console.log(JSON.stringify({requests,eventHooks}));`
   const result = spawnSync(process.execPath, ['--import', './dev/test-env.mjs', '--input-type=module', '-e', code], {
     cwd: new URL('..', import.meta.url), env: { ...process.env, COACH_HINDSIGHT: '1', DSH_HOME: dir }, encoding: 'utf8', windowsHide: true,
@@ -349,8 +615,9 @@ test('retain preserves real native event times and source identities in a stable
   record(8); await tick(); await tick()
   const items = calls.filter(c => c.url.endsWith('/memories')).map(c => c.body.items[0])
   assert.equal(items[0].timestamp, '2023-11-14T22:13:22.000Z')
-  assert.equal(items[0].document_id, items[1].document_id)
-  assert.notEqual(items[0].document_id, items[2].document_id)
+  assert.equal(items.length, 2, 'completed turn replay does not send a second extraction request')
+  assert.equal(items[0].document_id, 'dsh-session-fixture-turn-7')
+  assert.equal(items[1].document_id, 'dsh-session-fixture-turn-8')
   assert.deepEqual(items[0].metadata, { source: 'dsh', session_id: 'session-fixture', turn: '7',
     user_message_ids: '["user-1"]', user_event_seqs: '[10]', user_event_times: '[1700000000000]',
     assistant_message_id: 'assistant-1', assistant_event_seq: '12', assistant_event_time: '1700000001000',

@@ -18,7 +18,9 @@ test('regional index is included in the local copy and installed-copy verificati
   for (const file of ['dev.sh', 'verify.mjs']) {
     assert.match(readFileSync(join(root, file), 'utf8'), /assets\/knowledge\/CONTEST_INDEX\.json/, file)
   }
-  assert.match(readFileSync(join(root, 'dev', 'run-all.sh'), 'utf8'), /regional-index-check\.mjs/)
+  // 测试清单只有一份：run-all.sh 走统一入口，具体文件在 dev/test-files.mjs。
+  assert.match(readFileSync(join(root, 'dev', 'run-all.sh'), 'utf8'), /dev\/run-tests\.mjs/)
+  assert.match(readFileSync(join(root, 'dev', 'test-files.mjs'), 'utf8'), /regional-index-check\.mjs/)
 })
 
 test('offline map CLI uses the same read-only contest query as the plugin', () => {

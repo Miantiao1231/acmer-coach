@@ -1,0 +1,1560 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>人格档案 · 小鲸教练</title>
+<script>
+try { document.documentElement.dataset.theme = localStorage.getItem('coach.theme') === 'light' ? 'light' : 'dark' }
+catch { document.documentElement.dataset.theme = 'dark' }
+</script>
+<style>
+/* 和技能树 / VP 同一套 token：色块轨管描边和淡底，文字轨管正文。 */
+@font-face{font-family:Geist;src:url('./fonts/geist-latin-wght-normal.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Geist Mono';src:url('./fonts/geist-mono-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
+:root{
+  --font:'Geist','PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+  --mono:'Geist Mono','JetBrains Mono',ui-monospace,Consolas,monospace;
+  --bg-0:#eef5fc; --bg-1:#fff; --bg-2:#f6fafe; --bg-3:#e6effa;
+  --fill-0:rgba(13,27,42,.028); --fill-1:rgba(13,27,42,.045); --fill-2:rgba(13,27,42,.07);
+  --header-bg:rgba(255,255,255,.82); --surface:rgba(255,255,255,.72);
+  --stroke:rgba(13,27,42,.085); --stroke-strong:rgba(13,27,42,.16);
+  --text-1:#0d1b2a; --text-2:#3d4f66; --text-3:#5a6b82; --text-4:#62708a; --text-5:#78889e;
+  --brand:#2b7fe0; --brand-fill:#1a6fd4; --brand-soft:rgba(43,127,224,.10);
+  --brand-text:#14589f; --brand-glow:rgba(43,127,224,.22);
+  --ac:#16a24a; --ac-text:#0f7a3d; --ac-soft:rgba(22,162,74,.09);
+  --wa:#dc2626; --wa-text:#b3261e; --wa-soft:rgba(220,38,38,.08);
+  --tle:#d97706; --tle-text:#8f5200; --tle-soft:rgba(217,119,6,.10);
+  --radius-xs:6px; --radius-s:10px; --radius-m:14px; --radius-l:20px; --radius-pill:999px;
+  --shadow-1:0 1px 2px rgba(13,27,42,.05),0 4px 12px rgba(13,27,42,.05);
+  --shadow-2:0 2px 8px rgba(13,27,42,.07),0 16px 40px rgba(13,27,42,.09);
+  --glow:radial-gradient(1200px 600px at 50% -10%,rgba(43,127,224,.06),transparent 62%);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+html[data-theme="dark"]{
+  --bg-0:#071528; --bg-1:#0d2138; --bg-2:#122a46; --bg-3:#17334f;
+  --fill-0:rgba(255,255,255,.02); --fill-1:rgba(255,255,255,.055); --fill-2:rgba(255,255,255,.09);
+  --header-bg:rgba(13,33,56,.72); --surface:rgba(255,255,255,.045);
+  --stroke:rgba(255,255,255,.075); --stroke-strong:rgba(255,255,255,.14);
+  --text-1:#eef4fb; --text-2:#a9bcd4; --text-3:#8ba0bd; --text-4:#7e93af; --text-5:#748aa6;
+  --brand:#4aa3f7; --brand-fill:#1f6fd0; --brand-soft:rgba(74,163,247,.14);
+  --brand-text:#9ed0ff; --brand-glow:rgba(74,163,247,.28);
+  --ac:#3fd968; --ac-text:#3fd968; --ac-soft:rgba(63,217,104,.12);
+  --wa:#ff5c52; --wa-text:#ff5c52; --wa-soft:rgba(255,92,82,.10);
+  --tle:#ffa726; --tle-text:#ffa726; --tle-soft:rgba(255,167,38,.12);
+  --shadow-1:0 1px 2px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.25);
+  --shadow-2:0 2px 8px rgba(0,0,0,.35),0 16px 40px rgba(0,0,0,.35);
+  --glow:radial-gradient(1200px 600px at 50% -10%,rgba(74,163,247,.07),transparent 62%);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0}
+body{
+  min-height:100dvh;background:var(--bg-0);background-image:var(--glow);background-repeat:no-repeat;
+  color:var(--text-1);font:400 14px/1.55 var(--font);letter-spacing:-.008em;
+  -webkit-font-smoothing:antialiased;transition:background-color .3s var(--ease-out),color .3s var(--ease-out);
+}
+h1,h2,h3,p,blockquote{margin:0}
+button,input,textarea,select{font:inherit}
+button{border:0;background:none;color:inherit;cursor:pointer}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:var(--radius-xs)}
+::selection{background:var(--brand-soft)}
+*{scrollbar-width:thin;scrollbar-color:var(--stroke-strong) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--stroke-strong);border-radius:999px;border:3px solid var(--bg-1)}
+::-webkit-scrollbar-track{background:transparent}
+.skip{position:fixed;top:-80px;left:16px;z-index:20;padding:10px 16px;border-radius:10px;background:var(--bg-1);color:var(--brand-text)}
+.skip:focus{top:8px}
+.wrap{width:min(100% - 64px,1320px);margin-inline:auto}
+
+/* ── 顶栏：与 VP 回放同一栏位，入口平行 ─────────────────────── */
+.site-header{position:sticky;top:0;z-index:10;background:var(--header-bg);backdrop-filter:blur(20px);border-bottom:1px solid var(--stroke)}
+.topbar{min-height:64px;display:flex;align-items:center;gap:32px}
+.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:-.014em;white-space:nowrap}
+.brand .ico{width:24px;height:24px;color:var(--brand-text)}
+.tabs{display:flex;gap:26px;font-size:13.5px}
+.tabs a{color:var(--text-3);transition:color .15s var(--ease-out);white-space:nowrap}
+.tabs a:hover{color:var(--text-1)}
+.tabs .on{color:var(--text-1);font-weight:600}
+.topright{margin-left:auto;display:flex;gap:8px;align-items:center}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--stroke-strong);color:var(--text-2);font-size:12.5px;font-weight:600;background:var(--bg-1);transition:background .15s var(--ease-out)}
+.theme-btn:hover{background:var(--bg-2)}
+.theme-btn .ico{width:15px;height:15px}
+
+/* ── 页头 ─────────────────────────────────────────────────── */
+.pagehead{display:flex;align-items:flex-end;gap:16px;padding:32px 0 24px}
+.pagehead h1{font-size:26px;font-weight:600;letter-spacing:-.028em;line-height:1.25}
+.pagehead p{margin-top:7px;color:var(--text-3);font-size:13px}
+.status{margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;color:var(--text-2);background:var(--bg-3);font-size:12px;white-space:nowrap}
+.status i{width:6px;height:6px;border-radius:50%;background:var(--text-4)}
+.status.ok{color:var(--ac-text);background:var(--ac-soft)}
+.status.ok i{background:var(--ac)}
+.status.bad{color:var(--wa-text);background:var(--wa-soft)}
+.status.bad i{background:var(--wa)}
+
+/* ── 通用面板 ─────────────────────────────────────────────── */
+.panel{min-width:0;border:1px solid var(--stroke);border-radius:var(--radius-l);background:var(--bg-1);box-shadow:var(--shadow-1)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;padding:24px 28px;margin-bottom:20px}
+.hero-id{display:flex;align-items:center;gap:18px;min-width:0}
+.avatar{display:grid;place-items:center;width:64px;height:64px;flex:none;border-radius:22px;color:#fff;background:linear-gradient(145deg,var(--brand),var(--brand-fill));box-shadow:0 8px 24px var(--brand-glow)}
+.avatar svg{width:38px;height:38px}
+.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-4)}
+.hero h2{margin-top:5px;font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.3;overflow-wrap:anywhere}
+.hero-meta{margin-top:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--text-3);font-size:12.5px}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(74px,1fr));gap:8px}
+.stat{padding:10px 12px;border-radius:var(--radius-m);background:var(--fill-0);border:1px solid var(--stroke)}
+.stat b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{display:block;margin-top:2px;color:var(--text-4);font-size:11.5px;white-space:nowrap}
+.layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:20px;align-items:start;padding-bottom:64px}
+.rail{position:sticky;top:84px;padding:12px;overflow:hidden}
+.rail h2{margin:6px 10px 10px;font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-4)}
+.rail nav{display:flex;flex-direction:column;gap:2px}
+.rail a{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--radius-s);color:var(--text-2);font-size:13px;transition:background .15s var(--ease-out),color .15s var(--ease-out)}
+.rail a:hover{background:var(--fill-1);color:var(--text-1)}
+.rail a .ct{margin-left:auto;color:var(--text-4);font-size:11.5px;font-variant-numeric:tabular-nums}
+.rail a .dot{width:7px;height:7px;border-radius:2px;background:var(--brand);flex:none}
+.content{display:flex;flex-direction:column;gap:16px;min-width:0}
+section[id]{scroll-margin-top:88px}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:17px 24px;border-bottom:1px solid var(--stroke)}
+.panel-head h3{font-size:14.5px;font-weight:600;letter-spacing:-.012em}
+.panel-head p{margin-top:4px;color:var(--text-3);font-size:12.5px}
+.panel-head .btn{flex:none}
+.list{padding:8px 12px 12px;display:flex;flex-direction:column;gap:2px}
+
+/* ── 行 / 卡片 ────────────────────────────────────────────── */
+.row{display:flex;align-items:flex-start;gap:14px;padding:13px 12px;border-radius:var(--radius-s);transition:background .15s var(--ease-out)}
+.row:hover{background:var(--fill-0)}
+.row-main{flex:1;min-width:0}
+.row-title{font-size:13.5px;font-weight:600;overflow-wrap:anywhere}
+.row-sub{margin-top:4px;color:var(--text-3);font-size:12.5px;overflow-wrap:anywhere}
+.row-meta{margin-top:7px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--text-4);font-size:11.5px}
+.row-actions{display:flex;align-items:center;gap:4px;flex:none;opacity:.55;transition:opacity .15s var(--ease-out)}
+.row:hover .row-actions,.row:focus-within .row-actions{opacity:1}
+.quote{margin-top:9px;padding:1px 0 1px 11px;border-left:2px solid var(--stroke-strong);color:var(--text-3);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);background:var(--fill-1);color:var(--text-3);font-size:11px;font-weight:500;white-space:nowrap}
+.chip.brand{background:var(--brand-soft);color:var(--brand-text)}
+.chip.ok{background:var(--ac-soft);color:var(--ac-text)}
+.chip.warn{background:var(--tle-soft);color:var(--tle-text)}
+.chip.bad{background:var(--wa-soft);color:var(--wa-text)}
+.empty{padding:30px 20px;text-align:center;color:var(--text-3);font-size:13px}
+.empty b{display:block;color:var(--text-2);font-weight:600;margin-bottom:4px}
+.muted{color:var(--text-4)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ── 按钮 ─────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 15px;border-radius:var(--radius-pill);font-size:12.5px;font-weight:600;transition:background .15s var(--ease-out),border-color .15s var(--ease-out),transform .15s var(--ease-out);white-space:nowrap}
+.btn:active{transform:scale(.98)}
+.btn:disabled{cursor:wait;opacity:.62}
+.btn.primary{color:#fff;background:var(--brand-fill);box-shadow:var(--shadow-1)}
+.btn.primary:hover{background:color-mix(in srgb,var(--brand-fill) 88%,#000)}
+.btn.secondary{color:var(--text-1);background:var(--bg-1);border:1px solid var(--stroke-strong)}
+.btn.secondary:hover{background:var(--bg-2)}
+.btn.ghost{color:var(--text-2);background:transparent}
+.btn.ghost:hover{background:var(--fill-1);color:var(--text-1)}
+.btn.danger{color:#fff;background:var(--wa)}
+.btn.danger:hover{background:color-mix(in srgb,var(--wa) 86%,#000)}
+.btn.sm{padding:5px 11px;font-size:11.5px}
+.icon-btn{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:var(--text-3);transition:background .15s var(--ease-out),color .15s var(--ease-out)}
+.icon-btn:hover{background:var(--fill-1);color:var(--text-1)}
+.icon-btn.danger:hover{background:var(--wa-soft);color:var(--wa-text)}
+.icon-btn svg{width:15px;height:15px}
+
+/* ── 待审 / 说法 ──────────────────────────────────────────── */
+.review{padding:15px 14px;border-radius:var(--radius-m);border:1px solid var(--stroke);background:var(--bg-2)}
+.review + .review{margin-top:8px}
+.review-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.review-title{margin-top:8px;font-size:13.5px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.review-actions{margin-top:11px;display:flex;gap:6px}
+.style-card{padding:15px 14px;border-radius:var(--radius-m);border:1px solid var(--stroke);background:var(--bg-2)}
+.style-card + .style-card{margin-top:8px}
+.style-pattern{margin-top:7px;font-size:13.5px;font-weight:600;line-height:1.55;overflow-wrap:anywhere}
+.style-meta{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px}
+.style-note{margin-top:7px;color:var(--text-3);font-size:12px;line-height:1.6}
+
+/* ── 状态 / 身体 ──────────────────────────────────────────── */
+.status-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:18px 24px 22px}
+.status-block h4{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-4)}
+.meters{display:flex;flex-direction:column;gap:12px}
+.meter-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--text-2)}
+.meter-top b{font-weight:600;color:var(--text-1);font-variant-numeric:tabular-nums}
+.bar{height:7px;margin-top:6px;border-radius:999px;background:var(--fill-1);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--brand),var(--brand))}
+.bar.warm i{background:linear-gradient(90deg,var(--tle),var(--wa))}
+.bar.cool i{background:linear-gradient(90deg,var(--brand),#8b7cf6)}
+.presence-editor{display:flex;flex-direction:column;gap:10px}
+.proactive-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.proactive-item{padding:8px 10px;border:1px solid var(--stroke);border-radius:var(--radius-s);background:var(--fill-0);font-size:12px;line-height:1.55}
+.proactive-item b{font-weight:600;color:var(--text-1)}
+.proactive-item .muted{font-size:11.5px}
+.proactive-settings select,.proactive-settings input{padding:4px 8px;border:1px solid var(--stroke-strong);border-radius:8px;background:var(--bg-2);color:var(--text-1);font-size:12px;min-width:0}
+.proactive-settings input{width:150px}
+.proactive-settings input[type="checkbox"]{width:auto}
+.proactive-settings .wide{width:210px}
+.archive-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.archive-list a{font-size:11px}
+.mode-seg{display:flex;align-items:center;gap:2px;padding:3px;border-radius:var(--radius-pill);background:var(--fill-1);width:fit-content}
+.mode-seg button{padding:5px 12px;border-radius:var(--radius-pill);color:var(--text-3);font-size:12px;font-weight:500;transition:background .15s,color .15s}
+.mode-seg button[aria-pressed="true"]{background:var(--bg-1);color:var(--brand-text);box-shadow:var(--shadow-1)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field > label{color:var(--text-3);font-size:12px;font-weight:500}
+.field input,.field textarea,.field select{width:100%;padding:9px 11px;border-radius:var(--radius-s);border:1px solid var(--stroke-strong);background:var(--bg-2);color:var(--text-1);font-size:13px;outline:none;transition:border-color .15s var(--ease-out)}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--brand)}
+.field textarea{min-height:92px;resize:vertical;line-height:1.55}
+.hint{color:var(--text-4);font-size:11.5px;line-height:1.6}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.alert{padding:18px 24px;margin-bottom:20px;border-color:color-mix(in srgb,var(--tle) 40%,var(--stroke));background:linear-gradient(180deg,var(--tle-soft),transparent)}
+.alert h3{font-size:13.5px;color:var(--tle-text)}
+.alert p{margin-top:5px;color:var(--text-2);font-size:12.5px;line-height:1.65}
+
+/* ── 对话框 / toast ───────────────────────────────────────── */
+.dlg{width:min(560px,calc(100% - 32px));max-height:86dvh;padding:0;border:1px solid var(--stroke-strong);border-radius:var(--radius-l);background:var(--bg-1);color:var(--text-1);box-shadow:var(--shadow-2)}
+.dlg::backdrop{background:rgba(3,10,20,.55);backdrop-filter:blur(4px)}
+.dlg form{display:flex;flex-direction:column;max-height:86dvh}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:1px solid var(--stroke)}
+.dlg-head h2{font-size:16px;font-weight:600;letter-spacing:-.014em}
+.dlg-body{padding:18px 22px;display:flex;flex-direction:column;gap:13px;overflow-y:auto}
+.dlg-foot{padding:14px 22px 18px;border-top:1px solid var(--stroke);display:flex;justify-content:flex-end;gap:8px}
+.dlg-err{min-height:18px;padding:0 22px;color:var(--wa-text);font-size:12.5px}
+.confirm-text{color:var(--text-2);font-size:13px;line-height:1.7}
+#toast{position:fixed;left:50%;bottom:28px;z-index:30;transform:translate(-50%,16px);max-width:min(520px,calc(100% - 32px));padding:10px 16px;border-radius:999px;background:var(--bg-3);color:var(--text-1);border:1px solid var(--stroke-strong);box-shadow:var(--shadow-2);font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .2s var(--ease-out),transform .2s var(--ease-out);text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#toast.err{border-color:color-mix(in srgb,var(--wa) 55%,var(--stroke));color:var(--wa-text)}
+.boot{padding:44px 24px;text-align:center;color:var(--text-3);font-size:13px}
+
+@media(max-width:1100px){
+  .wrap{width:min(100% - 40px,1320px)}
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;overflow-x:auto;padding:10px}
+  .rail h2{display:none}
+  .rail nav{flex-direction:row;gap:4px}
+  .rail a{white-space:nowrap;padding:7px 11px}
+  .rail a .ct{margin-left:2px}
+  .status-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:760px){
+  .wrap{width:calc(100% - 32px)}
+  .topbar{flex-wrap:wrap;gap:12px;padding:14px 0 10px}
+  .tabs{order:3;width:100%;gap:20px;padding-top:6px;overflow-x:auto;scrollbar-width:none}
+  .topright{margin-left:auto}
+  .theme-btn{padding:6px 9px}
+  .theme-btn span{display:none}
+  .pagehead{padding:24px 0 18px;align-items:flex-start;flex-direction:column;gap:12px}
+  .pagehead h1{font-size:24px}
+  .status{margin-left:0}
+  .hero{padding:20px}
+  .hero-id{gap:14px}
+  .avatar{width:54px;height:54px;border-radius:18px}
+  .avatar svg{width:32px;height:32px}
+  .hero h2{font-size:19px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .panel-head{padding:15px 18px;flex-wrap:wrap;gap:8px}
+  .list{padding:6px 8px 10px}
+  .row{padding:11px 8px;gap:8px}
+  .row-actions{opacity:1}
+  /* 横屏手机/小平板也算触控设备 */
+  .btn.sm,.mode-seg button{min-height:44px}
+  .icon-btn{min-width:44px;min-height:44px}
+  .status-grid{padding:16px 18px 20px}
+  .form-row{grid-template-columns:1fr}
+  .dlg-body{padding:16px 18px}
+  .field input,.field textarea,.field select,.proactive-settings select,.proactive-settings input{font-size:16px}
+}
+@media(max-width:480px){
+  .wrap{width:calc(100% - 24px)}
+  .topbar{gap:8px}
+  .tabs{gap:14px;font-size:12.5px}
+  .pagehead{padding:20px 0 14px}
+  .pagehead h1{font-size:22px}
+  .hero{padding:16px}
+  .stats{gap:6px}
+  .stat{padding:9px 10px}
+  .stat b{font-size:17px}
+  .panel-head{padding:13px 14px}
+  .list{padding:4px 6px 8px}
+  .row{padding:10px 8px}
+  .status-grid{padding:14px}
+  .proactive-settings{display:flex;flex-wrap:wrap;gap:8px}
+  .proactive-settings select{max-width:100%}
+  .archive-list{display:flex;flex-wrap:wrap;gap:5px}
+  /* 触控目标不小于 44px */
+  .btn.sm,.mode-seg button{min-height:44px}
+  .icon-btn{min-width:44px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到档案内容</a>
+
+<header class="site-header">
+  <div class="wrap topbar">
+    <a class="brand" href="./skilltree.html" aria-label="回到技能树">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2 14c2.5 0 3.5-2 5-2s2.5 2 5 2 3.5-2 5-2 2.5 2 5 2"/><path d="M6 9c1.5-3 4-5 6-5s4.5 2 6 5"/>
+      </svg>
+      <span>小鲸教练</span>
+    </a>
+    <nav class="tabs" aria-label="教练页面">
+      <a href="./skilltree.html">技能树与日程</a>
+      <a href="./skilltree.html#log">训练日志</a>
+      <a href="./vp.html">VP 回放</a>
+      <a class="on" aria-current="page" href="./person.html">人格档案</a>
+    </nav>
+    <div class="topright">
+      <button id="themeToggle" class="theme-btn" aria-label="切换明暗主题">
+        <svg class="ico" id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+        <span id="themeLabel">浅色</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <div class="pagehead">
+    <div>
+      <h1>人格档案</h1>
+      <p>她记得的来历、习惯和书。这里改的每一条，下一轮对话就会生效。</p>
+    </div>
+    <div id="status" class="status" role="status"><i></i><span>正在读取</span></div>
+  </div>
+
+  <div id="boot" class="boot">正在读取她的档案…</div>
+
+  <div id="app" hidden>
+    <section class="panel hero" aria-labelledby="identityText">
+      <div class="hero-id">
+        <div class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 14c2.5 0 3.5-2 5-2s2.5 2 5 2 3.5-2 5-2 2.5 2 5 2"/>
+            <path d="M6 9c1.5-3 4-5 6-5s4.5 2 6 5"/><circle cx="9" cy="11" r=".7" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <div class="eyebrow">她的档案</div>
+          <h2 id="identityText">—</h2>
+          <div class="hero-meta">
+            <span id="presencePill" class="chip">—</span>
+            <span id="lastSeen">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <div id="conflicts"></div>
+
+    <div class="layout">
+      <aside class="rail panel" aria-label="档案目录">
+        <h2>目录</h2>
+        <nav>
+          <a href="#sec-profile"><span class="dot"></span>档案</a>
+          <a href="#sec-milestones"><span class="dot"></span>纪念日<span class="ct" id="navMilestones">0</span></a>
+          <a href="#sec-boundaries"><span class="dot"></span>边界<span class="ct" id="navBoundaries">0</span></a>
+          <a href="#sec-episodes"><span class="dot"></span>共同经历<span class="ct" id="navEpisodes">0</span></a>
+          <a href="#sec-promises"><span class="dot"></span>答应过的事<span class="ct" id="navPromises">0</span></a>
+          <a href="#sec-habits"><span class="dot"></span>习惯<span class="ct" id="navHabits">0</span></a>
+          <a href="#sec-library"><span class="dot"></span>书架<span class="ct" id="navLibrary">0</span></a>
+          <a href="#sec-pending"><span class="dot"></span>待审<span class="ct" id="navPending">0</span></a>
+          <a href="#sec-style"><span class="dot"></span>说法<span class="ct" id="navStyle">0</span></a>
+          <a href="#sec-status"><span class="dot"></span>状态</a>
+        </nav>
+      </aside>
+
+      <div class="content">
+        <section id="sec-profile" class="panel">
+          <div class="panel-head">
+            <div><h3>档案</h3><p>这里是小鲸自己的身份与性格；来历由你明确编辑，不放训练员的日常经历。</p></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-act="add-pin">+ 置顶一句</button><button class="btn secondary" data-act="edit-profile">编辑档案</button></div>
+          </div>
+          <div class="list" id="profileBody"></div>
+        </section>
+
+        <section id="sec-milestones" class="panel">
+          <div class="panel-head">
+            <div><h3>纪念日</h3><p>只记你明确说过、带原话的日期；不会自己编。</p></div>
+            <button class="btn secondary" data-act="add-milestone">+ 记一个</button>
+          </div>
+          <div class="list" id="milestoneList"></div>
+        </section>
+
+        <section id="sec-boundaries" class="panel">
+          <div class="panel-head">
+            <div><h3>边界</h3><p>他明确划过的线。她不会越过；主动消息的 judge 也会看。</p></div>
+            <button class="btn secondary" data-act="add-boundary">+ 记一条</button>
+          </div>
+          <div class="list" id="boundaryList"></div>
+        </section>
+
+        <section id="sec-episodes" class="panel">
+          <div class="panel-head">
+            <div><h3>共同经历</h3><p>她记得发生过什么。自然接话时才带，不每轮复述。</p></div>
+            <button class="btn secondary" data-act="add-episode">+ 记一段</button>
+          </div>
+          <div class="list" id="episodeList"></div>
+        </section>
+
+        <section id="sec-promises" class="panel">
+          <div class="panel-head">
+            <div><h3>答应过的事</h3><p>她答应你的、还有日期的，到点会主动提。</p></div>
+            <button class="btn secondary" data-act="add-promise">+ 记一件</button>
+          </div>
+          <div class="list" id="promiseList"></div>
+        </section>
+
+        <section id="sec-habits" class="panel">
+          <div class="panel-head">
+            <div><h3>互动习惯</h3><p>什么场合她怎么做。标了「不受用」的不会注入。</p></div>
+            <button class="btn secondary" data-act="add-habit">+ 加一条</button>
+          </div>
+          <div class="list" id="habitList"></div>
+        </section>
+
+        <section id="sec-library" class="panel">
+          <div class="panel-head">
+            <div><h3>书架</h3><p>她在读的东西。读书笔记会变成她主动分享的候选。</p></div>
+            <button class="btn secondary" data-act="add-library">+ 放一本</button>
+          </div>
+          <div class="list" id="libraryList"></div>
+        </section>
+
+        <section id="sec-pending" class="panel">
+          <div class="panel-head">
+            <div><h3>待审</h3><p>后台反思从对话里抽出来的候选。收下才进档案。</p></div>
+            <span class="chip warn" id="pendingCount">0 条</span>
+          </div>
+          <div class="list" id="pendingList"></div>
+        </section>
+
+        <section id="sec-style" class="panel">
+          <div class="panel-head">
+            <div><h3>说法</h3><p>她学到的表达方式。停用的不再注入；恢复后下一轮生效。</p></div>
+            <span class="chip" id="styleCount">0 条</span>
+          </div>
+          <div class="list" id="styleList"></div>
+        </section>
+
+        <section id="sec-status" class="panel">
+          <div class="panel-head">
+            <div><h3>状态与身体</h3><p>只影响她的语气和回话速度，不改变任何判断。</p></div>
+          </div>
+          <div class="status-grid">
+            <div class="status-block">
+              <h4>在线状态</h4>
+              <div class="presence-editor">
+                <div class="mode-seg" id="modeSeg" role="group" aria-label="在线状态">
+                  <button type="button" data-mode="auto" aria-pressed="true">自动</button>
+                  <button type="button" data-mode="busy" aria-pressed="false">忙</button>
+                  <button type="button" data-mode="away" aria-pressed="false">离开</button>
+                </div>
+                <div class="field"><label for="presenceReason">原因（可选）</label><input id="presenceReason" maxlength="80" placeholder="比如：在写题解"></div>
+                <div class="field"><label for="presenceUntil">到什么时候（可选）</label><input id="presenceUntil" type="datetime-local"><span class="hint">留空就一直保持，直到切回「自动」。</span></div>
+                <div><button class="btn primary" data-act="presence-save">保存状态</button></div>
+                <div class="hint">自动会结合时间和最近互动更新在线状态；聊天时显示聊天，闲时近况是模拟状态，不是已完成的活动。睡眠与疲劳按睡眠记录结算。</div>
+              </div>
+            </div>
+            <div class="status-block">
+              <h4>身体</h4>
+              <div class="meters" id="bodyMeters"></div>
+              <div class="meters" id="moodMeters" style="margin-top:18px"></div>
+            </div>
+            <div class="status-block">
+              <h4>主动联系</h4>
+              <div id="proactiveBody"></div>
+            </div>
+            <div class="status-block">
+              <h4>她今天</h4>
+              <div id="lifeBody"></div>
+            </div>
+            <div class="status-block">
+              <h4 id="contextTitle">当前处境</h4>
+              <div id="contextBody"></div>
+            </div>
+            <div class="status-block">
+              <h4>上次反思摘要</h4>
+              <div id="reflectionBody"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<dialog id="dialog" class="dlg">
+  <form id="dlgForm" novalidate>
+    <div class="dlg-head">
+      <h2 id="dlgTitle">编辑</h2>
+      <button type="button" class="icon-btn" data-close aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="dlg-body" id="dlgBody"></div>
+    <p class="dlg-err" id="dlgErr" role="alert"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn secondary" data-close>取消</button>
+      <button type="submit" class="btn primary" id="dlgSubmit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = (sel, root = document) => root.querySelector(sel)
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
+
+let DATA = null
+let presenceDraft = 'auto'
+
+/* ── 小工具 ─────────────────────────────────────────────── */
+function icon(name) {
+  const paths = {
+    edit: '<path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>',
+    check: '<path d="m5 12 4.5 4.5L19 7"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  }
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ''}</svg>`
+}
+
+function relTime(iso) {
+  if (!iso) return '还没说过话'
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return '还没说过话'
+  const ms = Date.now() - then
+  if (ms < 60000) return '刚才说过话'
+  if (ms < 3600000) return `${Math.floor(ms / 60000)} 分钟前说过话`
+  if (ms < 86400000) return `${Math.floor(ms / 3600000)} 小时前说过话`
+  return `${Math.floor(ms / 86400000)} 天前说过话`
+}
+
+function daysUntil(dateStr) {
+  const target = new Date(`${dateStr}T12:00:00`)
+  if (Number.isNaN(target.getTime())) return null
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
+  let next = new Date(now.getFullYear(), target.getMonth(), target.getDate(), 12)
+  if (next < today) next = new Date(now.getFullYear() + 1, target.getMonth(), target.getDate(), 12)
+  return Math.round((next - today) / 86400000)
+}
+
+function anniversaryText(dateStr) {
+  const days = daysUntil(dateStr)
+  if (days === null) return ''
+  if (days === 0) return '就是今天'
+  if (days === 1) return '明天'
+  if (days <= 30) return `${days} 天后`
+  const target = new Date(`${dateStr}T12:00:00`)
+  const now = new Date()
+  const year = target < new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
+    ? now.getFullYear() + 1 : now.getFullYear()
+  return `下次 ${year}-${dateStr.slice(5)}`
+}
+
+function pct(value, max) {
+  return Math.max(0, Math.min(100, (Number(value) || 0) / max * 100))
+}
+
+const PRESENCE_LABEL = { normal: '在线', auto: '自动', busy: '在忙', away: '离开', sleep: '睡着了', nap: '午休' }
+const MODE_LABEL = { auto: '自动', busy: '忙', away: '离开', sleep: '睡了' }
+const STATE_LABEL = { reading: '在读', done: '读完', paused: '搁着' }
+const KIND_LABEL = { book: '书', article: '文章', other: '别的' }
+const PROPOSAL_LABEL = { habit: '习惯', anniversary: '纪念日', profile: '档案', library: '书架', episode: '共同经历', promise: '承诺', boundary: '边界' }
+const PROMISE_LABEL = { open: '未完成', done: '已完成', dropped: '放下了' }
+const STYLE_STATUS = { pending: '待审', active: '在用', rejected: '已停用' }
+const DIMENSION_LABEL = {
+  sentence_rhythm: '句长节奏', emoji: '表情', punctuation: '标点', directness: '直接程度',
+  diction: '用词', formatting: '排版', other: '其他',
+}
+
+/* ── API ────────────────────────────────────────────────── */
+async function api(action, payload = {}) {
+  const res = await fetch('./api/person', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action, ...payload }),
+  })
+  const data = await res.json().catch(() => ({ ok: false, reject: `HTTP ${res.status}` }))
+  if (!res.ok || data.ok === false) throw new Error(data.reject || `HTTP ${res.status}`)
+  return data
+}
+
+async function load() {
+  const res = await fetch('./api/person', { headers: { accept: 'application/json' } })
+  if (!res.ok) throw new Error(`读取失败（HTTP ${res.status}）`)
+  const data = await res.json()
+  if (!data.ok) throw new Error(data.reject || '读取失败')
+  DATA = data
+  render()
+}
+
+/* ── 渲染 ───────────────────────────────────────────────── */
+function render() {
+  $('#boot').hidden = true
+  $('#app').hidden = false
+  $('#status').className = 'status ok'
+  $('#status').innerHTML = '<i></i><span>本地档案 · 已加载</span>'
+
+  $('#identityText').textContent = DATA.profile.identity
+  const mode = DATA.effectivePresence?.mode || 'normal'
+  const reason = DATA.effectivePresence?.reason || ''
+  $('#presencePill').className = `chip ${mode === 'normal' ? 'ok' : mode === 'busy' ? 'warn' : ''}`
+  $('#presencePill').textContent = `${PRESENCE_LABEL[mode] || mode}${reason ? ` · ${reason}` : ''}`
+  $('#lastSeen').textContent = relTime(DATA.lastUserAt)
+
+  const activeStyles = DATA.style.filter(item => item.status === 'active').length
+  $('#stats').innerHTML = [
+    ['纪念日', DATA.relation.milestones.length],
+    ['习惯', DATA.habits.length],
+    ['书架', DATA.library.length],
+    ['待审', DATA.pending.length],
+    ['说法', activeStyles],
+    ['精力', `${Math.round(DATA.body.energy)}%`],
+  ].map(([label, value]) => `<div class="stat"><b>${esc(value)}</b><span>${esc(label)}</span></div>`).join('')
+
+  $('#navMilestones').textContent = DATA.relation.milestones.length
+  $('#navBoundaries').textContent = DATA.boundaries.length
+  $('#navEpisodes').textContent = DATA.episodes.length
+  $('#navPromises').textContent = DATA.promises.filter(item => item.status === 'open').length
+  $('#navHabits').textContent = DATA.habits.length
+  $('#navLibrary').textContent = DATA.library.length
+  $('#navPending').textContent = DATA.pending.length
+  $('#navStyle').textContent = activeStyles
+  $('#pendingCount').textContent = `${DATA.pending.length} 条`
+  $('#styleCount').textContent = `${DATA.style.length} 条`
+
+  renderConflicts()
+  renderProfile()
+  renderMilestones()
+  renderBoundaries()
+  renderEpisodes()
+  renderPromises()
+  renderHabits()
+  renderLibrary()
+  renderPending()
+  renderStyles()
+  renderStatus()
+}
+
+function renderConflicts() {
+  const host = $('#conflicts')
+  if (!DATA.conflicts.length) { host.innerHTML = ''; return }
+  host.innerHTML = `<section class="panel alert">
+    <h3>档案里有冲突</h3>
+    ${DATA.conflicts.map(item => {
+      const kind = item.kind === 'profile' ? 'identity' : 'context'
+      return `<p>${esc(item.kind === 'profile' ? '身份' : '处境')}有两个说法：${item.values.map(v => `「${esc(v)}」`).join(' / ')}。选一个以它为准。</p>
+        <div class="review-actions">${item.values.map(v => `<button class="btn secondary sm" data-act="resolve-conflict" data-kind="${esc(kind)}" data-value="${esc(v)}">以「${esc(v.slice(0, 24))}」为准</button>`).join('')}</div>`
+    }).join('')}
+  </section>`
+}
+
+function renderProfile() {
+  const groups = [
+    ['喜欢', DATA.profile.likes, 'heart'],
+    ['不喜欢', DATA.profile.dislikes, 'x'],
+    ['小毛病', DATA.profile.quirks, 'spark'],
+    ['来历', DATA.profile.background, 'book'],
+  ]
+  const known = groups.filter(([, list]) => list.length)
+  const pinned = DATA.pinned || []
+  const pinnedRow = pinned.length ? `<div class="row"><div class="row-main"><div class="row-title">置顶</div><div class="row-meta">${pinned.map(item => `<span class="chip brand">${esc(item.text)} <button class="icon-btn danger" style="display:inline-flex;width:18px;height:18px" data-act="del-pin" data-id="${esc(item.id)}" aria-label="取消置顶">${icon('x')}</button></span>`).join('')}</div></div></div>` : ''
+  $('#profileBody').innerHTML = pinnedRow + (known.length
+    ? known.map(([label, list]) => `<div class="row"><div class="row-main">
+        <div class="row-title">${esc(label)}</div>
+        <div class="row-meta">${list.map(item => `<span class="chip">${esc(item)}</span>`).join('')}</div>
+      </div></div>`).join('')
+    : (pinned.length ? '' : `<div class="empty"><b>档案还是空的</b>点右上角「编辑档案」写几条，她下一轮就会带上。</div>`))
+}
+
+function renderMilestones() {
+  const list = DATA.relation.milestones
+  const host = $('#milestoneList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有纪念日</b>记下你们真正说过的日子；日期不会自己长出来。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => `<article class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(item.label)}</div>
+      <div class="row-meta"><span class="chip brand mono">${esc(item.date)}</span><span>${esc(anniversaryText(item.date))}</span></div>
+      ${item.evidence ? `<blockquote class="quote">“${esc(item.evidence)}”</blockquote>` : ''}
+    </div>
+    <div class="row-actions">
+      <button class="icon-btn" data-act="edit-milestone" data-id="${esc(item.id)}" aria-label="编辑这个纪念日" title="编辑">${icon('edit')}</button>
+      <button class="icon-btn danger" data-act="del-milestone" data-id="${esc(item.id)}" aria-label="删除这个纪念日" title="删除">${icon('trash')}</button>
+    </div>
+  </article>`).join('')
+}
+
+function renderBoundaries() {
+  const list = DATA.boundaries
+  const host = $('#boundaryList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有边界</b>他明确说过「不要叫我 X」「别催睡」「我有女朋友」时，记在这里。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => `<article class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(item.text)}</div>
+      ${item.evidence ? `<blockquote class="quote">“${esc(item.evidence)}”</blockquote>` : ''}
+    </div>
+    <div class="row-actions">
+      <button class="icon-btn danger" data-act="del-boundary" data-id="${esc(item.id)}" aria-label="删除这条边界" title="删除">${icon('trash')}</button>
+    </div>
+  </article>`).join('')
+}
+
+function isStale(dateStr) {
+  const days = daysSince(dateStr)
+  return days !== null && days > 30
+}
+
+function renderEpisodes() {
+  const list = DATA.episodes
+  const host = $('#episodeList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有共同经历</b>等你们真的发生点什么，再记下来；不要为了填满而编。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => `<article class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(item.summary)}</div>
+      <div class="row-meta">
+        <span class="chip brand mono">${esc(item.at)}</span>${isStale(item.at) ? '<span class="chip">较旧</span>' : ''}
+        ${(item.tags || []).map(tag => `<span class="chip">${esc(tag)}</span>`).join('')}
+      </div>
+      ${item.evidence ? `<blockquote class="quote">“${esc(item.evidence)}”</blockquote>` : ''}
+    </div>
+    <div class="row-actions">
+      <button class="icon-btn" data-act="edit-episode" data-id="${esc(item.id)}" aria-label="编辑这段经历" title="编辑">${icon('edit')}</button>
+      <button class="icon-btn danger" data-act="del-episode" data-id="${esc(item.id)}" aria-label="删除这段经历" title="删除">${icon('trash')}</button>
+    </div>
+  </article>`).join('')
+}
+
+function daysSince(dateStr) {
+  const target = new Date(`${dateStr}T12:00:00`)
+  if (Number.isNaN(target.getTime())) return null
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
+  return Math.round((today - new Date(target.getFullYear(), target.getMonth(), target.getDate(), 12)) / 86400000)
+}
+
+function promiseDueText(item) {
+  if (!item.dueAt) return '没有定日期'
+  const days = daysSince(item.dueAt)
+  if (days === null) return item.dueAt
+  if (days > 0) return `已经过了 ${days} 天`
+  if (days === 0) return '就是今天'
+  return `${-days} 天后`
+}
+
+function renderPromises() {
+  const list = DATA.promises
+  const host = $('#promiseList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有答应过的事</b>她答应你的，或者你们说好要做的，可以记在这里。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => {
+    const overdue = item.status === 'open' && item.dueAt && daysSince(item.dueAt) > 0
+    return `<article class="row">
+      <div class="row-main">
+        <div class="row-title">${esc(item.text)}</div>
+        <div class="row-meta">
+          <span class="chip ${item.status === 'done' ? 'ok' : overdue ? 'bad' : item.status === 'open' ? 'warn' : ''}">${esc(PROMISE_LABEL[item.status] || item.status)}</span>${item.dueAt && isStale(item.dueAt) && item.status === 'open' ? '<span class="chip">较旧</span>' : ''}
+          ${item.dueAt ? `<span class="${overdue ? 'muted' : ''}">${esc(promiseDueText(item))}</span>` : ''}
+        </div>
+        ${item.evidence ? `<blockquote class="quote">“${esc(item.evidence)}”</blockquote>` : ''}
+      </div>
+      <div class="row-actions">
+        ${item.status === 'open' ? `<button class="btn ghost sm" data-act="promise-done" data-id="${esc(item.id)}">完成</button>` : ''}
+        <button class="icon-btn" data-act="edit-promise" data-id="${esc(item.id)}" aria-label="编辑这条承诺" title="编辑">${icon('edit')}</button>
+        <button class="icon-btn danger" data-act="del-promise" data-id="${esc(item.id)}" aria-label="删除这条承诺" title="删除">${icon('trash')}</button>
+      </div>
+    </article>`
+  }).join('')
+}
+
+function renderHabits() {
+  const list = DATA.habits
+  const host = $('#habitList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有互动习惯</b>她会在对话里慢慢学；你也可以现在教她一条。</div>`
+    return
+  }
+  const feedbackLabel = { welcomed: '受用', unwelcome: '不受用', unclear: '说不清' }
+  host.innerHTML = list.map(item => `<article class="row">
+    <div class="row-main">
+      <div class="row-title">${esc(item.situation)} → ${esc(item.action)}</div>
+      ${item.boundary ? `<div class="row-sub">别：${esc(item.boundary)}</div>` : ''}
+      <div class="row-meta">
+        <span class="chip ${item.feedback === 'unwelcome' ? 'bad' : item.feedback === 'welcomed' ? 'ok' : ''}">${esc(feedbackLabel[item.feedback] || '没标')}</span>
+        ${['welcomed', 'unwelcome', 'unclear'].map(value => `<button class="btn ghost sm" data-act="feedback" data-id="${esc(item.id)}" data-value="${value}" ${item.feedback === value ? 'disabled' : ''}>${feedbackLabel[value]}</button>`).join('')}
+      </div>
+      ${item.evidence ? `<blockquote class="quote">“${esc(item.evidence)}”</blockquote>` : ''}
+    </div>
+    <div class="row-actions">
+      <button class="icon-btn" data-act="edit-habit" data-id="${esc(item.id)}" aria-label="编辑这条习惯" title="编辑">${icon('edit')}</button>
+      <button class="icon-btn danger" data-act="del-habit" data-id="${esc(item.id)}" aria-label="删除这条习惯" title="删除">${icon('trash')}</button>
+    </div>
+  </article>`).join('')
+}
+
+function renderLibrary() {
+  const list = DATA.library
+  const host = $('#libraryList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>书架是空的</b>放一本她正在读的，之后她会主动跟你聊。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => `<article class="row">
+    <div class="row-main">
+      <div class="row-title">《${esc(item.title)}》</div>
+      <div class="row-meta">
+        <span class="chip">${esc(KIND_LABEL[item.kind] || item.kind)}</span>
+        <span class="chip ${item.state === 'done' ? 'ok' : item.state === 'paused' ? 'warn' : 'brand'}">${esc(STATE_LABEL[item.state] || item.state)}</span>
+        ${item.source ? `<span>${esc(item.source)}</span>` : ''}
+      </div>
+      ${item.progress > 0 ? `<div class="bar" style="margin-top:8px"><i style="width:${pct(item.progress, 1)}%"></i></div><div class="row-meta"><span>读到 ${Math.round(item.progress * 100)}%</span></div>` : ''}
+      ${item.note ? `<div class="row-sub">${esc(item.note)}</div>` : ''}
+    </div>
+    <div class="row-actions">
+      <button class="icon-btn" data-act="edit-library" data-id="${esc(item.id)}" aria-label="编辑这本书" title="编辑">${icon('edit')}</button>
+      <button class="icon-btn danger" data-act="del-library" data-id="${esc(item.id)}" aria-label="删除这本书" title="删除">${icon('trash')}</button>
+    </div>
+  </article>`).join('')
+}
+
+function proposalFields(p) {
+  if (p.kind === 'habit') return `${p.fields.situation} → ${p.fields.action}${p.fields.boundary ? `（别：${p.fields.boundary}）` : ''}`
+  if (p.kind === 'anniversary') return `${p.fields.date}「${p.fields.label}」`
+  if (p.kind === 'profile') {
+    const labels = { likes: '喜欢', dislikes: '不喜欢', quirks: '小毛病', background: '来历' }
+    return Object.entries(p.fields)
+      .filter(([, value]) => Array.isArray(value) ? value.length : value)
+      .map(([key, value]) => `${labels[key] || key}：${Array.isArray(value) ? value.join('、') : value}`)
+      .join('；')
+  }
+  if (p.kind === 'library') return `《${p.fields.title}》${p.fields.note ? `：${p.fields.note}` : ''}`
+  if (p.kind === 'episode') return `${p.fields.at || ''}「${p.fields.summary || ''}」`
+  if (p.kind === 'promise') return `${p.fields.text || ''}${p.fields.dueAt ? `（${p.fields.dueAt}）` : ''}`
+  if (p.kind === 'boundary') return `「${p.fields.text || ''}」`
+  return p.kind
+}
+
+function renderPending() {
+  const list = DATA.pending
+  const host = $('#pendingList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>没有待审候选</b>等她多聊几次，后台反思会自己攒出来。</div>`
+    return
+  }
+  host.innerHTML = list.map(item => `<article class="review">
+    <div class="review-head">
+      <span class="chip warn">${esc(PROPOSAL_LABEL[item.kind] || item.kind)}</span>
+      <span class="muted">置信度 ${Math.round(item.confidence * 100)}%</span>
+    </div>
+    <div class="review-title">${esc(proposalFields(item))}</div>
+    ${item.evidence?.[0]?.quote ? `<blockquote class="quote">“${esc(item.evidence[0].quote)}”</blockquote>` : ''}
+    <div class="review-actions">
+      <button class="btn primary sm" data-act="pending-accept" data-id="${esc(item.id)}">${icon('check')} 收下</button>
+      <button class="btn secondary sm" data-act="pending-discard" data-id="${esc(item.id)}">${icon('x')} 丢掉</button>
+    </div>
+  </article>`).join('')
+}
+
+const APPLICABILITY_LABEL = {
+  channels: { private: '私聊', group: '群聊' },
+  relationship_stages: { close: '亲近', familiar: '熟悉', any: '不限' },
+  emotion_gates: { positive: '开心', low: '低落', normal: '平常', guarded: '戒备', any: '不限' },
+  intent: { question: '提问', comfort: '求安慰', request: '请求', play: '开玩笑', tease: '打趣', casual: '闲聊', any: '不限' },
+}
+
+function applicabilityChips(app = {}) {
+  const chips = []
+  const label = (kind, value) => APPLICABILITY_LABEL[kind]?.[value] || value
+  if (app.channels?.length) chips.push(...app.channels.map(v => `渠道：${label('channels', v)}`))
+  if (app.relationship_stages?.length) chips.push(...app.relationship_stages.map(v => `阶段：${label('relationship_stages', v)}`))
+  if (app.emotion_gates?.length) chips.push(...app.emotion_gates.map(v => `情绪：${label('emotion_gates', v)}`))
+  if (app.intent && app.intent !== 'any') chips.push(`意图：${label('intent', app.intent)}`)
+  if (app.keywords?.length) chips.push(...app.keywords.map(v => `词：${v}`))
+  return chips
+}
+
+function renderStyles() {
+  const list = DATA.style
+  const host = $('#styleList')
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><b>还没有说法候选</b>聊得够多之后，她会从你们的对话里学。</div>`
+    return
+  }
+  const order = { pending: 0, active: 1, rejected: 2 }
+  const sorted = [...list].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3))
+  host.innerHTML = sorted.map(item => `<article class="style-card">
+    <div class="review-head">
+      <span class="chip ${item.status === 'pending' ? 'warn' : item.status === 'active' ? 'ok' : ''}">${esc(STYLE_STATUS[item.status] || item.status)}</span>
+      <span class="chip">${esc(DIMENSION_LABEL[item.dimension] || item.dimension)}</span>
+      <span class="muted">置信度 ${Math.round(item.confidence * 100)}%</span>
+    </div>
+    <div class="style-pattern">${esc(item.pattern)}</div>
+    ${item.situation ? `<div class="style-note">场合：${esc(item.situation)}</div>` : ''}
+    ${item.avoid ? `<div class="style-note">别用于：${esc(item.avoid)}</div>` : ''}
+    ${applicabilityChips(item.applicability).length ? `<div class="style-meta">${applicabilityChips(item.applicability).map(v => `<span class="chip">${esc(v)}</span>`).join('')}</div>` : ''}
+    ${item.evidence?.[0]?.quote ? `<blockquote class="quote">“${esc(item.evidence[0].quote)}”</blockquote>` : ''}
+    <div class="review-actions">
+      ${item.status === 'pending' ? `<button class="btn primary sm" data-act="style-accept" data-id="${esc(item.id)}">${icon('check')} 收下</button>` : ''}
+      ${item.status === 'pending' || item.status === 'active' ? `<button class="btn secondary sm" data-act="style-discard" data-id="${esc(item.id)}">${icon('x')} 停用</button>` : ''}
+      ${item.status === 'rejected' ? `<button class="btn secondary sm" data-act="style-accept" data-id="${esc(item.id)}">${icon('check')} 恢复</button>` : ''}
+    </div>
+  </article>`).join('')
+}
+
+function renderStatus() {
+  presenceDraft = ['auto', 'busy', 'away'].includes(DATA.presence.mode) ? DATA.presence.mode : 'auto'
+  for (const button of document.querySelectorAll('#modeSeg button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.mode === presenceDraft))
+  }
+  $('#presenceReason').value = DATA.presence.reason || ''
+  $('#presenceUntil').value = toLocalInput(DATA.presence.until)
+
+  const body = DATA.body
+  const awake = Number.isFinite(body.awakeMinutes)
+    ? `<div class="row-sub">已醒 ${Math.floor(body.awakeMinutes / 60)} 小时 ${body.awakeMinutes % 60} 分</div>` : ''
+  $('#bodyMeters').innerHTML = [
+    ['精力', Math.round(body.energy), 100, ''],
+    ['疲劳', Math.round(body.fatigue), 100, 'warm'],
+    ...(Number.isFinite(body.sleepPressure) ? [['睡眠压力', Math.round(body.sleepPressure), 100, 'cool']] : []),
+    ['睡眠债', (body.sleepDebt / 60).toFixed(1), 12, 'cool', '小时'],
+  ].map(([label, value, max, tone, unit]) => {
+    const width = pct(Number(value), max)
+    return `<div><div class="meter-top"><span>${esc(label)}</span><b>${esc(value)}${unit ? ` ${esc(unit)}` : '%'}</b></div><div class="bar ${tone}"><i style="width:${width}%"></i></div></div>`
+  }).join('') + awake
+
+  const axes = [['开心', body.joy], ['烦躁', body.anger], ['低落', body.sorrow], ['不安', body.fear]]
+  $('#moodMeters').innerHTML = axes.map(([label, value]) => `<div><div class="meter-top"><span>${label}</span><b>${Math.round(value * 10) / 10}</b></div><div class="bar"><i style="width:${pct(value, 10)}%"></i></div></div>`).join('')
+
+  const proactive = DATA.proactive
+  if (!proactive) {
+    $('#proactiveBody').innerHTML = `<div class="empty">主动 worker 还没有接线。</div>`
+  } else {
+    const enabled = proactive.enabled === true
+    const statusLabel = { sent: '已发', skipped: '跳过', failed: '失败' }
+    const stats = proactive.stats || {}
+    const recent = Array.isArray(proactive.recentContacts) ? proactive.recentContacts.slice(-8).reverse() : []
+    const backgroundLlm = proactive.settings?.backgroundLlm === true
+    const lifeImprov = proactive.settings?.lifeImprov === true
+    const lifeImprovDailyLimit = proactive.settings?.lifeImprovDailyLimit ?? 2
+    const autonomousReading = proactive.settings?.autonomousReading === true
+    const external = proactive.settings?.external !== false
+    const screenVision = proactive.settings?.screenVision !== false
+    const hasKey = proactive.hasWeatherKey === true
+    const effective = proactive.effective || {}
+    const settingsIntensity = proactive.settings?.intensity || 'standard'
+    const effectiveNotes = []
+    if (typeof effective.backgroundLlm === 'boolean' && effective.backgroundLlm !== backgroundLlm) effectiveNotes.push(`后台模型被 COACH_BACKGROUND_LLM ${effective.backgroundLlm ? '开启' : '关闭'}`)
+    if (effective.external === false && external) effectiveNotes.push('外部话题被 COACH_EXTERNAL_SOURCES=0 关闭')
+    if (effective.intensity && effective.intensity !== settingsIntensity) effectiveNotes.push(`强度实际生效：${effective.intensity}（环境变量）`)
+    if (effective.screenVision === false) effectiveNotes.push('屏幕观察实际关闭')
+    const archives = Array.isArray(DATA.archives) ? DATA.archives : []
+    // 开关只说「她可以看」，这段限时授权才说「现在可以看」——两者缺一不截屏。
+    const consent = DATA.screen?.active ?? null
+    const lastCapture = (DATA.screen?.captures ?? []).filter(item => !item.deleted).slice(-1)[0] ?? null
+    const consentText = consent
+      ? `屏幕授权到 ${new Date(consent.expiresAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} 为止`
+      : '未授权：开关打开也不会截屏，要先给一段限时授权'
+    $('#proactiveBody').innerHTML = `
+      <div class="row-meta">
+        <span class="chip ${enabled ? 'ok' : ''}">${enabled ? '已开启' : '未开启'}</span>
+        <span>今天 ${proactive.sentToday ?? 0}/${proactive.rhythm?.maxPerDay ?? 2}${(proactive.occupiedToday ?? proactive.sentToday ?? 0) > (proactive.sentToday ?? 0) ? ` · 占用 ${proactive.occupiedToday}` : ''}</span>
+        <span>未回复 ${proactive.unanswered ?? 0} 次</span>
+        ${enabled && proactive.nextAt ? `<span>下次 ${esc(formatDateTime(proactive.nextAt))}</span>` : ''}
+      </div>
+      <div class="row-meta" style="margin-top:8px">
+        <span>已确认 ${stats.confirmed ?? 0}</span>
+        <span>未确认 ${stats.unconfirmed ?? 0}</span>
+        <span>judge 拒绝 ${stats.judgeDrop ?? 0}</span>
+        <span>judge 均分 ${stats.judgeAvg ?? 0}</span>
+        <span>缓存命中 ${stats.judgeCached ?? 0}</span>
+        <span>重复拦截 ${stats.duplicate ?? 0}</span>
+        <span>温柔重写 ${stats.warmed ?? 0}</span>
+        <span>burst ${stats.burst ?? 0}</span>
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn ${enabled ? 'secondary' : 'primary'}" data-act="proactive-toggle" ${proactive.sessionId ? '' : 'disabled'}>${enabled ? '关掉主动联系' : '开启主动联系'}</button>
+      </div>
+      ${proactive.sessionId ? '' : '<div class="row-sub">先在对话里说一句话，让她记住当前会话，再开启。</div>'}
+      <div class="row-meta proactive-settings" style="margin-top:10px">
+        <label>强度 <select id="proactiveIntensity">${['light', 'standard', 'strong'].map(value => `<option value="${value}" ${((proactive.settings?.intensity || 'standard') === value) ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+        <label>后台生活与反思（消耗模型额度） <select id="proactiveBackgroundLlm"><option value="on" ${backgroundLlm ? 'selected' : ''}>开</option><option value="off" ${backgroundLlm ? '' : 'selected'}>关</option></select></label>
+        <label>外部话题 <select id="proactiveExternal"><option value="on" ${external ? 'selected' : ''}>开</option><option value="off" ${external ? '' : 'selected'}>关</option></select></label>
+        <label>屏幕观察 <select id="proactiveScreenVision"><option value="on" ${screenVision ? 'selected' : ''}>开</option><option value="off" ${screenVision ? '' : 'selected'}>关</option></select></label>
+      </div>
+      <div class="row-meta proactive-settings" style="margin-top:8px">
+        <label><input id="lifeImprovEnabled" type="checkbox" ${lifeImprov ? 'checked' : ''}> 允许生活即兴（单独消耗模型额度）</label>
+        <label>每天最多 <select id="lifeImprovDailyLimit">${[1, 2, 3, 4, 5, 6].map(value => `<option value="${value}" ${lifeImprovDailyLimit === value ? 'selected' : ''}>${value} 次</option>`).join('')}</select></label>
+        <span class="muted">今天 ${proactive.lifeImprovCallsToday ?? 0} 次，失败也计；至少间隔4小时。</span>
+      </div>
+      <div class="row-sub">生活即兴独立于主动联系、后台生活与反思。关闭后不再生成，已有的模拟活动会自然到期。</div>
+      <div class="row-meta proactive-settings" style="margin-top:8px">
+        <label><input id="autonomousReadingEnabled" type="checkbox" ${autonomousReading ? 'checked' : ''}> 让她自己在网上找公开材料读（每次一组搜索+阅读，单独消耗模型额度）</label>
+        <span class="muted">今天 ${proactive.readingCallsToday ?? 0}/2 轮（${proactive.readingRequestsToday ?? 0}/${proactive.readingRequestLimit ?? 8} 次模型请求，失败也计）${proactive.readingNextAt ? `，下次 ${esc(formatDateTime(proactive.readingNextAt))}` : ''}。</span>
+      </div>
+      <div class="row-sub">她会按自己的档案和最近生活决定读什么，读到的笔记写进书架，也会成为主动分享的候选。</div>
+      <div class="row-meta proactive-settings" style="margin-top:8px">
+        <label>天气城市 <input id="proactiveWeatherCity" value="${esc(proactive.settings?.weatherCity || '')}" placeholder="留空=IP 定位"></label>
+        <label>和风 Key <input id="proactiveWeatherKey" type="password" value="" placeholder="${hasKey ? '已配置，留空不改' : '免费 Key，可留空'}"></label>
+        <label>和风 Host <input id="proactiveWeatherHost" value="${esc(proactive.settings?.weatherHost || '')}" placeholder="控制台里的 API Host"></label>
+      </div>
+      <div class="row-meta proactive-settings" style="margin-top:8px">
+        <label>新闻源 <input id="proactiveNewsSources" class="wide" value="${esc(proactive.settings?.newsSources || '')}" placeholder="默认：科技源 + 知乎/微博"></label>
+        <span class="muted">屏幕今天 ${proactive.screenPeekCount ?? 0} 次</span>
+        <button class="btn ghost sm" data-act="proactive-settings">保存设置</button>
+      </div>
+      <div class="row-meta proactive-settings" style="margin-top:8px">
+        <span class="muted">${esc(consentText)}</span>
+        ${consent
+          ? '<button class="btn ghost sm" data-act="screen-revoke">撤销授权</button>'
+          : '<button class="btn ghost sm" data-act="screen-consent">授权 2 小时</button>'}
+        ${lastCapture ? lastCapture.retained !== false
+          ? `<a class="chip" href="./api/screen-original?id=${encodeURIComponent(lastCapture.id)}" target="_blank" rel="noopener" title="${esc(lastCapture.at)}">最近一次截图 · ${esc(lastCapture.summary)}</a>`
+          : `<span class="chip" title="仅保存概括，未保留原图">最近观察 · ${esc(lastCapture.summary)}</span>` : ''}
+      </div>
+      ${effectiveNotes.length ? `<div class="row-sub" style="margin-top:6px">实际状态：${effectiveNotes.map(esc).join('；')}</div>` : ''}
+      ${recent.length ? `<div class="proactive-list">${recent.map(item => `<div class="proactive-item">
+        <b>${esc(statusLabel[item.status] || item.status)}</b> · ${esc(item.topic || '—')} ${Array.isArray(item.quality) && item.quality.length ? '<span class="chip bad">需修</span>' : ''}${item.status === 'sent' && item.delivery && item.delivery !== 'confirmed' ? '<span class="chip bad">未确认送达</span>' : ''}${item.warmed ? '<span class="chip brand">温柔重写</span>' : ''}${item.judgeCached ? '<span class="chip">缓存判定</span>' : ''}${item.duplicate ? '<span class="chip warn">重复拦截</span>' : ''}
+        <div class="muted">${esc(item.reason || '')}${item.replyAt ? ` · 她实际说：${esc(String(item.body || '').slice(0, 80))}` : ''}</div>
+      </div>`).join('')}</div>` : '<div class="row-sub" style="margin-top:8px">还没有主动记录。</div>'}
+      ${archives.length ? `<div class="row-sub" style="margin-top:10px">账本归档（压缩前的完整事件，原始 JSONL）</div><div class="archive-list">${archives.map(item => `<a class="chip" href="./api/person/archives/${encodeURIComponent(item.name)}" download title="${esc(item.name)}">${esc(item.name.replace(/^person-events\.archive-/, '').replace(/\.jsonl$/, ''))} · ${Math.max(1, Math.round(item.size / 1024))}KB</a>`).join('')}</div>` : ''}
+    `
+  }
+
+  const lifeLabels = { reading: '在读', resting: '休息', idle: '日常', chatting: '聊天', improvised: '即兴' }
+  $('#lifeBody').innerHTML = DATA.life?.description
+    ? `<div class="row-title">${esc(DATA.life.description)}</div>
+       <div class="row-meta"><span class="chip">${esc(lifeLabels[DATA.life.kind] || DATA.life.kind)}</span><span>${esc(formatDateTime(DATA.life.startedAt))} 更新</span></div>
+       <div class="row-sub">${DATA.life.source === 'model' ? '这是模型生成的角色模拟近况，不表示完成了现实中的活动。' : DATA.life.source === 'ambient' ? '这是闲时的模拟近况，不代表已经执行了这些活动。' : '来自近期互动、在线状态或书架记录，不代表读完了或完成了什么。'}</div>
+       ${DATA.life.modelPlan && !expired(DATA.life.modelPlan.expiresAt) ? `<div class="row-sub">模拟活动有效至 ${esc(formatDateTime(DATA.life.modelPlan.expiresAt))}${DATA.life.modelPlan.note ? `；续接线索：${esc(DATA.life.modelPlan.note)}` : ''}</div>` : ''}
+       ${DATA.journal?.text ? `<blockquote class="quote">今天的小日记：${esc(DATA.journal.text)}</blockquote>` : ''}`
+    : `<div class="empty">现在没有记录。她可能只是没在做什么特别的事。</div>`
+
+  renderRecentState()
+}
+
+function renderRecentState() {
+  const context = DATA.context
+  const deadline = Date.parse(context?.expiresAt || '')
+  const active = context?.status === 'active' && Number.isFinite(deadline) && deadline > Date.now()
+  const unknown = context?.status === 'unknown' || !Number.isFinite(deadline)
+  $('#contextTitle').textContent = context?.quote && !active ? '历史处境' : '当前处境'
+  $('#contextBody').innerHTML = context?.quote
+    ? `<blockquote class="quote">“${esc(context.quote)}”</blockquote><div class="row-meta"><span class="chip">${active ? '生效中' : unknown ? '时间不明，未启用' : '已过期'}</span><span>记录于 ${esc(formatDateTime(context.at))}</span></div><div class="row-sub">${active ? `有效至 ${esc(formatDateTime(context.expiresAt))}，仍以你现在说的为准。` : '仅作历史保留，不用于当前安排。'}</div>`
+    : `<div class="empty">现在没有临时处境；过去的经历仍可按需回忆。</div>`
+
+  const reflection = DATA.reflection || {}
+  // 计数只在 reflection.day 是今天时才算“今天”；跨午夜还没跑反思时不能拿昨天的数。
+  const todayKey = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
+  const todayReflects = reflection.day === todayKey ? Number(reflection.reflectCallsToday) || 0 : 0
+  const todayStyles = reflection.day === todayKey ? Number(reflection.styleCallsToday) || 0 : 0
+  $('#reflectionBody').innerHTML = `<div class="row-sub">${esc(reflection.lastSummary || '还没有跑过反思。')}</div>
+    <div class="row-meta">
+      <span class="chip">今天反思 ${todayReflects} 次</span>
+      <span class="chip">说法 ${todayStyles} 次</span>
+      ${reflection.lastAt ? `<span>上次反思 ${esc(formatDateTime(reflection.lastAt))}</span>` : '<span>上次反思时间未知</span>'}
+    </div>`
+}
+
+function expired(iso) {
+  const time = Date.parse(iso || '')
+  return Number.isFinite(time) && time <= Date.now()
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+function toLocalInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/* ── 对话框 ─────────────────────────────────────────────── */
+const dialog = $('#dialog')
+let submitHandler = null
+
+function openDialog({ title, body, submit = '保存', danger = false, handler }) {
+  $('#dlgTitle').textContent = title
+  $('#dlgBody').innerHTML = body
+  $('#dlgErr').textContent = ''
+  $('#dlgSubmit').textContent = submit
+  $('#dlgSubmit').className = danger ? 'btn danger' : 'btn primary'
+  submitHandler = handler
+  dialog.showModal()
+  const first = $('#dlgBody input, #dlgBody textarea, #dlgBody select')
+  if (first) setTimeout(() => first.focus(), 40)
+}
+
+$('#dlgForm').addEventListener('submit', async (event) => {
+  event.preventDefault()
+  if (!submitHandler) return
+  const button = $('#dlgSubmit')
+  button.disabled = true
+  try {
+    const summary = await submitHandler(new FormData(event.target))
+    dialog.close()
+    toast(typeof summary === 'string' && summary ? summary : '改好了')
+    await load()
+  } catch (err) {
+    $('#dlgErr').textContent = err.message
+  } finally {
+    button.disabled = false
+  }
+})
+
+for (const button of document.querySelectorAll('[data-close]')) {
+  button.addEventListener('click', () => dialog.close())
+}
+dialog.addEventListener('close', () => { submitHandler = null })
+
+function confirmDelete(title, text, handler) {
+  openDialog({
+    title, body: `<p class="confirm-text">${esc(text)}</p>`,
+    submit: '删除', danger: true, handler,
+  })
+}
+
+/* ── 表单 ───────────────────────────────────────────────── */
+function profileForm() {
+  const list = (key) => DATA.profile[key].join('\n')
+  return `<div class="field"><label for="f-identity">身份</label><input id="f-identity" name="identity" maxlength="120" required value="${esc(DATA.profile.identity)}"></div>
+    <div class="field"><label for="f-likes">喜欢（一行一个）</label><textarea id="f-likes" name="likes">${esc(list('likes'))}</textarea></div>
+    <div class="field"><label for="f-dislikes">不喜欢（一行一个）</label><textarea id="f-dislikes" name="dislikes">${esc(list('dislikes'))}</textarea></div>
+    <div class="field"><label for="f-quirks">小毛病（一行一个）</label><textarea id="f-quirks" name="quirks">${esc(list('quirks'))}</textarea></div>
+    <div class="field"><label for="f-background">小鲸的来历设定（一行一个）</label><textarea id="f-background" name="background">${esc(list('background'))}</textarea><span class="hint">只写她的来历，不写你的上课、饮食等日常经历。</span></div>
+    <p class="hint">身份会进档案和主动消息；DSH 的系统人设文本仍以 xiaojing-coach.md 为准。</p>`
+}
+
+function openPin() {
+  openDialog({
+    title: '置顶一句',
+    body: `<div class="field"><label for="f-pin">他让你一直记住的话</label><input id="f-pin" name="pinText" maxlength="120" required placeholder="比如：别叫我宝贝；我在准备区域赛"></div>`,
+    async handler(form) {
+      const pinText = String(form.get('pinText') || '').trim()
+      if (pinText.length < 2) throw new Error('至少写 2 个字。')
+      const result = await api('pin.add', { pinText })
+      return result.summary
+    },
+  })
+}
+
+function openProfile() {
+  openDialog({
+    title: '编辑档案',
+    body: profileForm(),
+    async handler(form) {
+      const read = (key) => String(form.get(key) || '').split('\n').map(s => s.trim()).filter(Boolean)
+      const identity = String(form.get('identity') || '').trim()
+      if (identity.length < 2) throw new Error('身份至少写 2 个字。')
+      const result = await api('profile.set', {
+        identity,
+        likes: read('likes'), dislikes: read('dislikes'), quirks: read('quirks'), background: read('background'),
+      })
+      return result.summary
+    },
+  })
+}
+
+function milestoneForm(item = null) {
+  const today = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  const max = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+  return `<div class="field"><label for="f-mlabel">名称</label><input id="f-mlabel" name="label" maxlength="48" required value="${esc(item?.label || '')}" placeholder="比如：第一次一起复盘"></div>
+    <div class="field"><label for="f-mdate">日期</label><input id="f-mdate" name="date" type="date" max="${max}" required value="${esc(item?.date || '')}"></div>
+    <div class="field"><label for="f-mevidence">依据（可选）</label><textarea id="f-mevidence" name="evidence" maxlength="320" placeholder="他那句原话；手动记录会写「训练员在人格面板手动记录」">${esc(item?.evidence || '')}</textarea></div>`
+}
+
+function openMilestone(item = null) {
+  openDialog({
+    title: item ? '编辑纪念日' : '记一个纪念日',
+    body: milestoneForm(item),
+    async handler(form) {
+      const label = String(form.get('label') || '').trim()
+      const date = String(form.get('date') || '')
+      const evidence = String(form.get('evidence') || '').trim() || '训练员在人格面板手动记录'
+      if (!label) throw new Error('名称不能空。')
+      if (!date) throw new Error('日期要选。')
+      const result = item
+        ? await api('relation.update', { id: item.id, label, date, evidence })
+        : await api('relation.add', { label, date, evidence })
+      return result.summary
+    },
+  })
+}
+
+function openBoundary() {
+  openDialog({
+    title: '记一条边界',
+    body: `<div class="field"><label for="f-btext">他明确说过不要做的事</label><input id="f-btext" name="text" maxlength="120" required placeholder="比如：不要叫我宝贝；不要催我睡觉"></div>
+      <div class="field"><label for="f-bevidence">原话</label><textarea id="f-bevidence" name="evidence" maxlength="320" required placeholder="他那句原话"></textarea></div>`,
+    async handler(form) {
+      const text = String(form.get('text') || '').trim()
+      const evidence = String(form.get('evidence') || '').trim()
+      if (text.length < 2) throw new Error('至少写 2 个字。')
+      if (!evidence) throw new Error('边界必须带他明确说过的原话。')
+      const result = await api('boundary.add', { boundaryText: text, evidence })
+      return result.summary
+    },
+  })
+}
+
+function episodeForm(item = null) {
+  const today = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  const max = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+  return `<div class="field"><label for="f-esummary">发生了什么</label><textarea id="f-esummary" name="summary" maxlength="200" required placeholder="写发生了什么、他当时的状态或你们的约定，不写流水账">${esc(item?.summary || '')}</textarea></div>
+    <div class="form-row">
+      <div class="field"><label for="f-eat">发生日</label><input id="f-eat" name="at" type="date" max="${max}" value="${esc(item?.at || max)}"></div>
+      <div class="field"><label for="f-etags">标签（逗号分隔）</label><input id="f-etags" name="tags" maxlength="120" value="${esc((item?.tags || []).join('，'))}" placeholder="比如：复盘，深夜"></div>
+    </div>
+    <div class="field"><label for="f-eevidence">依据（可选）</label><textarea id="f-eevidence" name="evidence" maxlength="320" placeholder="他那句原话；手动记录会写「训练员在人格面板手动记录」">${esc(item?.evidence || '')}</textarea></div>`
+}
+
+function openEpisode(item = null) {
+  openDialog({
+    title: item ? '编辑共同经历' : '记一段共同经历',
+    body: episodeForm(item),
+    async handler(form) {
+      const summary = String(form.get('summary') || '').trim()
+      const at = String(form.get('at') || '')
+      const tags = String(form.get('tags') || '').split(/[,，\s]+/).map(value => value.trim()).filter(Boolean).slice(0, 5)
+      const evidence = String(form.get('evidence') || '').trim() || '训练员在人格面板手动记录'
+      if (summary.length < 10) throw new Error('至少写 10 个字。')
+      const result = item
+        ? await api('episode.update', { id: item.id, summary, at, tags, evidence })
+        : await api('episode.add', { summary, at, tags, evidence })
+      return result.summary
+    },
+  })
+}
+
+function promiseForm(item = null) {
+  return `<div class="field"><label for="f-ptext">她答应的事</label><input id="f-ptext" name="promiseText" maxlength="120" required value="${esc(item?.text || '')}" placeholder="比如：明天问你那道题的进度"></div>
+    <div class="form-row">
+      <div class="field"><label for="f-pdue">约定日（可选）</label><input id="f-pdue" name="dueAt" type="date" value="${esc(item?.dueAt || '')}"></div>
+      <div class="field"><label for="f-pstatus">状态</label><select id="f-pstatus" name="promiseStatus">${['open', 'done', 'dropped'].map(value => `<option value="${value}" ${(item?.status || 'open') === value ? 'selected' : ''}>${esc(PROMISE_LABEL[value])}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label for="f-pevidence">依据（可选）</label><textarea id="f-pevidence" name="evidence" maxlength="320" placeholder="他那句原话，或你们说好的事；手动记录会写「训练员在人格面板手动记录」">${esc(item?.evidence || '')}</textarea></div>`
+}
+
+function openPromise(item = null) {
+  openDialog({
+    title: item ? '编辑承诺' : '记一件答应过的事',
+    body: promiseForm(item),
+    async handler(form) {
+      const promiseText = String(form.get('promiseText') || '').trim()
+      const dueAt = String(form.get('dueAt') || '')
+      const promiseStatus = String(form.get('promiseStatus') || 'open')
+      const evidence = String(form.get('evidence') || '').trim() || '训练员在人格面板手动记录'
+      if (promiseText.length < 4) throw new Error('至少写 4 个字。')
+      const result = item
+        ? await api('promise.update', { id: item.id, promiseText, dueAt, promiseStatus, evidence })
+        : await api('promise.add', { promiseText, dueAt, evidence })
+      return result.summary
+    },
+  })
+}
+
+function habitForm(item = null) {
+  return `<div class="field"><label for="f-hsituation">什么场合</label><input id="f-hsituation" name="situation" maxlength="80" required value="${esc(item?.situation || '')}" placeholder="比如：他半天没回消息"></div>
+    <div class="field"><label for="f-haction">她怎么做</label><input id="f-haction" name="habitAction" maxlength="120" required value="${esc(item?.action || '')}" placeholder="比如：先问是不是卡住了，不催"></div>
+    <div class="field"><label for="f-hboundary">边界（可选）</label><input id="f-hboundary" name="boundary" maxlength="120" value="${esc(item?.boundary || '')}" placeholder="比如：别连着问三次"></div>
+    <div class="field"><label for="f-hevidence">依据（可选）</label><textarea id="f-hevidence" name="evidence" maxlength="320" placeholder="他那句原话；手动记录会写「训练员在人格面板手动记录」">${esc(item?.evidence || '')}</textarea></div>`
+}
+
+function openHabit(item = null) {
+  openDialog({
+    title: item ? '编辑互动习惯' : '加一条互动习惯',
+    body: habitForm(item),
+    async handler(form) {
+      const situation = String(form.get('situation') || '').trim()
+      const habitAction = String(form.get('habitAction') || '').trim()
+      const boundary = String(form.get('boundary') || '').trim()
+      const evidence = String(form.get('evidence') || '').trim() || '训练员在人格面板手动记录'
+      if (!situation || !habitAction) throw new Error('场合和做法都要填。')
+      const result = item
+        ? await api('habit.update', { id: item.id, situation, habitAction, boundary, evidence })
+        : await api('habit.add', { situation, habitAction, boundary, evidence })
+      return result.summary
+    },
+  })
+}
+
+function libraryForm(item = null) {
+  const edit = Boolean(item)
+  return `<div class="field"><label for="f-ltitle">书名 / 文章名</label><input id="f-ltitle" name="title" maxlength="120" required value="${esc(item?.title || '')}"></div>
+    <div class="form-row">
+      <div class="field"><label for="f-lkind">类型</label><select id="f-lkind" name="kind">${['book', 'article', 'other'].map(value => `<option value="${value}" ${item?.kind === value ? 'selected' : ''}>${esc(KIND_LABEL[value])}</option>`).join('')}</select></div>
+      <div class="field"><label for="f-lsource">来源（可选）</label><input id="f-lsource" name="source" maxlength="200" value="${esc(item?.source || '')}"></div>
+    </div>
+    ${edit ? `<div class="form-row">
+      <div class="field"><label for="f-lstate">状态</label><select id="f-lstate" name="state">${['reading', 'done', 'paused'].map(value => `<option value="${value}" ${item?.state === value ? 'selected' : ''}>${esc(STATE_LABEL[value])}</option>`).join('')}</select></div>
+      <div class="field"><label for="f-lprogress">进度 <b id="progressValue">${Math.round((item?.progress || 0) * 100)}%</b></label><input id="f-lprogress" name="progress" type="range" min="0" max="100" step="1" value="${Math.round((item?.progress || 0) * 100)}"></div>
+    </div>` : ''}
+    <div class="field"><label for="f-lnote">一句笔记（可选）</label><textarea id="f-lnote" name="note" maxlength="300" placeholder="读到哪、想到什么">${esc(item?.note || '')}</textarea></div>`
+}
+
+function openLibrary(item = null) {
+  openDialog({
+    title: item ? '编辑书架条目' : '放一本书上书架',
+    body: libraryForm(item),
+    async handler(form) {
+      const title = String(form.get('title') || '').trim()
+      if (!title) throw new Error('书名不能空。')
+      const source = String(form.get('source') || '').trim()
+      const kind = String(form.get('kind') || 'book')
+      const note = String(form.get('note') || '').trim()
+      if (!item) {
+        const result = await api('library.add', { title, source, kind, note })
+        return result.summary
+      }
+      const state = String(form.get('state') || 'reading')
+      const progress = Number(form.get('progress') || 0) / 100
+      const result = await api('library.update', { id: item.id, title, source, kind, state, progress, note })
+      return result.summary
+    },
+  })
+}
+
+/* ── toast ──────────────────────────────────────────────── */
+let toastTimer = null
+function toast(text, kind = 'ok') {
+  const host = $('#toast')
+  host.textContent = text
+  host.className = kind === 'err' ? 'on err' : 'on'
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { host.className = kind === 'err' ? 'err' : '' }, 2600)
+}
+
+/* ── 动作分发 ────────────────────────────────────────────── */
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-act]')
+  if (!button) return
+  const id = button.dataset.id || ''
+  const find = (list) => list.find(item => item.id === id)
+  const act = button.dataset.act
+  try {
+    if (act === 'edit-profile') return openProfile()
+    if (act === 'add-milestone') return openMilestone()
+    if (act === 'edit-milestone') return openMilestone(find(DATA.relation.milestones))
+    if (act === 'del-milestone') {
+      const item = find(DATA.relation.milestones)
+      if (!item) return
+      return confirmDelete('删除这个纪念日？', `「${item.label}」会从档案里消失，下一轮不再注入。`, async () => {
+        const result = await api('relation.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'resolve-conflict') {
+      const result = await api('conflict.resolve', { kind: button.dataset.kind, value: button.dataset.value })
+      toast(result.summary || '已裁决')
+      await load()
+      return
+    }
+    if (act === 'add-pin') return openPin()
+    if (act === 'del-pin') {
+      const result = await api('pin.remove', { id })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'add-boundary') return openBoundary()
+    if (act === 'del-boundary') {
+      const item = find(DATA.boundaries)
+      if (!item) return
+      return confirmDelete('删除这条边界？', `「${item.text}」会从档案里消失。`, async () => {
+        const result = await api('boundary.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'add-episode') return openEpisode()
+    if (act === 'edit-episode') return openEpisode(find(DATA.episodes))
+    if (act === 'del-episode') {
+      const item = find(DATA.episodes)
+      if (!item) return
+      return confirmDelete('删除这段经历？', `「${item.summary.slice(0, 40)}」会从档案里消失。`, async () => {
+        const result = await api('episode.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'add-promise') return openPromise()
+    if (act === 'edit-promise') return openPromise(find(DATA.promises))
+    if (act === 'del-promise') {
+      const item = find(DATA.promises)
+      if (!item) return
+      return confirmDelete('删除这条承诺？', `「${item.text}」会从档案里消失。`, async () => {
+        const result = await api('promise.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'promise-done') {
+      const result = await api('promise.done', { id })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'add-habit') return openHabit()
+    if (act === 'edit-habit') return openHabit(find(DATA.habits))
+    if (act === 'del-habit') {
+      const item = find(DATA.habits)
+      if (!item) return
+      return confirmDelete('删除这条习惯？', `${item.situation} → ${item.action} 会从档案里消失。`, async () => {
+        const result = await api('habit.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'feedback') {
+      const result = await api('habit.feedback', { id, feedback: button.dataset.value })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'add-library') return openLibrary()
+    if (act === 'edit-library') return openLibrary(find(DATA.library))
+    if (act === 'del-library') {
+      const item = find(DATA.library)
+      if (!item) return
+      return confirmDelete('把这本书拿掉？', `《${item.title}》会从书架消失。`, async () => {
+        const result = await api('library.remove', { id })
+        return result.summary
+      })
+    }
+    if (act === 'pending-accept') {
+      const result = await api('pending.accept', { id })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'pending-discard') {
+      const result = await api('pending.discard', { id })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'style-accept' || act === 'style-discard') {
+      const result = await api(act === 'style-accept' ? 'style.accept' : 'style.discard', { id })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'proactive-settings') {
+      const payload = {
+        intensity: $('#proactiveIntensity').value,
+        backgroundLlm: $('#proactiveBackgroundLlm').value === 'on',
+        lifeImprov: $('#lifeImprovEnabled').checked,
+        autonomousReading: $('#autonomousReadingEnabled').checked,
+        lifeImprovDailyLimit: Number($('#lifeImprovDailyLimit').value),
+        external: $('#proactiveExternal').value === 'on',
+        screenVision: $('#proactiveScreenVision').value === 'on',
+        weatherCity: $('#proactiveWeatherCity').value.trim(),
+        weatherHost: $('#proactiveWeatherHost').value.trim(),
+        newsSources: $('#proactiveNewsSources').value.trim(),
+      }
+      const key = $('#proactiveWeatherKey').value.trim()
+      if (key) payload.weatherKey = key
+      const result = await api('proactive.settings', payload)
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'screen-consent' || act === 'screen-revoke') {
+      const result = await api(act === 'screen-consent' ? 'screen.consent' : 'screen.revoke', { minutes: 120 })
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'proactive-toggle') {
+      const result = await api(DATA.proactive?.enabled ? 'proactive.disarm' : 'proactive.arm')
+      toast(result.summary)
+      await load()
+      return
+    }
+    if (act === 'presence-save') {
+      const mode = presenceDraft
+      const reason = $('#presenceReason').value.trim()
+      const untilValue = $('#presenceUntil').value
+      const until = mode === 'auto' || !untilValue ? '' : new Date(untilValue).toISOString()
+      const result = await api('presence.set', { mode, reason, until })
+      toast(result.summary)
+      await load()
+      return
+    }
+  } catch (err) {
+    toast(err.message, 'err')
+  }
+})
+
+$('#modeSeg').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-mode]')
+  if (!button) return
+  presenceDraft = button.dataset.mode
+  for (const item of document.querySelectorAll('#modeSeg button')) {
+    item.setAttribute('aria-pressed', String(item.dataset.mode === presenceDraft))
+  }
+})
+
+document.addEventListener('input', (event) => {
+  if (event.target.id !== 'f-lprogress') return
+  const label = $('#progressValue')
+  if (label) label.textContent = `${event.target.value}%`
+})
+
+/* ── 主题 ───────────────────────────────────────────────── */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
+  $('#themeLabel').textContent = theme === 'dark' ? '浅色' : '深色'
+  $('#themeIcon').innerHTML = theme === 'dark'
+    ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>'
+    : '<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/>'
+}
+
+applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
+$('#themeToggle').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+  applyTheme(next)
+  try { localStorage.setItem('coach.theme', next) } catch { /* 本地存不了也不拦切换 */ }
+})
+
+/* ── 启动 ───────────────────────────────────────────────── */
+// 只刷新时间标签，不重置正在编辑的状态表单，也不发后台请求。
+setInterval(() => { if (DATA) renderRecentState() }, 30000)
+load().catch((err) => {
+  $('#boot').innerHTML = `<b>读不到档案</b><br>${esc(err.message)}<br><br><button class="btn secondary" id="retry">重试</button>`
+  $('#status').className = 'status bad'
+  $('#status').innerHTML = '<i></i><span>读取失败</span>'
+  $('#retry')?.addEventListener('click', () => location.reload())
+})
+</script>
+</body>
+</html>
