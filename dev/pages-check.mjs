@@ -6,6 +6,22 @@ import { tmpdir } from 'node:os'
 import vm from 'node:vm'
 import { emptyPerson, savePerson } from '../lib/person.js'
 
+test('skilltree recognizes proven and exposes keyboard-focusable nodes', () => {
+  const html = readFileSync(new URL('../assets/knowledge/skilltree.html', import.meta.url), 'utf8')
+  assert.match(html, /proven: "已证明"/)
+  assert.match(html, /tabindex: "0", role: "button"/)
+  assert.match(html, /addEventListener\("keydown"/)
+  const source = html.slice(html.indexOf('const statusOf'), html.indexOf('// ── 重点'))
+  const sandbox = { progress: { nodes: {
+    A: { status: 'learned', proven: true },
+    B: { status: 'verified', proven: true },
+    C: { status: 'studying' },
+  } } }
+  vm.createContext(sandbox)
+  vm.runInContext(`${source}\nresult = [statusOf("A"), statusOf("B"), statusOf("C")]`, sandbox)
+  assert.deepEqual(Array.from(sandbox.result), ['proven', 'verified', 'studying'])
+})
+
 test('diagnosis history escapes model text before it reaches innerHTML', () => {
   const html = readFileSync(new URL('../assets/knowledge/skilltree.html', import.meta.url), 'utf8')
   const escSource = html.slice(html.indexOf('const esc ='), html.indexOf('function mdInline'))
