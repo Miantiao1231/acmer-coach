@@ -721,6 +721,10 @@ bash dev/trace-scan.sh                         # 开源前反证：没留私人�
 | `/coach/api/progress` | GET 读进度 / POST 写（`mark` / `cursor`） |
 | `/coach/api/schedule` | GET 读日程 / POST 写。日程视图读写 `SCHEDULE.yaml` 的唯一通道 |
 | `/coach/api/training-log` | GET 汇总每日训练事实与课程阶段，只读；默认最近 14 天 |
+| `/coach/api/person` | GET 读人格档案/待审/授权；POST 写档案、待审候选、屏幕授权、主动开关等 |
+| `/coach/api/person/archives` | GET 列出/下载压缩前的记忆事件归档 |
+| `/coach/api/vp/*` | VP 状态、比赛、回放、连接/断开/同步 |
+| `/coach/api/screen-original` | GET 已授权保留的屏幕原件（带本地闸） |
 
 **鉴权交给 dsh 自己**：主闸是 `connection.requestRejection(req)` ——
 dsh 的签名 cookie + Host fence。**不自己抄一套 loopback 检查**：

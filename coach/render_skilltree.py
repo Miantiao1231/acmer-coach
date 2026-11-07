@@ -182,7 +182,8 @@ def main():
     data = build()
     tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skilltree_template.html")
     html = open(tpl, encoding="utf-8").read()
-    html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
+    # 与 lib/pages.js 一样转义 <，避免地图名里的 </script> 截断内联脚本。
+    html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False).replace("<", "\\u003c"))
     open(OUT, "w", encoding="utf-8").write(html)
 
     print(f"生成完成 → {OUT}")

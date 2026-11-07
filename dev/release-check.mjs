@@ -15,6 +15,7 @@ const checks = [
   { name: 'w1-check', args: ['dev/w1-check.mjs'] },
   { name: 'setup-check', args: ['dev/setup-check.mjs'] },
   { name: 'wiki-check', args: ['dev/wiki-check.mjs'] },
+  { name: 'page-syntax', args: ['coach/check_page_syntax.mjs', 'coach/skilltree_template.html'] },
 ]
 
 let failed = 0

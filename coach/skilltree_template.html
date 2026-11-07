@@ -1960,6 +1960,11 @@ async function loadTrainingLog() {
     renderTrainingLog();
   } catch (e) {
     trainingLog = null;
+    // 刷新失败不能把上一次的数字留在页面上，否则看起来像当前数据。
+    for (const sel of ["#logSummary", "#phaseRail", "#phaseDetail", "#logDays"]) {
+      const el = $(sel);
+      if (el) el.innerHTML = "";
+    }
     setLogNote(`<b>训练日志读不到</b>：${esc(e.message)}`, true);
   }
 }

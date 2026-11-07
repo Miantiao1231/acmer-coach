@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { evidenceFromMessages, buildMaterials, parseReflection, parseStyle } from '../lib/reflection.js'
+import { evidenceFromMessages, buildMaterials, parseReflection, parseStyle, redact } from '../lib/reflection.js'
 
 const NOW = new Date('2026-10-30T12:00:00')
 const messages = [
@@ -99,6 +99,10 @@ test('evidence redacts obvious secrets before it reaches the model or the file',
   const secret = evidenceFromMessages([{ text: '我的 key 是 sk-abcdefghijklmnop，别告诉别人', id: 'm', seq: 1, time: '' }])
   assert.match(secret[0].text, /\[REDACTED\]/)
   assert.doesNotMatch(secret[0].text, /sk-abcdefghijklmnop/)
+  for (const text of ['我的 token 是 eyJhbGciOiJIUzI1NiJ9', 'Authorization: Bearer abcdefghijklmnop',
+    '密码是hunter2', '口令为opensesame']) {
+    assert.match(redact(text), /\[REDACTED\]/, text)
+  }
 })
 
 test('materials carry handles, current state and coverage', () => {

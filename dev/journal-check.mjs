@@ -362,3 +362,16 @@ test('losing a worker lease during journal generation stops dream calls and arch
     assert.equal(loadJournalArchive(t.dir).entries.length, 0)
   } finally { t.done() }
 })
+
+test('catch-up journal materials use the due day, not the wake-up day', () => {
+  const materials = buildMaterials({
+    now: new Date('2026-11-03T08:00:00'), day: '2026-11-02',
+    activities: [
+      { id: 'a1', kind: 'practice', state: 'completed', title: '昨天的练习', minutes: 40, createdAt: '2026-11-02T20:00:00' },
+      { id: 'a2', kind: 'practice', state: 'completed', title: '今天的练习', minutes: 20, createdAt: '2026-11-03T07:00:00' },
+    ],
+  })
+  const text = materials.map((item) => item.text).join('\n')
+  assert.match(text, /昨天的练习/)
+  assert.doesNotMatch(text, /今天的练习/)
+})

@@ -17,7 +17,10 @@ const userEvent = (overrides = {}) => ({
 
 test('student reports accept Chinese durations instead of only bare numbers', () => {
   assert.deepEqual(minutesInReport('这题做了半小时'), [30])
-  assert.deepEqual(minutesInReport('我花了一个半小时'), [30, 90])
+  assert.deepEqual(minutesInReport('我花了一个半小时'), [90])
+  assert.deepEqual(minutesInReport('用了一小时半'), [90])
+  assert.deepEqual(minutesInReport('两个小时'), [120])
+  assert.deepEqual(minutesInReport('一个半钟头'), [90])
   assert.ok(minutesInReport('四十分钟独立做出来了').includes(40))
   assert.ok(minutesInReport('两小时').includes(120))
   assert.ok(minutesInReport('1.5 小时').includes(90))
