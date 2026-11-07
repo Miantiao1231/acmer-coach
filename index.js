@@ -183,10 +183,16 @@ function switchCoachWorkspace(accountId = '') {
 }
 
 const vpClient = createVpClient({ dataDir: DATA_DIR })
+let startupError = ''
 const savedVp = vpClient.localStatus()
 if (savedVp.connected) {
-  migratePersonalWorkspace(savedVp.activeAccountId)
-  switchCoachWorkspace(savedVp.activeAccountId)
+  try {
+    migratePersonalWorkspace(savedVp.activeAccountId)
+    switchCoachWorkspace(savedVp.activeAccountId)
+  } catch (err) {
+    // 账号目录/迁移文件坏掉只影响工作区切换，不能把插件整体加载拦死。
+    startupError = `VP 工作区启动失败：${err?.message ?? err}`
+  }
 }
 
 // 探针要的文件，各自代表一条后面的依赖：
@@ -238,7 +244,7 @@ let _map = null
 let mapUpgrade = null
 // 静默降级要能被看见：插件活着、但规则没进去 / 状态没注入时，用户只会觉得它变笨。
 // 这里只记**状态**，不记任何对话内容。
-const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: '' }
+const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: startupError }
 
 const lastAssistantBySession = new Map()
 
@@ -595,11 +601,11 @@ const SCHEDULE_FIELDS = ['busy', 'planned', 'actual']
 // 只能从 coach_plan 进来（方针 §4.1「排一次就固化」全靠这条站着）。
 const PAGE_FIELDS = ['busy', 'actual']
 
-function setScheduleField(date, field, value) {
+function setScheduleField(date, field, value, snapshot = null) {
   const d = String(date ?? '').trim()
   const f = String(field ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-    return { ok: false, reject: `日期要 YYYY-MM-DD 格式，收到「${d}」` }
+  if (!parseYmd(d)) {
+    return { ok: false, reject: `日期要有效的 YYYY-MM-DD，收到「${d}」` }
   }
   if (!SCHEDULE_FIELDS.includes(f)) {
     return { ok: false, reject: `字段只能是 ${SCHEDULE_FIELDS.join(' / ')}，收到「${f}」` }
@@ -608,14 +614,16 @@ function setScheduleField(date, field, value) {
     return { ok: false, reject: `${f} 必须是数组` }
   }
 
-  const s = loadSchedule()
+  const s = snapshot ?? loadSchedule()
   const day = { ...(s.days[d] ?? {}) }
   if (value.length) day[f] = value
   else delete day[f]            // 空数组 = 清掉这一项，不留 `busy: []` 这种空壳
   if (f === 'planned') delete day.rest
   if (Object.keys(day).length) s.days[d] = day
   else delete s.days[d]         // 三项全空 = 这一天删掉，别留 `{}`
-  saveSchedule(s)
+  try { saveSchedule(s) } catch (err) {
+    return { ok: false, reject: `日程写入失败（可能另一个进程刚改过）：${err?.message ?? err}` }
+  }
 
   return {
     ok: true, reject: '', date: d, field: f,
@@ -667,7 +675,7 @@ function parseYmd(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s ?? '').trim())
   if (!m) return null
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  return Number.isNaN(d.getTime()) ? null : d
+  return Number.isNaN(d.getTime()) || ymd(d) !== m[0] ? null : d
 }
 
 /** "HH:MM" → 从 0:00 起的分钟数。不合法返回 null —— 别抛，调用方要一次报好几条。 */
@@ -752,8 +760,8 @@ const capacityMin = (day) => day?.rest === true ? 0 : Math.floor(freeMinutes(day
  */
 function planDay(date, blocks, opts = {}) {
   const d = String(date ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-    return { ok: false, reject: `日期要 YYYY-MM-DD，收到「${d}」。` }
+  if (!parseYmd(d)) {
+    return { ok: false, reject: `日期要有效的 YYYY-MM-DD，收到「${d}」。` }
   }
   const today = ymdToday()
   const lastDay = ymd(addDays(new Date(), SCHED_AHEAD))
@@ -865,7 +873,7 @@ function planDay(date, blocks, opts = {}) {
     from: minHM(b.a), to: minHM(b.z), kind: b.kind, node: b.node,
     ...(b.competency ? { competency: b.competency } : {}),
   }))
-  const w = setScheduleField(d, 'planned', planned)
+  const w = setScheduleField(d, 'planned', planned, s)
   if (!w.ok) return w
 
   return {
@@ -899,8 +907,8 @@ function planDay(date, blocks, opts = {}) {
  */
 function unplanDay(date, opts = {}) {
   const d = String(date ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-    return { ok: false, reject: `日期要 YYYY-MM-DD，收到「${d}」。` }
+  if (!parseYmd(d)) {
+    return { ok: false, reject: `日期要有效的 YYYY-MM-DD，收到「${d}」。` }
   }
   const today = ymdToday()
   const lastDay = ymd(addDays(new Date(), SCHED_AHEAD))
@@ -955,7 +963,7 @@ function unplanDay(date, opts = {}) {
     left = had.filter((b) => b !== hit[0])
   }
 
-  const w = setScheduleField(d, 'planned', left)
+  const w = setScheduleField(d, 'planned', left, s)
   if (!w.ok) return w
 
   const { byId } = loadMap()
@@ -6329,6 +6337,21 @@ function apply(ctx) {
           })
         }
         picked.sort((a, b) => BANDS.indexOf(a.band) - BANDS.indexOf(b.band))
+        // 题库卷的「易/中/难」不能只信调用方标签：至少按真实 cfRating 复核，
+        // 并按难度排序重算权重。三道同难度题标成三档时直接拒绝，避免假 verified。
+        if (picked.every((p) => p.source === 'pool')) {
+          const ratings = picked.map((p) => Number(p.cfRating) || 0)
+          if (ratings.some((r) => r <= 0)) {
+            return deny('题库卷的题目缺少可核对的难度，不能只按标签分档；换有 cfRating 的题。')
+          }
+          const sortedRatings = [...ratings].sort((a, b) => a - b)
+          if (new Set(ratings).size < 3 || sortedRatings[2] - sortedRatings[0] < 100) {
+            return deny('三档题的题库难度没有拉开（至少要有三个不同 rating，且跨度≥100）；' +
+              '它们不能代表易/中/难，换题或改标签。')
+          }
+          const byRating = [...picked].sort((a, b) => a.cfRating - b.cfRating)
+          byRating.forEach((p, index) => { p.weight = BAND_WEIGHT[BANDS[index]] })
+        }
 
         // ── 前置闸：**这块他学过没有**（需求 #5）──────────────
         //
@@ -7388,7 +7411,9 @@ function apply(ctx) {
         } else if (action !== 'read') {
           throw new Error('action 只能是 read/set_class_window/clear_class_window。')
         }
-        const r = scheduleOverview(args?.days, args?.from)
+        const from = String(args?.from ?? '').trim()
+        if (from && !parseYmd(from)) throw new Error('from 要有效的 YYYY-MM-DD。')
+        const r = scheduleOverview(args?.days, from)
         return { ok: true, reject: '', ...r }
       } catch (err) {
         // 读不出来就说读不出来 —— 返回一份空日程比报错更坏，
@@ -7817,8 +7842,8 @@ function apply(ctx) {
         passCount: 0, updated: '', actionCleared: false,
       })
 
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-        return deny(`日期要 YYYY-MM-DD 格式，收到「${d}」。`)
+      if (!parseYmd(d)) {
+        return deny(`日期要有效的 YYYY-MM-DD，收到「${d}」。`)
       }
       if (!identity.ok) return deny(identity.reject)
       if (hasTraceInput && (!traceProblem || !args?.startedAt || !args?.completedAt ||
@@ -7911,7 +7936,7 @@ function apply(ctx) {
       else list.push(entry)
       const sameDayEntries = list.filter((r) => competency ? r?.competency === competency : String(r?.node ?? '') === node && !r?.competency).length
 
-      const w = setScheduleField(d, 'actual', list)
+      const w = setScheduleField(d, 'actual', list, s)
       if (!w.ok) return deny(w.reject)
 
       // ── 掌握证据落进 PROGRESS──────────────────────

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -23,6 +23,27 @@ test('native DSH_HOME isolates both knowledge and default SQLite; explicit overr
       const result = JSON.parse(r.stdout.trim())
       assert.equal(result.knowledge, overrides ? env.COACH_DATA_DIR : join(root, 'knowledge'))
       assert.equal(result.db.replaceAll('\\', '/'), path.replaceAll('\\', '/'))
+    }
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test('a corrupt or invalid VP registry cannot block plugin import', () => {
+  const root = mkdtempSync(join(tmpdir(), 'coach-vp-startup-'))
+  const script = `const mod=await import('./index.js'); console.log(typeof mod.apply);`
+  try {
+    for (const [name, text] of [
+      ['truncated', '{"version":1,"activeAccountId":1,"accounts":{"1":{"account":{"id":1'],
+      ['bad-url', JSON.stringify({ version: 1, activeAccountId: 1,
+        accounts: { 1: { account: { id: 1, handle: 'A' }, baseUrl: 'not a url' } } })],
+    ]) {
+      writeFileSync(join(root, 'VP_ACCOUNTS.json'), text)
+      const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+        cwd: new URL('..', import.meta.url),
+        env: { ...process.env, DSH_HOME: root, COACH_DATA_DIR: join(root, 'knowledge') },
+        encoding: 'utf8', windowsHide: true,
+      })
+      assert.equal(r.status, 0, `${name}: ${r.stderr}`)
+      assert.equal(r.stdout.trim(), 'function')
     }
   } finally { rmSync(root, { recursive: true, force: true }) }
 })

@@ -516,3 +516,32 @@ pending:
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('impossible calendar dates are rejected instead of silently shifting the window', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-date-contract-'))
+  const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB }
+  try {
+    writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: [{id: A, name: A, depends: []}]\n')
+    writeFileSync(join(dir, 'PROGRESS.yaml'), 'version: 1\ncursor: A\nnodes: {}\n')
+    writeFileSync(join(dir, 'SCHEDULE.yaml'), 'version: 1\ndays: {}\n')
+    process.env.COACH_DATA_DIR = dir
+    process.env.COACH_DB = join(dir, 'unused.db')
+    const { apply } = await import('../index.js?date-contract')
+    const tools = new Map()
+    apply({ tools: { register: tool => tools.set(tool.name, tool) }, inject() {}, on() {} })
+    const overview = await tools.get('coach_schedule').execute({ from: '2026-02-30' })
+    assert.equal(overview.ok, false, 'an impossible from date must be rejected, not rolled over')
+    assert.match(overview.reject, /有效|YYYY-MM-DD/)
+    const plan = await tools.get('coach_plan').execute({ date: '2026-11-31', blocks: [
+      { from: '19:00', kind: 'review', node: 'A' },
+    ] })
+    assert.equal(plan.ok, false, 'an impossible plan date must be rejected')
+    assert.match(plan.reject, /有效|YYYY-MM-DD/)
+  } finally {
+    for (const [key, value] of [['COACH_DATA_DIR', previous.data], ['COACH_DB', previous.db]]) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
