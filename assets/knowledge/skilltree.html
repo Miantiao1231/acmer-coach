@@ -225,8 +225,10 @@ body[data-filters="closed"] .stage{margin-left:32px}
 .tag.st[data-st="studying"]{background:color-mix(in srgb,var(--tle) 12%,transparent);color:var(--tle-text)}
 .tag.st[data-st="learned"]{background:var(--brand-fill);color:#fff}
 .tag.st[data-st="verified"]{background:var(--ac-soft);color:var(--ac-text)}
+.tag.st[data-st="proven"]{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--brand-text)}
 .tag.st[data-st="none"]{background:var(--fill-2);color:var(--text-3)}
 .tag.cur{background:var(--brand-soft);color:var(--brand-text);border:1px dashed var(--brand)}
+.node:focus-visible .chip{stroke:var(--brand);stroke-width:2.2px;stroke-dasharray:none}
 /* 状态日期只报时间事实；是否需要复习由教练结合近期证据判断。 */
 .tag.age{background:var(--fill-1);color:var(--text-3)}
 
@@ -796,17 +798,27 @@ const byId = (id) => N.get(id);
 // 但 verified 仍留在下面的 LABEL / COLOR 里 —— 那是**显示**用的：
 // 节点可能真的过检测了，图上要认得出来。
 const CYCLE = ["none", "studying", "learned"];
-const STATUS_LABEL = { none: "未学", studying: "在学", learned: "学过", verified: "已验证" };
+// proven 不是手标状态；面板按钮把它当「学过」继续循环，避免 indexOf=-1 跳到随机状态。
+const cycleStatusOf = (s) => CYCLE.includes(s) ? s : "learned";
+// proven 是证据状态，不能靠页面按钮循环成 verified；按钮只显示「免修」。
+const cycleNext = (s) => s === "proven" ? "" : CYCLE[(CYCLE.indexOf(cycleStatusOf(s)) + 1) % CYCLE.length];
+const STATUS_LABEL = { none: "未学", studying: "在学", learned: "学过", proven: "已证明", verified: "已验证" };
 // [浅色, 深色] 两套 —— 和 VP 那边的双轨 token 一个道理，暗色下要提亮才看得清
 const STATUS_COLOR = {
   none:     ["#9fb2c8", "#3d5470"],
   studying: ["#d97706", "#ffa726"],
   learned:  ["#2b7fe0", "#5aa9f0"],
+  proven:   ["#0e7490", "#22d3ee"],
   verified: ["#16a24a", "#3fd968"],
 };
 let progress = { cursor: "", nodes: {} };
 let progressError = "";
-const statusOf = (id) => progress.nodes?.[id]?.status ?? "none";
+const statusOf = (id) => {
+  const rec = progress.nodes?.[id];
+  // proven 用独立标记保存，页面状态栏要认得它；verified 优先。
+  if (rec?.proven === true && rec.status !== "verified") return "proven";
+  return rec?.status ?? "none";
+};
 
 // ── 重点（tier）──────────────────────────────────────────────
 // 回答的是另一个问题：地图只说「谁是谁的前置」——**允许**学什么；
@@ -1003,7 +1015,11 @@ for (const n of NODES) {
   }
 }
 for (const n of NODES) {
-  const g = el("g", { class: "node", "data-id": n.id });
+  const g = el("g", { class: "node", "data-id": n.id, tabindex: "0", role: "button" });
+  g.setAttribute("aria-label", `知识点：${n.name}；状态：${STATUS_LABEL[statusOf(n.id)]}`);
+  g.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.id, true); }
+  });
   g.appendChild(el("rect", { class: "chip", x: n.x, y: n.y, width: n.w, height: n.h, rx: 9 }));
   g.appendChild(el("circle", { class: "ndot", cx: n.x + 15, cy: n.y + n.h / 2, r: 4.6 }));
   const t = el("text", { x: n.x + 27, y: n.y + n.h / 2 + .5 });
@@ -1113,7 +1129,11 @@ function visible(n) {
 
 function apply() {
   const shown = new Set(NODES.filter(visible).map(n => n.id));
-  for (const n of NODES) nodeEls.get(n.id).classList.toggle("hide", !shown.has(n.id));
+  for (const n of NODES) {
+    const g = nodeEls.get(n.id);
+    g.classList.toggle("hide", !shown.has(n.id));
+    g.setAttribute("aria-label", `知识点：${n.name}；状态：${STATUS_LABEL[statusOf(n.id)]}`);
+  }
   for (const n of NODES) nodeEls.get(n.id).style.display = shown.has(n.id) ? "" : "none";
   for (const p of edgeEls) {
     p.dataset.ok = (shown.has(p.dataset.a) && shown.has(p.dataset.b)) ? "1" : "0";
@@ -1241,7 +1261,7 @@ function panel(id) {
       <div class="chips">${n.suc.length ? n.suc.map(x => chip(x)).join("") : '<span class="none">无 —— 它是叶子</span>'}</div></div>
     <div class="acts">
       <button class="btn primary" id="mark" data-on="${s === "verified" ? 1 : 0}">
-        ${ico("check", 15)}${STATUS_LABEL[s]} → ${STATUS_LABEL[CYCLE[(CYCLE.indexOf(s) + 1) % CYCLE.length]]}</button>
+        ${ico("check", 15)}${s === "proven" ? `${STATUS_LABEL[s]}（免修）` : `${STATUS_LABEL[s]} → ${STATUS_LABEL[cycleNext(s)]}`}</button>
       <button class="btn" id="cur" data-on="${isCursor ? 1 : 0}">
         ${isCursor ? "▶ 就是当前游标" : "设为游标"}</button>
       <button class="btn" id="close">关闭</button>
@@ -1254,7 +1274,8 @@ function panel(id) {
   // 点一下**前进一级**，绕完一圈回未学。
   // 按钮上直接写出「当前 → 下一个」，省得靠记忆猜点几下到哪。
   p.querySelector("#mark").onclick = () => {
-    const next = CYCLE[(CYCLE.indexOf(statusOf(id)) + 1) % CYCLE.length];
+    const next = cycleNext(statusOf(id));
+    if (!next) return;
     setStatus(id, next);
   };
   p.querySelector("#cur").onclick = () => setCursor(id);
