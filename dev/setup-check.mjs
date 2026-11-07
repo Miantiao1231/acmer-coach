@@ -137,6 +137,18 @@ console.log('\n── 7. 记录导入（洛谷/牛客走这条；CF 有公开接
     vs.every((r) => ['AC', 'Other'].includes(r.verdict)), vs.map((r) => r.verdict).join(','))
   db.close()
 
+  const lower = await ic({ records: [{ platform: 'luogu', problem_id: 'p1012', verdict: '6',
+    submitted_at: '2026-09-01T12:00:00+08:00' }] })
+  check('洛谷题号大小写归一', lower.ok === true && lower.inserted === 1, JSON.stringify(lower))
+  const dupe = await ic({ records: [
+    { platform: 'luogu', problem_id: 'P1013', verdict: '6', submitted_at: '2026-09-01T13:00:00+08:00' },
+    { platform: 'luogu', problem_id: 'P1013', verdict: '6', submitted_at: '2026-09-01T13:00:00+08:00' },
+  ] })
+  check('同一提交时间+结果不重复落库', dupe.inserted === 1, JSON.stringify(dupe))
+  const badTime = await ic({ records: [{ platform: 'luogu', problem_id: 'P1005', verdict: '6',
+    submitted_at: '2026-13-40T13:00:00+08:00' }] })
+  check('坏时间戳被跳过而不是写成 now', badTime.inserted === 0 && badTime.skipped === 1, JSON.stringify(badTime))
+
   // 牛客：NC 前缀要剥（插件里 normId 就是这么认的）
   const r2 = await ic({ records: [{ platform: 'nowcoder', problem_id: 'NC204457', verdict: 'AC' }] })
   check('牛客 NC 前缀被剥掉', r2.inserted === 1, `inserted=${r2.inserted}`)

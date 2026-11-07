@@ -164,3 +164,16 @@ test('a skipped submission is shown but is not called a failed attempt', async (
     assert.equal(result.unresolved, 1)
   })
 })
+
+test('an AC just after midnight UTC belongs to the next local training day', async () => {
+  await withDatabase([
+    // 2026-10-28T16:30Z = 2026-10-29 00:30 Asia/Shanghai
+    [1, 1, 'codeforces', '1067A', 'AC', '2026-10-28T16:30:00Z', 3001],
+  ], async dbPath => {
+    assert.equal(suggestAcAnchor({ dbPath, trainerHandle: 'Mianiii', platform: 'codeforces',
+      problemId: '1067A', date: '2026-10-28' }).status, 'none')
+    assert.deepEqual(suggestAcAnchor({ dbPath, trainerHandle: 'Mianiii', platform: 'codeforces',
+      problemId: '1067A', date: '2026-10-29' }),
+    { status: 'candidate', submissionId: '3001', submittedAt: '2026-10-28T16:30:00Z' })
+  })
+})

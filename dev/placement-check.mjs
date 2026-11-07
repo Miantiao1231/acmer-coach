@@ -23,7 +23,8 @@ async function fixture(run) {
     db.prepare('INSERT INTO users VALUES (1, ?, ?, 1500)').run('tester', 'tester')
     db.prepare('INSERT INTO rating_history VALUES (1, ?, 1500)').run('codeforces')
     for (const [id, title, difficulty] of [['100A', 'P1', 800], ['100B', 'P2', 1200], ['100C', 'P3', 1800],
-      ['100D', 'P4', 850], ['100E', 'P5', 1250], ['100F', 'P6', 1850]]) {
+      ['100D', 'P4', 850], ['100E', 'P5', 1250], ['100F', 'P6', 1850],
+      ['100G', 'P7', 800], ['100H', 'P8', 800], ['100I', 'P9', 800]]) {
       db.prepare('INSERT INTO unified_problems VALUES (?,?,?,?,?,?)').run('codeforces', id, title, difficulty, 'testtag', '')
     }
     db.close()
@@ -84,6 +85,19 @@ test('placement mode opens without teaching but does not produce verified or a t
   })
 })
 
+
+test('a pool paper with three same-rating problems is rejected instead of faking bands', async () => {
+  await fixture(async ({ call }) => {
+    const sameRating = [
+      { platform: 'codeforces', problemId: '100G', band: '易', verified },
+      { platform: 'codeforces', problemId: '100H', band: '中', verified },
+      { platform: 'codeforces', problemId: '100I', band: '难', verified },
+    ]
+    const result = await call('coach_test', { node: 'A', mode: 'placement', problems: sameRating })
+    assert.equal(result.ok, false)
+    assert.match(result.reject, /难度没有拉开|换题/)
+  })
+})
 
 test('two different placement papers passed independently become proven, not verified', async () => {
   await fixture(async ({ call }) => {
