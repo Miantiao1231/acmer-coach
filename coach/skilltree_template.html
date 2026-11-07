@@ -838,7 +838,7 @@ function showStatus() {
   setNote(
     `<b>学习进度会同步给小鲸</b>（点节点标记：未学 → 在学 → 学过）。<br>` +
     `「已验证」手标不了 —— 它只能由检测产生。<br>` +
-    `游标 <code>${progress.cursor || "（未设）"}</code>　` +
+    `游标 <code>${esc(progress.cursor || "（未设）")}</code>　` +
     `已验证 ${k("verified")} · 学过 ${k("learned")} · 在学 ${k("studying")}`
   );
 }
@@ -1169,22 +1169,22 @@ function histSection(n) {
   if (checks.length) {
     out.push(`<div class="sec"><h3>检测记录（${checks.length} 次）</h3><div class="hist">`
       + checks.slice(-4).reverse().map((c) =>
-        `<div class="hrow"><b class="ho-${c.outcome}">${OUTCOME[c.outcome] ?? c.outcome}</b>`
-        + `<span class="hd">${c.date ?? ""}</span>`
+        `<div class="hrow"><b class="ho-${esc(c.outcome)}">${esc(OUTCOME[c.outcome] ?? c.outcome)}</b>`
+        + `<span class="hd">${esc(c.date ?? "")}</span>`
         + `<span class="hs">${c.score ?? "?"}/${c.maxScore ?? "?"} 分 · ${c.minutes ?? "?"}/${c.limit ?? "?"} 分钟</span>`
-        + (c.verifiedAt ? `<span class="he">验证于 ≈${c.verifiedAt}</span>` : "")
+        + (c.verifiedAt ? `<span class="he">验证于 ≈${esc(c.verifiedAt)}</span>` : "")
         + `</div>`).join("")
       + `</div></div>`);
   }
   if (diags.length) {
     const byCat = {};
     for (const d of diags) byCat[d.category] = (byCat[d.category] || 0) + 1;
-    const tally = Object.entries(byCat).map(([k, v]) => `${k}×${v}`).join(" · ");
+    const tally = Object.entries(byCat).map(([k, v]) => `${esc(k)}×${v}`).join(" · ");
     out.push(`<div class="sec"><h3>判因记录（${diags.length} 次　${tally}）</h3><div class="hist">`
       + diags.slice(-3).reverse().map((d) =>
-        `<div class="hrow"><b class="hc">${d.category ?? ""}</b>`
-        + `<span class="hd">${d.date ?? ""}</span>`
-        + `<span class="hs" title="${(d.summary ?? "").replace(/"/g, "&quot;")}">${d.summary ?? ""}</span>`
+        `<div class="hrow"><b class="hc">${esc(d.category ?? "")}</b>`
+        + `<span class="hd">${esc(d.date ?? "")}</span>`
+        + `<span class="hs" title="${esc(d.summary ?? "")}">${esc(d.summary ?? "")}</span>`
         + `</div>`).join("")
       + `</div></div>`);
   }
@@ -1210,7 +1210,7 @@ function ageTag(rec) {
   const days = daysSince(rec && rec.at);
   if (days === null) return "";
   const label = days <= 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`;
-  return `<span class="tag age" title="${rec.at} 变成这个状态">`
+  return `<span class="tag age" title="${esc(rec.at)} 变成这个状态">`
     + label + `</span>`;
 }
 
@@ -1220,17 +1220,17 @@ function panel(id) {
   p.hidden = false;
   const s = statusOf(id);
   const isCursor = progress.cursor === id;
-  const chip = (x, cls = "") => `<button class="chip ${cls}" data-go="${x}">${x}</button>`;
+  const chip = (x, cls = "") => `<button class="chip ${esc(cls)}" data-go="${esc(x)}">${esc(x)}</button>`;
   p.innerHTML = `
-    <h2 class="ttl">${n.name}</h2>
+    <h2 class="ttl">${esc(n.name)}</h2>
     <div class="tags">
-      <span class="tag dom">${n.domain}</span>
+      <span class="tag dom">${esc(n.domain)}</span>
       <span class="tag st" data-st="${s}">${STATUS_LABEL[s]}</span>
       ${ageTag(progress.nodes?.[id])}
       ${isCursor ? '<span class="tag cur">▶ 当前游标</span>' : ''}
-      ${n.tier ? `<span class="tag" title="赛场重不重要">${TIER_LABEL[n.tier] ?? n.tier}</span>` : ''}
+      ${n.tier ? `<span class="tag" title="赛场重不重要">${esc(TIER_LABEL[n.tier] ?? n.tier)}</span>` : ''}
       ${n.role === 'integrated' ? '<span class="tag" title="在具体题型里教、练和检验，不单独开章节卷">随题融合</span>' : ''}
-      ${n.entry ? `<span class="tag" title="题池难度的 p25 —— 什么水平开始学得起">≈${n.entry}</span>` : ''}
+      ${n.entry ? `<span class="tag" title="题池难度的 p25 —— 什么水平开始学得起">≈${esc(n.entry)}</span>` : ''}
       <span class="tag">L${n.depth}</span>
       <span class="tag">${n.pre.length} 前置 · ${n.suc.length} 后继</span>
     </div>

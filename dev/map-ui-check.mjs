@@ -6,7 +6,7 @@ const template = readFileSync(new URL('../coach/skilltree_template.html', import
 const boot = template.match(/<script>([\s\S]*?)<\/script>/)[1]
 test('an old status date stays a neutral fact instead of prescribing review', () => {
   const source = template.slice(template.indexOf('function daysSince('), template.indexOf('function panel('))
-  const age = vm.runInNewContext(`${source}\nageTag({ at: '2000-01-01' })`)
+  const age = vm.runInNewContext(`${source}\nageTag({ at: '2000-01-01' })`, { esc: value => String(value ?? '') })
   assert.doesNotMatch(age, /该复习了|age-warm|age-stale/)
   assert.doesNotMatch(template, /\.tag\.age-stale/)
 })
