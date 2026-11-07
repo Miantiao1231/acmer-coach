@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createVpClient } from '../lib/vp-client.js'
@@ -55,4 +55,22 @@ try {
   console.log('VP CLIENT ALL PASSED')
 } finally {
   rmSync(root, { recursive: true, force: true })
+}
+
+// 注册表损坏/坏 baseUrl 不能让插件启动失败；按未连接处理。
+{
+  const dir = mkdtempSync(join(tmpdir(), 'acmer-coach-vp-corrupt-'))
+  try {
+    writeFileSync(join(dir, 'VP_ACCOUNTS.json'), '{"version":1,"activeAccountId":1,"accounts":{"1":{"account":{"id":1')
+    const broken = createVpClient({ dataDir: dir, fetchImpl })
+    assert.equal(broken.localStatus().connected, false, 'truncated registry is disconnected')
+    writeFileSync(join(dir, 'VP_ACCOUNTS.json'), JSON.stringify({ version: 1, activeAccountId: 1,
+      accounts: { 1: { account: { id: 1, handle: 'A' }, baseUrl: 'not a url' } } }))
+    const badUrl = createVpClient({ dataDir: dir, fetchImpl })
+    assert.equal(badUrl.localStatus().connected, false, 'invalid baseUrl is disconnected')
+    writeFileSync(join(dir, 'VP_ACCOUNTS.json'), JSON.stringify({ version: 1, activeAccountId: 0,
+      accounts: { 0: { account: { id: 0, handle: 'zero' }, baseUrl: 'https://vp/' } } }))
+    const badId = createVpClient({ dataDir: dir, fetchImpl })
+    assert.equal(badId.localStatus().connected, false, 'account id 0 is rejected')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 }

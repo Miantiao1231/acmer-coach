@@ -37,6 +37,20 @@ test('failed replacement preserves progress and schedule', () => {
   } finally { fs.renameSync = rename; fs.copyFileSync = copy; syncBuiltinESMExports() }
 })
 
+test('a corrupt JSON store is not silently reset by a write', async () => {
+  const { updateJsonFile, readJsonFile } = await import('../lib/json-store.js')
+  const store = join(dir, 'tasks.json')
+  writeFileSync(store, '{"version":1,"tasks":[{"id":"keep"}')
+  const before = readFileSync(store, 'utf8')
+  const result = updateJsonFile(dir, 'tasks.json', (current) => ({
+    version: 1, tasks: [...(current?.tasks ?? []), { id: 'new' }],
+  }))
+  assert.equal(result.ok, false, 'a corrupt store must not be overwritten')
+  assert.match(String(result.error), /JSON|Unexpected|position/i)
+  assert.equal(readFileSync(store, 'utf8'), before, 'the corrupt file is preserved for recovery')
+  assert.equal(readJsonFile(dir, 'missing.json'), null, 'missing files still read as null')
+})
+
 test.after(() => {
   if (previous.data === undefined) delete process.env.COACH_DATA_DIR
   else process.env.COACH_DATA_DIR = previous.data
