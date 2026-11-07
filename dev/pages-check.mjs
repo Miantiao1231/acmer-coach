@@ -6,6 +6,21 @@ import { tmpdir } from 'node:os'
 import vm from 'node:vm'
 import { emptyPerson, savePerson } from '../lib/person.js'
 
+test('diagnosis history escapes model text before it reaches innerHTML', () => {
+  const html = readFileSync(new URL('../assets/knowledge/skilltree.html', import.meta.url), 'utf8')
+  const escSource = html.slice(html.indexOf('const esc ='), html.indexOf('function mdInline'))
+  const histSource = html.slice(html.indexOf('function histSection'), html.indexOf('function daysSince'))
+  const sandbox = { progress: { nodes: { A: { diagnoses: [{
+    category: '<b>不会</b>', date: '<i>2026-01-01</i>', summary: '<img src=x onerror=alert(1)>',
+  }] } } } }
+  vm.createContext(sandbox)
+  vm.runInContext(`${escSource}\n${histSource}`, sandbox)
+  const out = sandbox.histSection({ id: 'A' })
+  assert.doesNotMatch(out, /<img|<b>|<i>/)
+  assert.match(out, /&lt;img/)
+  assert.match(out, /&lt;b&gt;/)
+})
+
 test('person page separates expired or undated context from current state and dates the last reflection', () => {
   const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
   const source = html.slice(html.indexOf('function renderStatus()'), html.indexOf('function toLocalInput('))
