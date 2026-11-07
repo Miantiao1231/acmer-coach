@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  busyBoundary, busyGateDecision, evaluateBusyGate, loadBusyGateState, MAX_BACKLOG,
+  busyBoundary, busyGateDecision, evaluateBusyGate, loadBusyGateState, mergeBusyGateState, MAX_BACKLOG,
 } from '../lib/busy-gate.js'
 import { closingKind, closingDecision, adaptiveDebounceMs } from '../lib/closing.js'
 import { sanitizeSleepSettings } from '../lib/sleep-settings.js'
@@ -65,6 +65,20 @@ test('held messages come back once, right after the busy window', () => {
     const again = evaluateBusyGate(t.dir, { text: '嗯', now: at('2026-11-02T15:06:00'), presence: { mode: 'normal' }, settings: SETTINGS })
     assert.deepEqual(again.backlog, [])
   } finally { t.done() }
+})
+
+test('merging a stale snapshot keeps the newer busy window and dedupes backlog', () => {
+  const merged = mergeBusyGateState({
+    version: 1, busyUntil: '2026-11-02T15:00:00.000Z', recoveryUntil: '2026-11-02T15:10:00.000Z',
+    backlog: [{ at: '2026-11-02T14:10:00.000Z', text: '第一句', reason: 'busy' }],
+  }, {
+    version: 1, busyUntil: '2026-11-02T14:30:00.000Z', recoveryUntil: '2026-11-02T14:40:00.000Z',
+    backlog: [{ at: '2026-11-02T14:10:00.000Z', text: '第一句', reason: 'busy' },
+      { at: '2026-11-02T14:20:00.000Z', text: '第二句', reason: 'busy' }],
+  })
+  assert.equal(merged.busyUntil, '2026-11-02T15:00:00.000Z', 'the later busy window wins')
+  assert.equal(merged.recoveryUntil, '2026-11-02T15:10:00.000Z')
+  assert.deepEqual(merged.backlog.map((item) => item.text), ['第一句', '第二句'])
 })
 
 test('the busy backlog is bounded', () => {
