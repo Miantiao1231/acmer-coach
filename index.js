@@ -1925,7 +1925,9 @@ function registerPages(ctx, { proactiveWorker = null } = {}) {
     }
 
     if (pathname.startsWith('/coach/api/person/archives/') && req.method === 'GET') {
-      const name = decodeURIComponent(pathname.slice('/coach/api/person/archives/'.length))
+      let name
+      try { name = decodeURIComponent(pathname.slice('/coach/api/person/archives/'.length)) }
+      catch { return sendJson(res, 400, { ok: false, reject: '归档名编码不合法。' }) }
       const text = readEventArchive(DATA_DIR, name)
       if (text === null) return sendJson(res, 404, { ok: false, reject: '归档不存在。' })
       return send(res, 200, 'application/x-ndjson; charset=utf-8', text, {
@@ -3739,6 +3741,8 @@ function apply(ctx) {
     },
     async execute() {
       const files = PROBE_FILES.map(probe)
+      let reachable = false
+      try { reachable = statSync(DATA_DIR).isDirectory() } catch { /* 未初始化或不可读 */ }
       return {
         ok: files.every((f) => f.status === 'ok'),
         name,
@@ -3748,7 +3752,7 @@ function apply(ctx) {
         stateInjectedAt: health.stateAt,
         lastError: health.lastError,
         dataDir: DATA_DIR,
-        dataDirReachable: files.some((f) => f.status === 'ok'),
+        dataDirReachable: reachable,
         files,
         node: process.version,
       }

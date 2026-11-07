@@ -40,5 +40,15 @@
       "platform": "web"
     }
   },
-  "license": "MIT"
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "lib/",
+    "assets/",
+    "coach/skilltree_template.html",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ]
 }
