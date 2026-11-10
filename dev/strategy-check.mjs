@@ -345,7 +345,8 @@ test('target route reports alignment without rejecting the coach choice', () => 
 })
 
 test('VP problem competencies count as evidence before a postmortem exists', () => {
-  const { dir, store } = fixture()
+  // 证据窗口按「近30天」取；夹具日期固定，就必须像邻近用例一样注入 now，否则跨月后自然过期。
+  const { dir, store } = fixture({ now: () => new Date('2026-10-11T12:00:00Z') })
   try {
     store.target('set', {
       expectedRevision: 0, contest: '西安区域赛', date: '2026-10-18', result: '区域赛金牌',
