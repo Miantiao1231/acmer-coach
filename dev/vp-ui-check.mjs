@@ -149,6 +149,61 @@ test('status request failure has a visible error rather than a permanent checkin
   assert.match(p.nodes.contests.innerHTML, /暂时无法读取比赛/)
 })
 
+test('an expired coach token switches the page to re-authorize instead of listing the raw 401', async () => {
+  const p = page()
+  p.context.fetch = async path => path === './api/vp/status'
+    ? { ok: true, json: async () => ({ ok: true, connected: true, activeAccountId: 6, account: { id: 6, handle: 'Mianiii', display_name: 'Mianiii' } }) }
+    : { ok: false, status: 401, json: async () => ({ ok: false, authExpired: true, reject: 'VP 401: coach token 已失效', contests: [] }) }
+  assert.equal(await p.context.loadStatus(), true)
+  assert.equal(p.nodes.connectCard.hidden, true)
+  await p.context.loadContests()
+  assert.equal(p.nodes.connectCard.hidden, false, '失效后必须给出重新授权入口')
+  assert.equal(p.nodes.workspace.hidden, true)
+  assert.equal(p.nodes.accountName.textContent, 'Mianiii', '失效时仍要认出是谁的账号')
+  assert.match(p.nodes.accountNote.textContent, /连接已失效/)
+  assert.match(p.nodes.status.innerHTML, /连接已失效/)
+  assert.match(p.nodes.contests.innerHTML, /重新登录授权/)
+  assert.doesNotMatch(p.nodes.contests.innerHTML, /VP 401/, '不能把原始 401 文案当比赛列表内容')
+  assert.match(p.nodes.message.textContent, /VP 连接已失效/)
+  assert.equal(p.nodes.message.style.color, 'var(--wa-text)')
+  assert.equal(p.nodes.connectTitle.textContent, '重新连接你的 VP 账号')
+})
+
+test('non-auth contest failure keeps its readable error without claiming the account expired', async () => {
+  const p = page()
+  p.context.fetch = async path => path === './api/vp/status'
+    ? { ok: true, json: async () => ({ connected: true, activeAccountId: 6, account: { id: 6, handle: 'Mianiii', display_name: 'Mianiii' } }) }
+    : { ok: false, status: 503, json: async () => ({ ok: false, reject: 'VP 503: temporary mock failure', contests: [] }) }
+  await p.context.loadStatus()
+  await p.context.loadContests()
+  assert.equal(p.nodes.connectCard.hidden, true, '网络/5xx 不应被当成授权失效')
+  assert.match(p.nodes.contests.innerHTML, /VP 503/)
+  assert.match(p.nodes.accountNote.textContent, /只读连接/)
+})
+
+test('re-authorizing after an expired token restores the connected contest list', async () => {
+  const p = page()
+  let expired = true
+  const contests = [{ id: 7, title: 'VP 7', status: 'ended' }]
+  p.context.fetch = async path => {
+    if (path === './api/vp/status') return { ok: true, json: async () => ({ connected: true, activeAccountId: 6, account: { id: 6, handle: 'Mianiii', display_name: 'Mianiii' } }) }
+    if (path === './api/vp/contests') return expired
+      ? { ok: false, status: 401, json: async () => ({ ok: false, authExpired: true, reject: 'VP 401: coach token 已失效', contests: [] }) }
+      : { ok: true, json: async () => ({ ok: true, account: { id: 6, handle: 'Mianiii', display_name: 'Mianiii' }, contests }) }
+    if (path === './api/vp/connect') return { ok: true, json: async () => ({ ok: true }) }
+    throw Error(`unexpected ${path}`)
+  }
+  await p.context.loadStatus()
+  await p.context.loadContests()
+  assert.equal(p.nodes.connectCard.hidden, false)
+  expired = false
+  await p.nodes.finish.onclick()
+  assert.equal(p.nodes.connectCard.hidden, true)
+  assert.equal(p.nodes.workspace.hidden, false)
+  assert.match(p.nodes.contests.innerHTML, /VP 7/)
+  assert.match(p.nodes.accountNote.textContent, /只读连接/)
+})
+
 test('switching contests shows loading and ignores the older replay response', async () => {
   const p = page()
   await p.context.loadStatus()

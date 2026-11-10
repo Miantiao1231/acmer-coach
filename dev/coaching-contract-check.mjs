@@ -191,10 +191,14 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     assert.ok((await call('coach_target', { action: 'profiles' })).availableProfiles.length)
     const missing = await call('coach_postmortem', { eventId: 'unknown', findings: [] })
     assert.equal(missing.ok, false)
+    // 这个用例断言「近30天」窗口内的证据；日期必须相对今天取，否则过一个月夹具自己就过期了。
+    const now = new Date()
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const focusUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const target = await call('coach_target', { action: 'set', expectedRevision: 0, contest: '样本训练', date: '2026-10-17', result: '稳定发挥', weeklyHours: 25, profileId: 'regional-diagnostic',
       priorities: [{ id: 'graph-modeling', weight: 10 }] })
     assert.equal(target.ok, true, target.reject)
-    await call('coach_vp_import', { events: [{ eventId: 'vp-contract', contest: 'VP', date: '2026-10-10', problems: [{ problemId: 'A', status: 'WA' }] }] })
+    await call('coach_vp_import', { events: [{ eventId: 'vp-contract', contest: 'VP', date, problems: [{ problemId: 'A', status: 'WA' }] }] })
     const facts = await call('coach_curriculum', { action: 'assess' })
     const fact = facts.evidence.find(entry => entry.source === 'vp')
     assert.ok(fact)
@@ -204,13 +208,13 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     const focus = await call('coach_focus', {})
     assert.equal(focus.focus[0].gapCount, 1)
     assert.match(focus.text, /已确认|确认短板/)
-    const measurementImport = await call('coach_vp_import', { events: [{ eventId: 'measured-contract', contest: 'VP', date: '2026-10-10',
+    const measurementImport = await call('coach_vp_import', { events: [{ eventId: 'measured-contract', contest: 'VP', date,
       problems: [{ problemId: 'A', status: 'AC' }], measurements: [{ competency: 'contest-reading', metric: 'missed-reading', value: 0, passed: true, independent: true }] }] })
     assert.equal(measurementImport.ok, true, measurementImport.reject)
     const measured = await call('coach_curriculum', { action: 'assess', evidenceEventIds: ['measured-contract'] })
     assert.equal(measured.evidence.find(entry => entry.metric === 'missed-reading')?.value, 0)
     const gap = (await call('coach_curriculum', { action: 'assess', evidenceEventIds: ['vp-contract'] })).evidence.find(entry => entry.signal === 'gap')
-    const created = await call('coach_curriculum', { action: 'create', expectedRevision: 0, goal: '区域赛稳定建图', reason: '针对已经确认的建图错误，用两场零错误指标验收', focusUntil: '2026-11-04', phases: [{
+    const created = await call('coach_curriculum', { action: 'create', expectedRevision: 0, goal: '区域赛稳定建图', reason: '针对已经确认的建图错误，用两场零错误指标验收', focusUntil, phases: [{
       id: 'graph-measured', title: '稳定建图', kind: 'training', finding: 'gap', nodes: [], competencies: ['graph-modeling'],
       outcome: '两场不同的VP都能独立正确建模', exitCriteria: '两场独立验收无建模错误',
       basis: '对照题面和代码已确认建图方向错误', goalContribution: '减少区域赛建模题错误提交', priorityReason: '现有事实显示建模方向错误需要先修', estimatedHours: 5,
@@ -218,10 +222,8 @@ test('registered coaching tools expose cited findings, sourced teaching and comp
     }] })
     assert.equal(created.ok, true, created.reject)
     const weeklyFocus = await call('coach_focus', {})
-    assert.equal(weeklyFocus.course.focusUntil, '2026-11-04')
+    assert.equal(weeklyFocus.course.focusUntil, focusUntil)
     assert.match(weeklyFocus.text, /45场区域赛.*38场.*6场/)
-    const now = new Date()
-    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     for (let i = 0; i < 2; i++) {
       assert.equal((await call('coach_vp_import', { events: [{ eventId: `metric-exit-${i}`, contest: 'VP', date, problems: [{ problemId: 'B', status: 'AC' }],
         measurements: [{ competency: 'graph-modeling', metric: 'model-errors', value: 0, passed: true, independent: true, occurredAt: new Date().toISOString() }] }] })).ok, true)

@@ -27,13 +27,20 @@ async function fixture() {
   const previous = { data: process.env.COACH_DATA_DIR, db: process.env.COACH_DB, fetch: globalThis.fetch }
   const account = { id: 1, handle: 'mock-account', display_name: 'Mock account' }
   const counters = { page: 0 }
+  const state = { expired: false }
   writeFileSync(join(dir, 'MAP.yaml'), 'meta: {version: 1}\nnodes: []\n')
   process.env.COACH_DATA_DIR = dir
   process.env.COACH_DB = join(dir, 'unused.db')
   globalThis.fetch = async url => {
     const parsed = new URL(url)
     if (parsed.pathname === '/api/coach/auth/exchange') return json({ access_token: 'test-token', user: account })
+    // 授权失效：服务端对已失效 coach token 统一回 401。
+    if (state.expired && !parsed.pathname.startsWith('/api/coach/auth/')) {
+      return { ok: false, status: 401, json: async () => ({ detail: 'coach token 已失效' }) }
+    }
     if (parsed.pathname === '/api/coach/me') return json({ user: account, read_only: true })
+    if (parsed.pathname === '/api/coach/contests') return json({ account, contests: [{ id: 7, title: 'Mock VP', start_time: '2026-10-10T00:00:00Z', duration_min: 300 }] })
+    if (parsed.pathname === '/api/coach/replay/7') return json({ account, contest: { id: 7, title: 'Mock VP' }, problems: [], visualization: { team_events: [] } })
     if (parsed.pathname !== '/api/coach/sync') throw new Error(`unexpected mock route ${parsed.pathname}`)
     const page = ++counters.page
     const cursor = Number(parsed.searchParams.get('submission_cursor') || 0)
@@ -70,6 +77,18 @@ async function fixture() {
     await handler(req, res)
     return { status: res.status, body: JSON.parse(String(res.body)) }
   }
+  const get = async (url) => {
+    const res = { status: undefined, headers: {}, body: undefined,
+      writeHead(status, headers) { this.status = status; this.headers = headers },
+      end(body) { this.body = body } }
+    const req = {
+      url, method: 'GET',
+      headers: { host: 'localhost' }, socket: { remoteAddress: '127.0.0.1' },
+      async *[Symbol.asyncIterator]() {},
+    }
+    await handler(req, res)
+    return { status: res.status, body: JSON.parse(String(res.body)) }
+  }
   const call = async (name, args = {}) => {
     const tool = registered.get(name)
     assert.ok(tool, `missing tool ${name}`)
@@ -85,7 +104,7 @@ async function fixture() {
     }
     rmSync(dir, { recursive: true, force: true })
   }
-  return { dir, post, call, cleanup, counters }
+  return { dir, post, get, call, cleanup, counters, state }
 }
 
 function json(value) { return { ok: true, json: async () => value } }
@@ -144,5 +163,38 @@ test('coach_vp_sync returns a bounded summary instead of the accumulated cache',
     assert.equal(second.summary[0].solved, 2)
     assert.equal(second.summary[0].problems, 2)
     assert.match(second.text, /按需/)
+  } finally { f.cleanup() }
+})
+
+test('an expired coach token becomes a re-authorize signal in the page routes and the tools', async () => {
+  const f = await fixture()
+  try {
+    assert.equal((await f.post({ op: 'finish', code: 'test-code' })).status, 200)
+    f.state.expired = true
+
+    // 页面拿 authExpired 分支切「重新授权」；HTTP 层保留服务端原始信息供排查。
+    const pageContests = await f.get('/coach/api/vp/contests')
+    assert.equal(pageContests.status, 401)
+    assert.equal(pageContests.body.authExpired, true)
+    assert.match(pageContests.body.reject, /VP 401/)
+    const pageReplay = await f.get('/coach/api/vp/replay?contestId=7')
+    assert.equal(pageReplay.status, 401)
+    assert.equal(pageReplay.body.authExpired, true)
+    const pageSync = await f.post({ op: 'sync' })
+    assert.equal(pageSync.status, 401)
+    assert.equal(pageSync.body.authExpired, true)
+
+    // 工具层直接给模型可执行的下一步，别让它照搬 401 或建议重试。
+    const status = await f.call('coach_vp_connect', { action: 'status' })
+    assert.equal(status.ok, true)
+    assert.equal(status.connected, false)
+    assert.match(status.text, /连接已失效/)
+    assert.match(status.text, /coach_vp_connect start/)
+    for (const [name, args] of [['coach_vp_contests', {}], ['coach_vp_replay', { contestId: 7 }], ['coach_vp_sync', {}]]) {
+      const failed = await f.call(name, args)
+      assert.equal(failed.ok, false, `${name} must not report success on 401`)
+      assert.match(failed.reject, /重新连接|重新授权/, `${name} must name the re-authorize step`)
+      assert.doesNotMatch(failed.reject, /^VP 401:/, `${name} must not pass the raw 401 through as the only explanation`)
+    }
   } finally { f.cleanup() }
 })
