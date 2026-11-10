@@ -32,7 +32,7 @@ import { initDataDir, syncCodeforces, contactEvidence, importPool, importRecords
 import { createCurriculumStore, curriculumTool } from './lib/curriculum.js'
 import { createStrategyStore } from './lib/strategy.js'
 import { createTeachingNotes, minutesInReport } from './lib/teaching.js'
-import { createVpClient } from './lib/vp-client.js'
+import { createVpClient, isVpAuthExpired } from './lib/vp-client.js'
 import { migratePersonalWorkspace as migrateWorkspacePersonalFiles } from './lib/workspace-migration.js'
 import { upgradeSkilltreeHtml } from './lib/pages.js'
 import { applyHindsight } from './lib/hindsight.js'
@@ -1797,14 +1797,22 @@ function registerPages(ctx, { proactiveWorker = null } = {}) {
 
     if (pathname === '/coach/api/vp/contests' && req.method === 'GET') {
       try { return sendJson(res, 200, { ok: true, ...(await vpClient.contests()) }) }
-      catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err), contests: [] }) }
+      catch (err) {
+        const expired = isVpAuthExpired(err)
+        // authExpired 是给页面的稳定信号：它要据此把「已连接」切到「重新授权」，
+        // 而不是把服务端原始文案当成普通错误挂在比赛列表里。
+        return sendJson(res, expired ? 401 : 400, { ok: false, authExpired: expired, reject: String(err?.message || err), contests: [] })
+      }
     }
 
     if (pathname === '/coach/api/vp/replay' && req.method === 'GET') {
       const id = new URL(req.url ?? '/', 'http://dsh.internal').searchParams.get('contestId')
       if (!id) return sendJson(res, 400, { ok: false, reject: '缺少 contestId' })
       try { return sendJson(res, 200, { ok: true, ...(await vpClient.replay({ contestId: id })) }) }
-      catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err) }) }
+      catch (err) {
+        const expired = isVpAuthExpired(err)
+        return sendJson(res, expired ? 401 : 400, { ok: false, authExpired: expired, reject: String(err?.message || err) })
+      }
     }
 
     if (pathname === '/coach/api/vp/connect' && req.method === 'POST') {
@@ -1832,7 +1840,10 @@ function registerPages(ctx, { proactiveWorker = null } = {}) {
         }
         else return sendJson(res, 400, { ok: false, reject: 'op 只能是 start/finish/disconnect/sync' })
         return sendJson(res, 200, { ok: true, ...result })
-      } catch (err) { return sendJson(res, 400, { ok: false, reject: String(err?.message || err) }) }
+      } catch (err) {
+        const expired = isVpAuthExpired(err)
+        return sendJson(res, expired ? 401 : 400, { ok: false, authExpired: expired, reject: String(err?.message || err) })
+      }
     }
 
     if (pathname === '/coach/skilltree.html') {
@@ -2585,6 +2596,12 @@ const vpAccount = (value) => value && Number(value.id) > 0
   ? { id: Number(value.id), handle: String(value.handle || ''), display_name: String(value.display_name || value.handle || '') }
   : emptyVpAccount()
 
+// VP 的 401 不是普通请求失败：这个 coach token 已经不被接受，重试同一个 token 不会成功，
+// 只能让本人重新授权。页面和工具都按这个分支给「重新连接」的下一步，别各自去 match 服务端文案。
+const vpFailureText = (err) => isVpAuthExpired(err)
+  ? 'VP 连接已失效：coach token 已失效，需要重新连接 VP 账号。请到「VP 回放」页重新登录授权，或调用 coach_vp_connect start 打开授权页、finish 提交一次性 code。'
+  : String(err?.message || err)
+
 function vpEventsFromSync(payload, account) {
   // The platform stores timezone-less timestamps as UTC, not the client machine's local time.
   const instant = value => {
@@ -3058,9 +3075,13 @@ function apply(ctx) {
           requestId: String(result.requestId || ''), authorizeUrl: String(result.authorizeUrl || ''), expiresAt: String(result.expiresAt || ''),
           text: action === 'start' ? `打开授权页登录 VP：${result.authorizeUrl}\n授权后把页面显示的 code 交给 coach_vp_connect finish。` :
             action === 'finish' ? `VP 已连接：${account.handle}（账号 ${account.id}）；VP 缓存按账号隔离，个人课程和进度沿用。` :
-              action === 'disconnect' ? 'VP 已断开；缓存保留，token 已删除。' : (result.connected ? `当前 VP：${account.handle}（账号 ${account.id}）` : '当前没有已连接的 VP 账号。') }
+              action === 'disconnect' ? 'VP 已断开；缓存保留，token 已删除。' :
+                (result.connected ? `当前 VP：${account.handle}（账号 ${account.id}）` :
+                  (result.expired
+                    ? 'VP 连接已失效：coach token 已失效，需要重新连接 VP 账号。用 coach_vp_connect start 打开授权页，finish 提交一次性 code。'
+                    : '当前没有已连接的 VP 账号。')) }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), action, connected: false, activeAccountId: 0, account: emptyVpAccount(), requestId: '', authorizeUrl: '', expiresAt: '', text: '' }
+        return { ok: false, reject: vpFailureText(err), action, connected: false, activeAccountId: 0, account: emptyVpAccount(), requestId: '', authorizeUrl: '', expiresAt: '', text: '' }
       }
     },
   }))
@@ -3102,7 +3123,7 @@ function apply(ctx) {
             ? `VP 本页同步：${account.handle}；本页比赛 ${pageCounts.contests} 场、提交 ${pageCounts.submissions} 条、事件 ${pageCounts.events} 条；缓存累计 ${totals.contests} 场 / ${totals.submissions} 条 / ${totals.events} 条；写入或更新训练记录 ${imported.imported || 0} 场。${hasMore ? '仍有下一页，请继续调用 coach_vp_sync。' : '分页读取完成。'}细节按需查 coach_vp_contests / coach_vp_replay。`
             : `VP 缓存已同步，训练记录导入被拒绝：${imported.reject}` }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), imported: 0, summary: [],
+        return { ok: false, reject: vpFailureText(err), account: emptyVpAccount(), imported: 0, summary: [],
           totals: { contests: 0, submissions: 0, events: 0 }, hasMore: false,
           pageCounts: { contests: 0, submissions: 0, events: 0 }, nextCursor: { submission_id: 0, event_id: 0 }, cachedPath: '', text: '' }
       }
@@ -3126,7 +3147,7 @@ function apply(ctx) {
           ? `当前账号有 ${contests.length} 场 VP：\n${contests.slice(0, 20).map((item, i) => `${i + 1}. ${item.title}（${item.start_time || '日期未知'}，id=${item.id}）`).join('\n')}`
           : '当前账号没有可读取的 VP 比赛。' }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), contests: [], text: '' }
+        return { ok: false, reject: vpFailureText(err), account: emptyVpAccount(), contests: [], text: '' }
       }
     },
   }))
@@ -3147,7 +3168,7 @@ function apply(ctx) {
         return { ok: true, reject: '', account, contest: payload.contest || {}, problems: payload.problems || [], result: payload.result || {}, visualization: payload.visualization || {}, cachedPath: String(payload.cachedPath || ''),
           text: `回放已加载：${payload.contest?.title || args?.contestId}；队伍事件 ${payload.visualization?.team_events?.length || 0} 个，官方 runs ${payload.visualization?.official_run_count || 0} 条。` }
       } catch (err) {
-        return { ok: false, reject: String(err?.message || err), account: emptyVpAccount(), contest: {}, problems: [], result: {}, visualization: {}, cachedPath: '', text: '' }
+        return { ok: false, reject: vpFailureText(err), account: emptyVpAccount(), contest: {}, problems: [], result: {}, visualization: {}, cachedPath: '', text: '' }
       }
     },
   }))
