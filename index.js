@@ -2269,6 +2269,20 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
       // 一次工具调用的往返就多一份一模一样的状态。
       if (step !== 1 || decision.kind !== 'enter') return decision
 
+      // 真人消息把她叫醒了：显式 sleep/nap 要清回 auto。否则页面 pill 和下一轮
+      // 注入会继续说“正在睡”，而被打断的睡眠 episode 还会在宽限期后被后台
+      // 重新标成 active。放在 presenceDelay 之后：叫醒前那点“慢半拍”仍按
+      // 睡着的 presence 算；主动唤醒 / 阅读回合在上面已经提前返回，不受影响。
+      const explicitSleepPresence = ['sleep', 'nap'].includes(person?.presence?.mode)
+      const wokenThisTurn = hasUser && (explicitSleepPresence || ['sleep', 'nap'].includes(presenceNow.mode))
+      if (hasUser && explicitSleepPresence) {
+        // 保存失败不拦对话：注入仍按“被叫醒”处理，下一轮还有机会清。
+        try {
+          person.presence = { mode: 'auto', until: '', since: '', reason: '' }
+          savePerson(DATA_DIR, person)
+        } catch { /* 清 presence 失败不能拦这一轮 */ }
+      }
+
       const p = loadProgress()
       const cursor = String(p.cursor ?? '')
       const pending = p.pending
@@ -2358,8 +2372,9 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
 
       // 身体/心情/作息：让语气和关注点跟着当下状态走。数值只作语气参考，
       // 不改判断、账本和工具参数；下一行把这条边界说给模型。
+      // woken 只在这一处传：这一轮是被真人消息叫醒的，注入里不能说“正在睡”。
       const stateTone = [
-        ...stateToneLines(body, { roleState: companion.roleState, sleepLedger, now }),
+        ...stateToneLines(body, { roleState: companion.roleState, sleepLedger, now, woken: wokenThisTurn }),
         STATE_TONE_HINT,
       ]
 

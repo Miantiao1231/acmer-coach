@@ -12,6 +12,9 @@ import { emptySleepLedger, startSleepEpisode, finishSleepEpisode, interruptSleep
 
 let imports = 0
 
+// presence 是页面、下一轮注入和叫醒判断共用的真相：测试直接读落盘文件，不读内存快照。
+const readPresence = (f) => JSON.parse(readFileSync(f.personPath, 'utf8')).presence
+
 // 和 first-run-check 同一个套路：走公开 apply 入口、抓注入消息，不碰真实数据目录。
 async function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-mood-tone-'))
@@ -40,10 +43,14 @@ async function fixture(t) {
   })
   const agent = { session: {} }
   const statePath = join(dir, 'knowledge', 'companion-state.json')
+  const personPath = join(dir, 'knowledge', 'person.json')
   return {
     dir,
     tools,
+    hooks,
+    agent,
     statePath,
+    personPath,
     // 预置一份状态文件：测试要控制精力/困倦/生活状态，而不依赖真实时钟和历史。
     saveState(body, roleState = null) {
       const payload = { version: 1, lastUserAt: '', body, ...(roleState ? { roleState } : {}) }
@@ -65,6 +72,10 @@ test('sleep state comes from the sleep ledger, never from prose', () => {
   const active = emptySleepLedger(0)
   startSleepEpisode(active, { kind: 'night', baseNeedMinutes: 480, now: new Date('2026-10-30T00:00:00') })
   assert.match(sleepStateNote(active, now), /正在睡/)
+  // 被真人消息叫醒的这一轮：账本还停在 active 也不能说“正在睡”。
+  assert.match(sleepStateNote(active, now, { woken: true }), /被叫醒/)
+  assert.doesNotMatch(sleepStateNote(active, now, { woken: true }), /正在睡/)
+  assert.doesNotMatch(stateToneLines(emptyBody(now), { sleepLedger: active, now, woken: true }).join('\n'), /正在睡/)
 
   const paused = emptySleepLedger(0)
   const started = startSleepEpisode(paused, { kind: 'night', baseNeedMinutes: 480, now: new Date('2026-10-30T05:00:00') })
@@ -150,13 +161,31 @@ test('repeated complaints change the injected tone word, and an apology settles 
   assert.match(settled, /心情：平静/, '道歉后气消了，语气词该回稳')
 })
 
-test('a night sleep interrupted by a message is visible as just-woken, not still asleep', async (t) => {
+test('a real message wakes her: presence returns to auto and later turns stay awake', async (t) => {
   const f = await fixture(t)
   const set = await f.tools.get('companion').execute({ action: 'presence.set', mode: 'sleep' }, { origin: 'human' })
   assert.equal(set.ok, true)
-  const text = await f.step('我回来啦')
-  assert.match(text, /被叫醒/, '刚被消息叫醒要说出来')
-  assert.doesNotMatch(text, /正在睡|正在午休/, '正在聊天时不能声称自己还睡着')
+  assert.equal(readPresence(f).mode, 'sleep', 'presence.set 后先确认她在睡')
+
+  const woken = await f.step('我回来啦')
+  assert.doesNotMatch(woken, /正在睡|正在午休/, '正在聊天时不能声称自己还睡着')
+  assert.match(woken, /被叫醒|刚睡醒|刚午休醒来|还没完全清醒/, '这一轮要说明刚被叫醒')
+  assert.equal(readPresence(f).mode, 'auto', '被真人消息叫醒后 presence 必须回 auto，否则页面和下一轮还会显示睡着')
+
+  // 下一轮不靠这一轮的临时标记：presence 已落盘、sleep-ledger 已结算，仍不能说正在睡。
+  const next = await f.step('刚才说到哪了')
+  assert.doesNotMatch(next, /正在睡|正在午休/)
+  assert.equal(readPresence(f).mode, 'auto')
+})
+
+test('a proactive wake does not clear an explicit sleep presence', async (t) => {
+  const f = await fixture(t)
+  const set = await f.tools.get('companion').execute({ action: 'presence.set', mode: 'sleep' }, { origin: 'human' })
+  assert.equal(set.ok, true)
+  const wake = [{ role: 'user', source: { kind: 'plugin:acmer-coach/proactive' }, content: [{ type: 'text', text: 'fixture wake' }] }]
+  await f.hooks.get('agent/pre-step')({ messages: wake, step: 1, agent: f.agent },
+    async () => ({ kind: 'enter', messages: wake }))
+  assert.equal(readPresence(f).mode, 'sleep', '主动唤醒不是真人消息，不该清掉她自己的睡觉状态')
 })
 
 test('mood is style-only: the injection never turns it into judgment or tool arguments', async (t) => {

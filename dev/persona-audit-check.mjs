@@ -27,7 +27,7 @@ test('audit catches lecture-style scaffolding in teaching replies', () => {
   assert.ok(auditText('希望对你有帮助。').includes('客服腔'))
   assert.ok(auditText('希望以上这些内容能对你有所帮助。').includes('客服腔'))
   assert.ok(auditText('这不是贪心，而是动态规划。').includes('对仗八股'))
-  assert.ok(NUDGE_REASONS.has('讲义腔'), '讲义腔是强信号，应进提醒集合')
+  assert.ok(NUDGE_REASONS.has('讲义腔'), '讲义腔登记为强信号（该集合只用于统计/未来接线，当前不改写对话）')
   assert.ok(!NUDGE_REASONS.has('对仗八股'), '对仗八股只记日志，不据此提醒')
 })
 

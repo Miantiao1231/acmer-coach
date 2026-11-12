@@ -628,3 +628,28 @@ test('pending candidates are surfaced once, not nagged every turn', () => {
   assert.match(line, /别每轮催/)
   assert.doesNotMatch(line, /他问起时再看，不主动念/)
 })
+
+test('question-like quotes never direct-write the role profile', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-person-question-'))
+  try {
+    const quotes = ['你叫外卖的时候，喜欢顺便买杯奶茶吗？', '你怕什么', '你平时喜欢什么', '你喜欢什么样的电影']
+    const tool = createCompanionTool(dir, {
+      verifyEvidence: async quote => quotes.includes(quote)
+        ? { ok: true, studentEvidence: { quote, messageId: 'm-question', seq: 1 } }
+        : { ok: false, reject: 'no quote' },
+    })
+    const cases = [
+      ['likes', '奶茶', quotes[0]],
+      ['quirks', '怕黑', quotes[1]],
+      ['likes', '逛街', quotes[2]],
+      ['dislikes', '苦情片', quotes[3]],
+    ]
+    for (const [field, value, quote] of cases) {
+      const result = await tool.execute({ action: 'profile.set', [field]: [value], evidence: quote })
+      assert.equal(result.ok, true, result.reject)
+      assert.match(result.summary, /待审/, `${quote} 只是在问/打听，必须只提候选`)
+      assert.equal(loadPerson(dir).profile[field].includes(value), false, `${quote} 不能直写进角色档案`)
+    }
+    assert.equal(loadPerson(dir).pending.filter(item => item.kind === 'profile').length, 4)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
