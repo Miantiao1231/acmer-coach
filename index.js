@@ -40,7 +40,7 @@ import { hasNativeTimeContext } from './lib/request-clock.js'
 import { createRequestContext, createPromptGuard } from './lib/request-context.js'
 import { applyCompanion } from './lib/companion.js'
 import { loadCompanionState, saveCompanionState, timeLine, inClassWindow, advanceLife, lifeLine, advanceJournal } from './lib/companion-state.js'
-import { advanceBody } from './lib/body-state.js'
+import { advanceBody, stateToneLines } from './lib/body-state.js'
 import { settleSleep } from './lib/sleep-runtime.js'
 import { loadSleepLedger } from './lib/sleep-ledger.js'
 import { withOperationId } from './lib/tool-operations.js'
@@ -2182,6 +2182,9 @@ function applyPersonaReview(ctx) {
   })
 }
 
+// 身体/心情/作息只影响语气和关注点：说清边界，避免模型拿情绪当判断或每轮播报。
+const STATE_TONE_HINT = '- 上面是你的身体、心情和作息：只影响你此刻的语气、关注点和要不要劝他休息；不改变训练判断、账本事实和工具参数，也不用每轮逐项播报，别为了表现情绪编造事件。'
+
 function registerStateHook(ctx, teaching, proactiveWorker = null) {
   const requestContext = createRequestContext(ctx, 'coach:state', 400)
   const guardPrompt = createPromptGuard(ctx)
@@ -2315,6 +2318,8 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
         presenceSince: rawPresence.since ?? '',
         presenceUntil: rawPresence.until ?? '',
         sleepLedger, workloadScore,
+        // 社交情绪只在这一条真人消息上结算一次；工具体往返和后台 tick 不重复叠加。
+        userText: hasUser ? lastUserText : '',
       })
       // 状态维护挪到 60s 后台 tick（lib/life-tick.js）：那里有完整预算，
       // 不在对话回合里等模型，也不会因为一天没人说话就停更。
@@ -2351,6 +2356,13 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
       // 日常接话只取本地相关线索，跨会话主召回复用 Hindsight。
       const memoryLinesNow = memoryLines(person, now, { lastUserText })
 
+      // 身体/心情/作息：让语气和关注点跟着当下状态走。数值只作语气参考，
+      // 不改判断、账本和工具参数；下一行把这条边界说给模型。
+      const stateTone = [
+        ...stateToneLines(body, { roleState: companion.roleState, sleepLedger, now }),
+        STATE_TONE_HINT,
+      ]
+
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
@@ -2376,13 +2388,14 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
           ...personLinesNow,
           ...memoryLinesNow,
           ...companionLines,
+          ...stateTone,
           REPLY_STYLE,
           '</coach_state>']
       } else {
         const { byId } = loadMap()
         const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
         const node = byId.get(cursor)
-        lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines]
+        lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines, ...stateTone]
         if (studentContextLine) lines.push(studentContextLine)
         if (!p.lesson) {
           lines.push(strategy.context())
