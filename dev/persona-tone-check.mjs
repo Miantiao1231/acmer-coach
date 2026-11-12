@@ -52,6 +52,24 @@ test('coach rules keep feelings out of the delivery', () => {
   assert.ok(rules.length < 7000, `rules 有 ${rules.length} 字符`)
 })
 
+// rules 正文里用「」给出的反例/例句是给模型看的「别这么说」，扫描时切掉。
+const rulesBody = rules.replace(/「[^」]*」/g, '')
+
+test('coach rules stay free of AI-lecture templates outside quoted examples', () => {
+  for (const re of [/首先[^。！？\n]{0,40}(其次|再者|然后|接着|最后)/, /综上所述|简而言之|总而言之/,
+    /希望(这|以上)[^。！？\n]{0,10}(帮助|帮到你)/, /值得一提(的)?是/, /让我们一起/]) {
+    assert.doesNotMatch(rulesBody, re, `rules 正文出现八股句式：${re}`)
+  }
+})
+
+test('coach rules add executable teaching-tone rules', () => {
+  assert.match(rules, /## 讲题怎么讲/)
+  for (const re of [/一次只讲他刚问的/, /不按「题意→模型→证明→代码」的固定顺序/, /开场直接接他的话/,
+    /不要总结段/, /术语、复杂度、边界和代码必须准确/, /反例：/, /正例：/]) {
+    assert.match(rules, re, `rules 缺少讲题约束：${re}`)
+  }
+})
+
 test('coach state uses one shared reply-style reminder', () => {
   const source = fs.readFileSync(new URL('../index.js', import.meta.url), 'utf8')
   assert.match(source, /const REPLY_STYLE =/)

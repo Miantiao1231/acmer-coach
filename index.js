@@ -248,13 +248,13 @@ const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: startupE
 
 const lastAssistantBySession = new Map()
 
-const LESSON_NEXT = '沿着学生当前卡点选择小例子、画图、解释或提问；把建模的理由讲明白，何时继续或转练由回应决定。'
+const LESSON_NEXT = '沿着学生当前卡点选择小例子、画图、解释或提问；把建模的理由讲明白，何时继续或转练由回应决定。一次讲一个点，不铺「首先/其次」的讲义，不写总结段。'
 
 // workloadScoreFor lives in lib/workload.js so the background tick and the
 // conversation path use the same formula.
 
 // 动态材料只有这一处说明，不再追加另一份表演规则。
-const REPLY_STYLE = '- 这些是背景，不是新的话题或表演要求；回应他当前的话，讲题与闲聊保持同一个你。'
+const REPLY_STYLE = '- 这些是背景，不是新的话题或表演要求；回应他当前的话，讲题与闲聊保持同一个你。讲题一次讲一个点，跟着他最后一句走，别铺「首先/其次/综上所述」的讲义。'
 
 function loadMap() {
   const path = MAP_PATH()
@@ -3003,7 +3003,7 @@ function apply(ctx) {
   }))
   registerTool(ctx, defineTool({
     name: 'coach_note',
-    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课；续课笔记不算教学接触，开验证卷仍需 coach_lesson 或 coach_mark 的记录。' +
+    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。写具体卡点、试过的讲法和他的实际回应，不写「讲得很顺利」这类套话；更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课；续课笔记不算教学接触，开验证卷仍需 coach_lesson 或 coach_mark 的记录。' +
       'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
     parameters: {
       action: { type: 'string', enum: ['read', 'write', 'revise'], description: '默认 read；write 新增，revise 按 noteId 更正原笔记。' },
@@ -4167,6 +4167,7 @@ function apply(ctx) {
           'practice 开全新地图知识点时先讲的时间（分钟）；diagnostic/vp 不要求讲解。' +
           '不给会被拒绝 —— 直接扔题让他自己卡，那是给学过的人的练法。' +
           '讲多久**你自己定**（不参考任何固定值），看你判断他需要多少。' +
+          '实际讲多深还看他的回应：一次一个点，不按固定顺序铺讲义。' +
           '讲解预算为非负整数，整项动作不得超过960分钟。已经在学或学过的节点不用给。' +
           '这是计划时长，不能证明已经讲过或学生理解了。',
       },
@@ -4483,7 +4484,7 @@ function apply(ctx) {
   // 只记学生回应和结果；讲解深浅由教练根据当下回应决定。
   registerTool(ctx, defineTool({
     name: 'coach_lesson',
-    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。这条课堂记录算教学接触（不是掌握证据），可作为之后开验证卷的前提。',
+    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。这条课堂记录算教学接触（不是掌握证据），可作为之后开验证卷的前提。讲课时跟着学生最后一句走、一次讲一个点，由他的回应决定讲多深；不套「首先/其次/综上所述」的讲义提纲，不写总结段和客服收尾，术语与代码保持准确。',
     parameters: {
       action: { type: 'string', required: true, enum: ['start', 'advance', 'correct', 'end', 'status'] },
       node: { type: 'string', description: 'start 必填：地图节点 id' },
