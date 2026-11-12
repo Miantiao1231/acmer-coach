@@ -588,6 +588,28 @@ test('person page polls the read-only API and refreshes content plus read-only s
   assert.equal(sandbox.DATA.library.length, 1, 'the last good data stays on screen')
 })
 
+test('person page refresh ignores now-derived proactive fields', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const start = html.indexOf('/* ── 自动刷新')
+  const end = html.indexOf('/* ── 渲染')
+  const sandbox = {}
+  vm.createContext(sandbox)
+  vm.runInContext(html.slice(start, end), sandbox)
+  const base = {
+    profile: { identity: '小鲸' }, relation: { milestones: [] }, habits: [], library: [], episodes: [],
+    promises: [], boundaries: [], pinned: [], context: null, conflicts: [], pending: [], style: [],
+    reflection: {}, rejectedCount: 0, body: null, effectivePresence: null, life: null, journal: null,
+    proactive: { enabled: true, settings: { backgroundLlm: true }, recentContacts: [],
+      nextAt: '2026-11-13T01:00:00.000Z', nextReason: 'ready' },
+  }
+  // armed 且到点时 nextAt 由 GET 用 now() 现算：只有它变不能触发每拍重排。
+  const nextTick = { ...base, proactive: { ...base.proactive, nextAt: '2026-11-13T01:00:15.000Z' } }
+  assert.equal(sandbox.contentSignature(base), sandbox.contentSignature(nextTick))
+  // 真正的开关变化仍要触发刷新。
+  const off = { ...base, proactive: { ...base.proactive, enabled: false } }
+  assert.notEqual(sandbox.contentSignature(base), sandbox.contentSignature(off))
+})
+
 test('person page surfaces archive and style candidates at the top and keeps the GET read-only', async t => {
   const { dir, request } = await fixture(t)
   const html = String((await request('/coach/person.html')).body)

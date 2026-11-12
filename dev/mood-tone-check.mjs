@@ -15,6 +15,21 @@ let imports = 0
 // presence 是页面、下一轮注入和叫醒判断共用的真相：测试直接读落盘文件，不读内存快照。
 const readPresence = (f) => JSON.parse(readFileSync(f.personPath, 'utf8')).presence
 
+// 睡眠结算依赖「现在」：用可拨的假时钟复现同一夜的两段睡眠（照 WS4 的 verify-sleep-cycle.mjs）。
+function fakeClock(t, iso) {
+  const RealDate = Date
+  let clock = new RealDate(iso).getTime()
+  class FakeDate extends RealDate {
+    constructor(...args) { if (args.length) super(...args); else super(clock) }
+    static now() { return clock }
+  }
+  globalThis.Date = FakeDate
+  t.after(() => { globalThis.Date = RealDate })
+  return (nextIso) => { clock = new RealDate(nextIso).getTime() }
+}
+
+const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
+
 // 和 first-run-check 同一个套路：走公开 apply 入口、抓注入消息，不碰真实数据目录。
 async function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'coach-mood-tone-'))
@@ -186,6 +201,46 @@ test('a proactive wake does not clear an explicit sleep presence', async (t) => 
   await f.hooks.get('agent/pre-step')({ messages: wake, step: 1, agent: f.agent },
     async () => ({ kind: 'enter', messages: wake }))
   assert.equal(readPresence(f).mode, 'sleep', '主动唤醒不是真人消息，不该清掉她自己的睡觉状态')
+})
+
+test('waking from one night and going back to sleep does not repay the whole night twice', async (t) => {
+  const setClock = fakeClock(t, '2026-11-10T00:10:00')
+  const f = await fixture(t)
+  const companion = f.tools.get('companion')
+  const ledgerPath = join(f.dir, 'knowledge', 'sleep-ledger.json')
+
+  assert.equal((await companion.execute({ action: 'presence.set', mode: 'sleep' }, { origin: 'human' })).ok, true)
+  setClock('2026-11-10T00:55:00') // 第一段睡 45 分钟，被真人消息叫醒
+  await f.step('还在吗')
+  assert.equal(Math.round(readJson(f.statePath).body.sleepDebt), 435, '单次叫醒：480 - 45')
+
+  // 她说「继续去睡」：同一夜续睡只该补剩下的需求，不再按整夜 480 分钟重算。
+  assert.equal((await companion.execute({ action: 'presence.set', mode: 'sleep' }, { origin: 'human' })).ok, true)
+  setClock('2026-11-10T02:00:00') // 第二段 65 分钟，再被叫醒
+  await f.step('我又来了')
+  const body = readJson(f.statePath).body
+  assert.ok(Math.abs(body.sleepDebt - 370) <= 5, `同一夜 45+65 分钟应约 480-110=370，got ${body.sleepDebt}`)
+  assert.ok(body.energy >= 0 && body.energy <= 100, `energy 越界：${body.energy}`)
+  assert.ok(body.fatigue >= 0 && body.fatigue <= 100, `fatigue 越界：${body.fatigue}`)
+
+  const episodes = readJson(ledgerPath).episodes
+  assert.deepEqual(episodes.map((episode) => episode.baseNeedMinutes), [45, 435],
+    '旧段 base 改成实际睡眠（债务贡献归零），新段只带这一夜剩余需求')
+})
+
+test('one wake without going back to sleep keeps the plain short-night debt', async (t) => {
+  const setClock = fakeClock(t, '2026-11-10T00:10:00')
+  const f = await fixture(t)
+  const companion = f.tools.get('companion')
+  const ledgerPath = join(f.dir, 'knowledge', 'sleep-ledger.json')
+
+  assert.equal((await companion.execute({ action: 'presence.set', mode: 'sleep' }, { origin: 'human' })).ok, true)
+  setClock('2026-11-10T00:55:00')
+  await f.step('还在吗')
+  assert.equal(Math.round(readJson(f.statePath).body.sleepDebt), 435, '没续睡就保持现有行为：480 - 45')
+  const episodes = readJson(ledgerPath).episodes
+  assert.equal(episodes.length, 1)
+  assert.equal(episodes[0].baseNeedMinutes, 480, '没有续睡时不该改写整夜需求')
 })
 
 test('mood is style-only: the injection never turns it into judgment or tool arguments', async (t) => {

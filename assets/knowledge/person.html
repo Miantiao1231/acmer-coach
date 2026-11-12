@@ -646,8 +646,13 @@ function runtimeSignature(data) {
     life: life ? { day: life.day, kind: life.kind, source: life.source, description: life.description,
       modelPlan: life.modelPlan ? { description: life.modelPlan.description, expiresAt: life.modelPlan.expiresAt } : null } : null,
     journal: journal ? { day: journal.day, text: journal.text } : null,
-    // 主动联系面板的状态/计数/最近记录：有变化才变。
-    proactive: data.proactive ?? null,
+    // 主动联系面板的状态/计数/最近记录：有变化才变。nextAt/nextReason 是 GET 时按
+    // 当前时间现算的（armed 且已到点时每拍都变），放进指纹会让“有变化才重排”退化成
+    // 每 15 秒重排；页面上的下次允许时间随其它字段变化时再更新。
+    proactive: data.proactive ? (() => {
+      const { nextAt, nextReason, ...stable } = data.proactive
+      return stable
+    })() : null,
   }
 }
 
