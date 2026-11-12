@@ -247,3 +247,71 @@ test('social messages move the mood axes without becoming facts', () => {
   applySocialEmotion(late, '还醒着', new Date('2026-10-30T03:00:00'))
   assert.ok(late.fear > 1)
 })
+
+test('the conversation turn feeds the last user message into the mood axes', () => {
+  const praised = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '你好厉害，太谢谢你了',
+  })
+  assert.ok(praised.joy > emptyBody(NOW).joy, `被夸应该开心，got ${praised.joy}`)
+
+  const drained = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '今天好累，有点难过',
+  })
+  assert.ok(drained.sorrow > 1, `他难过时低落应该升，got ${drained.sorrow}`)
+  assert.ok(drained.fear > 1, `他难过时也会有点揪心，got ${drained.fear}`)
+
+  const annoyed = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '好烦啊，别烦我',
+  })
+  assert.ok(annoyed.anger > 1, `被烦到烦躁应该升，got ${annoyed.anger}`)
+
+  const scared = advanceBody(emptyBody(new Date('2026-10-30T03:00:00')), {
+    now: new Date('2026-10-30T03:00:00'), presence: { mode: 'normal' }, userText: '睡不着，有点害怕',
+  })
+  assert.ok(scared.fear > 1, `夜里说害怕不安应该升，got ${scared.fear}`)
+
+  // 情绪只动四轴：同一条消息不改变精力、疲劳、睡眠账或检测事实。
+  const plain = advanceBody(emptyBody(NOW), { now: NOW, presence: { mode: 'normal' } })
+  const withText = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '好累，好烦，难过，害怕',
+  })
+  assert.equal(withText.energy, plain.energy)
+  assert.equal(withText.fatigue, plain.fatigue)
+  assert.equal(withText.sleepDebt, plain.sleepDebt)
+  assert.equal(withText.lastCheck, plain.lastCheck)
+})
+
+test('negative axes can rise and then settle back', () => {
+  const upset = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '最近好烦，也有点难过',
+  })
+  assert.ok(upset.anger > 1 && upset.sorrow > 1)
+  // 他道歉/来哄：负面轴能降。
+  const apologised = advanceBody(upset, {
+    now: NOW, presence: { mode: 'normal' }, userText: '对不起，我错了',
+  })
+  assert.ok(apologised.anger < upset.anger, `道歉后烦躁应降：${upset.anger} -> ${apologised.anger}`)
+  assert.ok(apologised.sorrow < upset.sorrow, `道歉后低落应降：${upset.sorrow} -> ${apologised.sorrow}`)
+
+  // 半衰期回稳：90 分钟没有新刺激，负面轴往 1 回落但不瞬间归零。
+  const later = new Date(NOW.getTime() + 90 * 60000)
+  const calmed = advanceBody(upset, { now: later, presence: { mode: 'normal' } })
+  assert.ok(calmed.anger < upset.anger, `时间应让烦躁回稳：${upset.anger} -> ${calmed.anger}`)
+  assert.ok(calmed.anger > 1, '90 分钟只回稳一半，不该瞬间归 1')
+})
+
+test('social emotion lands once per turn and only when a user message is passed', () => {
+  // 一轮只结算一次：advanceBody 内部不会把同一条 userText 叠加两遍。
+  const once = advanceBody(emptyBody(NOW), {
+    now: NOW, presence: { mode: 'normal' }, userText: '谢谢你',
+  })
+  const expected = applySocialEmotion(emptyBody(NOW), '谢谢你', NOW)
+  assert.ok(Math.abs(once.joy - expected.joy) < 1e-9, `开心只该加一次：${once.joy} vs ${expected.joy}`)
+
+  // 页面 GET / 后台 tick 这类路径不传 userText，社交情绪完全不参与，只按时间回稳。
+  const plain = advanceBody(emptyBody(NOW), { now: NOW, presence: { mode: 'normal' } })
+  const untouched = emptyBody(NOW)
+  for (const key of ['joy', 'anger', 'sorrow', 'fear']) {
+    assert.equal(plain[key], untouched[key], `不传 userText 时 ${key} 不该被社交情绪改动`)
+  }
+})

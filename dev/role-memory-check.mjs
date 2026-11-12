@@ -118,16 +118,30 @@ test('self preference metadata does not relabel a simultaneous legacy identity c
   assert.equal(active(dir).filter(item => item.source === 'role-self').length, 1)
 })
 
-test('model profile changes become pending candidates; the human page remains editable', async t => {
-  const dir = temp(t), tool = toolFor(dir)
+test('model profile changes follow the quote subject; the human page remains editable', async t => {
+  const dir = temp(t)
+  const tool = createCompanionTool(dir, {
+    verifyEvidence: async quote => ['以后你叫小蓝，喜欢热可可。', '我喜欢热可可。'].includes(quote)
+      ? { ok: true, studentEvidence: { quote, messageId: 'm1', seq: 1 } }
+      : { ok: false, reject: '没有用户原话' },
+  })
   assert.equal((await tool.execute({ action: 'profile.set', likes: [] }, context)).ok, false)
   assert.equal((await tool.execute({ action: 'profile.set', identity: '小蓝', evidence: '我猜的' }, context)).ok, false)
-  const proposed = await tool.execute({ action: 'profile.set', likes: ['热可可'],
+  // 原话明确是给小鲸的设定（第二人称指向她）：按用户指令直写。
+  const directed = await tool.execute({ action: 'profile.set', likes: ['热可可'],
     evidence: '以后你叫小蓝，喜欢热可可。' }, context)
+  assert.equal(directed.ok, true, directed.reject)
+  assert.doesNotMatch(directed.summary, /待审/)
+  assert.equal(loadPerson(dir).profile.likes.includes('热可可'), true, 'an explicit role-directed setting is recorded')
+  assert.equal(loadPerson(dir).pending.length, 0, 'a directed setting does not wait in the review queue')
+  // 学生自己的偏好（原话没指向小鲸）仍只能提候选：不能把学生的东西搬进角色档案。
+  const proposed = await tool.execute({ action: 'profile.set', dislikes: ['下雨天'],
+    evidence: '我喜欢热可可。' }, context)
   assert.equal(proposed.ok, true, proposed.reject)
   assert.match(proposed.summary, /待审/)
-  assert.equal(loadPerson(dir).profile.likes.includes('热可可'), false, 'model does not write the profile directly')
+  assert.equal(loadPerson(dir).profile.dislikes.includes('下雨天'), false, 'model does not move the student preference into the role profile')
   assert.ok(loadPerson(dir).pending.some(item => item.kind === 'profile' && item.subject === 'role'))
+  // 身份仍然只能由页面改。
   assert.equal((await tool.execute({ action: 'profile.set', identity: '小蓝' }, { origin: 'human' })).ok, true)
   assert.equal(loadPerson(dir).profile.identity, '小蓝')
   assert.equal((await tool.execute({ action: 'profile.set', likes: [] }, { origin: 'human' })).ok, true)

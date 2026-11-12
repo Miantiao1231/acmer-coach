@@ -40,6 +40,7 @@ export const TEST_FILES = [
   'dev/setup-sync-check.mjs',
   'dev/persona-tone-check.mjs',
   'dev/companion-state-check.mjs',
+  'dev/mood-tone-check.mjs',
   'dev/persona-audit-check.mjs',
   'dev/person-check.mjs',
   'dev/reflection-check.mjs',

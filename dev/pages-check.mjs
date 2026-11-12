@@ -55,7 +55,8 @@ test('person page separates expired or undated context from current state and da
       expiresAt: new Date(2026, 10, 1).toISOString(), status: 'expired' },
     reflection: { day: '2026-11-03', lastAt: new Date(2026, 10, 3, 8, 55).toISOString(), lastSummary: '上次整理的摘要', reflectCallsToday: 2 } }
   const sandbox = { DATA, Date: Clock, $: node, document: { querySelectorAll: () => [] },
-    esc: value => String(value), pct: () => 0, toLocalInput: () => '' }
+    esc: value => String(value), pct: () => 0, toLocalInput: () => '',
+    presenceTouched: false, proactiveTouched: false, PRESENCE_LABEL: { normal: '在线' } }
   vm.createContext(sandbox)
   vm.runInContext(source + '\nrenderStatus()', sandbox)
   assert.equal(node('#contextTitle').textContent, '历史处境')
@@ -497,4 +498,283 @@ test('person API stores boundaries and pinned facts, and resolves identity confl
   read = JSON.parse(String((await request('/coach/api/person')).body))
   assert.equal(read.profile.identity, '小鲸A')
   assert.equal(read.conflicts.length, 0)
+})
+
+test('person page polls the read-only API and refreshes content plus read-only status blocks', async () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const start = html.indexOf('/* ── 自动刷新')
+  const end = html.indexOf('/* ── 渲染')
+  assert.ok(start > 0 && end > start, 'the page has an auto-refresh section')
+  assert.match(html, /setInterval\(\(\) => \{ refreshNow\(\) \}, REFRESH_MS\)/, 'the page polls on a timer before the first draw')
+  // renderStatus 拆成「编辑表单」+「只读块」；自动刷新只重画只读块，不碰表单。
+  const status = html.slice(html.indexOf('function renderStatus()'), html.indexOf('function renderRecentState()'))
+  assert.match(status, /function renderStatus\(\) \{\s*renderPresenceEditor\(\)\s*renderRuntime\(\)/)
+  assert.match(status, /function renderRuntime\(\) \{[\s\S]{0,120}renderPresenceStatus\(\)\s*\n\s*renderBodyMeters\(\)/)
+  assert.match(status, /if \(!proactiveTouched\) renderProactive\(\)/)
+  assert.match(status, /renderLife\(\)\s*\n\s*renderRecentState\(\)/)
+  assert.match(status, /#presenceActual/)
+  assert.match(html.slice(start, end), /renderContent\(\)\s*\n\s*renderRuntime\(\)/, 'a refresh repaints the read-only blocks too')
+
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', hidden: false, className: '' })
+    return nodes.get(id)
+  }
+  const base = {
+    profile: { identity: '小鲸' }, relation: { milestones: [] }, habits: [], library: [], episodes: [],
+    promises: [], boundaries: [], pinned: [], context: null, conflicts: [], pending: [], style: [],
+    reflection: {}, rejectedCount: 0,
+    body: { energy: 55, fatigue: 20, joy: 6, anger: 1, sorrow: 1, fear: 1, sleepDebt: 120, sleepPressure: 30,
+      awakeMinutes: 100, updatedAt: '2026-11-12T00:00:00.000Z' },
+    effectivePresence: { mode: 'normal', reason: '' },
+    life: { day: '2026-11-12', kind: 'idle', source: 'ambient', description: '在看星星',
+      startedAt: '2026-11-12T00:00:00.000Z', updatedAt: '2026-11-12T00:00:00.000Z', modelPlan: null },
+    journal: { day: '2026-11-12', text: '今天的小日记', at: '2026-11-12T00:00:00.000Z' },
+    proactive: { enabled: false, settings: { backgroundLlm: false }, recentContacts: [] },
+  }
+  const rendered = []
+  let served = base
+  let fetches = 0
+  const sandbox = {
+    DATA: base, $: node, esc: value => String(value), document: { activeElement: null }, dialog: { open: false },
+    renderContent: () => rendered.push('content'), renderRuntime: () => rendered.push('runtime'),
+    fetch: async () => { fetches += 1; return { ok: true, json: async () => ({ ok: true, ...served }) } },
+    Date,
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(html.slice(start, end), sandbox)
+
+  // 后台反思新增了书和待审候选：内容指纹变化，内容栏 + 只读块各重排一次。
+  served = { ...base,
+    pending: [{ id: 'p-new', kind: 'library', subject: 'role', fields: { title: '海' }, confidence: 0.6, evidence: [] }],
+    library: [{ id: 'b1', title: '海' }] }
+  assert.equal(await sandbox.refreshNow(), true)
+  assert.deepEqual(rendered, ['content', 'runtime'])
+  assert.equal(fetches, 1)
+  assert.match(node('#status').innerHTML, /已刷新/)
+
+  // 只有 updatedAt / awakeMinutes 变、展示值没变：不重排，避免每拍闪屏。
+  served = { ...served, body: { ...served.body, updatedAt: '2026-11-12T00:01:00.000Z', awakeMinutes: 101 } }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.equal(rendered.length, 2)
+
+  // 身体/心情的展示取整值变了：只读块要刷新（情绪数值在打开页面时也要能看到变化）。
+  rendered.length = 0
+  served = { ...served, body: { ...served.body, energy: 40, joy: 8 } }
+  assert.equal(await sandbox.refreshNow(), true)
+  assert.deepEqual(rendered, ['content', 'runtime'])
+
+  // 在线状态从 normal 变 sleep、她今天也变：只读状态块跟着刷新。
+  rendered.length = 0
+  served = { ...served, effectivePresence: { mode: 'sleep', reason: '' },
+    life: { ...served.life, kind: 'resting', description: '在补觉' } }
+  assert.equal(await sandbox.refreshNow(), true)
+  assert.deepEqual(rendered, ['content', 'runtime'])
+
+  // 对话框打开或输入框聚焦时跳过，完全不发请求。
+  sandbox.dialog.open = true
+  const beforeSkip = fetches
+  assert.equal(await sandbox.refreshNow(), false)
+  sandbox.dialog.open = false
+  sandbox.document.activeElement = { tagName: 'TEXTAREA' }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.equal(fetches, beforeSkip, 'editing never hits the API')
+
+  // 刷新失败只提示，继续用上次读到的数据。
+  sandbox.document.activeElement = null
+  sandbox.fetch = async () => { fetches += 1; return { ok: false, status: 500, json: async () => ({}) } }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.match(node('#status').innerHTML, /刷新失败/)
+  assert.equal(sandbox.DATA.library.length, 1, 'the last good data stays on screen')
+})
+
+test('person page surfaces archive and style candidates at the top and keeps the GET read-only', async t => {
+  const { dir, request } = await fixture(t)
+  const html = String((await request('/coach/person.html')).body)
+  assert.match(html, /id="pendingBanner"/)
+  assert.match(html, /href="#sec-pending"/)
+  assert.match(html, /href="#sec-style"/)
+  assert.match(html, /id="stylePendingCount"/)
+  const before = JSON.parse(String((await request('/coach/api/person')).body))
+  assert.equal(before.pending.length, 0)
+  assert.equal(before.style.length, 0)
+  writeFileSync(join(dir, 'person.json'), JSON.stringify({
+    version: 1, revision: 0,
+    pending: [{
+      id: 'p-banner', kind: 'library', subject: 'role', fields: { title: '海' },
+      evidence: [{ handle: 'u1', quote: '这本书你拿去读' }], confidence: 0.6,
+      createdAt: new Date().toISOString(), status: 'pending',
+    }],
+    style: [{
+      id: 'st-banner', dimension: 'diction', observation: '句尾会跟「捏」', pattern: '句尾加「捏」',
+      situation: '轻松时', avoid: '讲题结论', proposal: '', applicability: {},
+      evidence: [{ handle: 'u1', quote: '就这样捏' }], confidence: 0.6,
+      createdAt: new Date().toISOString(), status: 'pending',
+    }],
+  }, null, 2))
+  const snapshot = () => readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')])
+  const frozen = snapshot()
+  const after = JSON.parse(String((await request('/coach/api/person')).body))
+  assert.equal(after.pending.length, 1, 'the refresh source sees the new archive candidate')
+  assert.equal(after.style.filter(item => item.status === 'pending').length, 1, 'and the new style candidate')
+  assert.deepEqual(snapshot(), frozen, 'the page refresh GET writes nothing')
+
+  // 横幅同时提示待审档案候选与待审说法候选。
+  const source = html.slice(html.indexOf('function renderPendingBanner()'), html.indexOf('function renderConflicts()'))
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', hidden: false })
+    return nodes.get(id)
+  }
+  const sandbox = {
+    DATA: { pending: after.pending, style: after.style }, $: node,
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(source, sandbox)
+  vm.runInContext('renderPendingBanner()', sandbox)
+  assert.equal(node('#pendingBanner').hidden, false)
+  assert.equal(node('#pendingBannerCount').textContent, 2)
+  assert.match(node('#pendingBannerText').innerHTML, /1 条待审候选/)
+  assert.match(node('#pendingBannerText').innerHTML, /1 条说法候选/)
+  assert.match(node('#pendingBannerText').innerHTML, /#sec-pending/)
+  assert.match(node('#pendingBannerText').innerHTML, /#sec-style/)
+
+  // 只有说法候选时也要提示，并锚到说法区。
+  vm.runInContext('DATA.pending = []\nrenderPendingBanner()', sandbox)
+  assert.equal(node('#pendingBanner').hidden, false)
+  assert.equal(node('#pendingBannerCount').textContent, 1)
+  assert.match(node('#pendingBannerText').innerHTML, /#sec-style/)
+  vm.runInContext('DATA.style = []\nrenderPendingBanner()', sandbox)
+  assert.equal(node('#pendingBanner').hidden, true)
+
+  // 自动刷新复用的内容渲染会同步目录/统计/说法标题里的待审计数。
+  const content = html.slice(html.indexOf('function renderContent()'), html.indexOf('function renderPendingBanner()'))
+  assert.match(content, /\$\('#navPending'\)\.textContent = DATA\.pending\.length/)
+  assert.ok(content.includes("$('#pendingCount').textContent = `${DATA.pending.length} 条`"))
+  assert.match(content, /\$\('#stylePendingCount'\)\.hidden = pendingStyles === 0/)
+  assert.ok(content.includes("$('#stylePendingCount').textContent = `${pendingStyles} 条待审`"))
+  assert.match(content, /renderPendingBanner\(\)/)
+})
+
+test('person page marks a closed background reflection and shows how old the summary is', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const source = html.slice(html.indexOf('function renderStatus()'), html.indexOf('function toLocalInput('))
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '当前处境' })
+    return nodes.get(id)
+  }
+  let clock = new Date(2026, 10, 5, 18).getTime()
+  class Clock extends Date {
+    constructor(...args) { super(...(args.length ? args : [clock])) }
+    static now() { return clock }
+  }
+  const DATA = {
+    presence: { mode: 'auto', reason: '', until: '' },
+    effectivePresence: { mode: 'normal' },
+    body: { energy: 50, fatigue: 10, sleepDebt: 0, joy: 6, anger: 1, sorrow: 1, fear: 1 },
+    proactive: { enabled: false, settings: { backgroundLlm: false }, effective: {} },
+    reflection: {
+      day: '2026-11-03', lastAt: new Date(2026, 9, 28, 8, 55).toISOString(),
+      lastSummary: '上次整理的摘要', reflectCallsToday: 2,
+    },
+  }
+  const sandbox = {
+    DATA, Date: Clock, $: node, document: { querySelectorAll: () => [] },
+    esc: value => String(value), pct: () => 0, toLocalInput: () => '',
+    presenceTouched: false, proactiveTouched: false, PRESENCE_LABEL: { normal: '在线' },
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(source + '\nrenderStatus()', sandbox)
+  assert.match(node('#reflectionBody').innerHTML, /上次整理的摘要/)
+  assert.match(node('#reflectionBody').innerHTML, /后台反思已关闭，摘要不会自动更新/)
+  assert.match(node('#reflectionBody').innerHTML, /8 天前/, 'the panel shows a relative age, not just a date')
+  assert.match(node('#reflectionBody').innerHTML, /今天反思 0 次/)
+
+  // 环境变量强制关闭时 effective 与设置不一致，也要提示。
+  DATA.proactive = { enabled: false, settings: { backgroundLlm: true }, effective: { backgroundLlm: false } }
+  vm.runInContext('renderRecentState()', sandbox)
+  assert.match(node('#reflectionBody').innerHTML, /后台反思已关闭/)
+
+  // 真正开着时不吓人。
+  DATA.proactive = { enabled: false, settings: { backgroundLlm: true }, effective: { backgroundLlm: true } }
+  vm.runInContext('renderRecentState()', sandbox)
+  assert.doesNotMatch(node('#reflectionBody').innerHTML, /后台反思已关闭/)
+  assert.match(node('#reflectionBody').innerHTML, /上次反思/)
+  assert.match(node('#reflectionBody').innerHTML, /8 天前/)
+})
+
+test('person page shows the derived sleep mode without silently selecting auto', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const source = html.slice(html.indexOf('function renderStatus()'), html.indexOf('function toLocalInput('))
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', hidden: false, value: '' })
+    return nodes.get(id)
+  }
+  const buttons = ['auto', 'busy', 'away'].map(mode => ({
+    dataset: { mode }, pressed: 'true',
+    setAttribute(name, value) { if (name === 'aria-pressed') this.pressed = String(value) },
+  }))
+  const DATA = {
+    presence: { mode: 'auto', reason: '', until: '' },
+    effectivePresence: { mode: 'sleep' },
+    body: { energy: 40, fatigue: 70, sleepDebt: 300, joy: 3, anger: 1, sorrow: 2, fear: 1 },
+    proactive: null, life: null, journal: null, context: null, reflection: {},
+  }
+  const sandbox = {
+    DATA, presenceTouched: false, proactiveTouched: false,
+    PRESENCE_LABEL: { normal: '在线', sleep: '睡着了', nap: '午休' },
+    $: node, document: { querySelectorAll: () => buttons },
+    esc: value => String(value), pct: () => 0, toLocalInput: () => '',
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(source + '\nrenderStatus()', sandbox)
+  // 睡眠是自动推导出来的：只读显示真实模式，编辑表单不能静默勾「自动」。
+  assert.equal(node('#presenceActual').hidden, false)
+  assert.match(node('#presenceActual').innerHTML, /睡着了/)
+  assert.match(node('#presenceActual').innerHTML, /发消息会叫醒她/)
+  assert.deepEqual(buttons.map(button => button.pressed), ['false', 'false', 'false'])
+
+  DATA.effectivePresence = { mode: 'nap' }
+  vm.runInContext('renderStatus()', sandbox)
+  assert.match(node('#presenceActual').innerHTML, /午休/)
+
+  DATA.effectivePresence = { mode: 'normal' }
+  DATA.presence = { mode: 'busy', reason: '在写题解', until: '' }
+  vm.runInContext('renderStatus()', sandbox)
+  assert.equal(node('#presenceActual').hidden, true)
+  assert.deepEqual(buttons.map(button => button.pressed), ['false', 'true', 'false'])
+  assert.equal(node('#presenceReason').value, '在写题解')
+
+  // 用户明确点过按钮后，即使还在睡也显示他选的那个模式。
+  DATA.effectivePresence = { mode: 'sleep' }
+  sandbox.presenceTouched = true
+  vm.runInContext('renderStatus()', sandbox)
+  assert.match(node('#presenceActual').innerHTML, /睡着了/)
+  assert.deepEqual(buttons.map(button => button.pressed), ['false', 'true', 'false'])
+})
+
+test('person page keeps unsaved proactive settings while refreshing the read-only blocks', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const source = html.slice(html.indexOf('function renderRuntime()'), html.indexOf('function renderPresenceStatus()'))
+  assert.ok(source.includes('if (!proactiveTouched) renderProactive()'), 'the form guard lives in the runtime renderer')
+  const calls = []
+  const sandbox = {
+    proactiveTouched: false,
+    renderPresenceStatus: () => calls.push('presence'),
+    renderBodyMeters: () => calls.push('body'),
+    renderProactive: () => calls.push('proactive'),
+    renderLife: () => calls.push('life'),
+    renderRecentState: () => calls.push('recent'),
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(source, sandbox)
+  vm.runInContext('renderRuntime()', sandbox)
+  assert.deepEqual(calls, ['presence', 'body', 'proactive', 'life', 'recent'])
+
+  // 用户动过主动联系的设置表单（还没保存）：刷新时保留输入，其他只读块照常更新。
+  calls.length = 0
+  vm.runInContext('proactiveTouched = true\nrenderRuntime()', sandbox)
+  assert.deepEqual(calls, ['presence', 'body', 'life', 'recent'])
 })

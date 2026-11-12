@@ -209,6 +209,7 @@ section[id]{scroll-margin-top:88px}
 .alert{padding:18px 24px;margin-bottom:20px;border-color:color-mix(in srgb,var(--tle) 40%,var(--stroke));background:linear-gradient(180deg,var(--tle-soft),transparent)}
 .alert h3{font-size:13.5px;color:var(--tle-text)}
 .alert p{margin-top:5px;color:var(--text-2);font-size:12.5px;line-height:1.65}
+.alert a{color:var(--brand-text);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 
 /* ── 对话框 / toast ───────────────────────────────────────── */
 .dlg{width:min(560px,calc(100% - 32px));max-height:86dvh;padding:0;border:1px solid var(--stroke-strong);border-radius:var(--radius-l);background:var(--bg-1);color:var(--text-1);box-shadow:var(--shadow-2)}
@@ -330,6 +331,12 @@ section[id]{scroll-margin-top:88px}
   <div id="boot" class="boot">正在读取她的档案…</div>
 
   <div id="app" hidden>
+    <div id="pendingBanner" class="panel alert" hidden>
+      <h3>有 <span id="pendingBannerCount">0</span> 条候选待确认</h3>
+      <p id="pendingBannerText">这些候选还没生效；去待审区/说法区收下后才会写进她的档案或表达方式。</p>
+      <div class="review-actions"><a class="btn primary sm" href="#sec-pending">去待审区</a><a class="btn secondary sm" href="#sec-style">去说法区</a></div>
+    </div>
+
     <section class="panel hero" aria-labelledby="identityText">
       <div class="hero-id">
         <div class="avatar" aria-hidden="true">
@@ -437,7 +444,7 @@ section[id]{scroll-margin-top:88px}
         <section id="sec-style" class="panel">
           <div class="panel-head">
             <div><h3>说法</h3><p>她学到的表达方式。停用的不再注入；恢复后下一轮生效。</p></div>
-            <span class="chip" id="styleCount">0 条</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip warn" id="stylePendingCount" hidden>0 条待审</span><span class="chip" id="styleCount">0 条</span></div>
           </div>
           <div class="list" id="styleList"></div>
         </section>
@@ -450,6 +457,7 @@ section[id]{scroll-margin-top:88px}
             <div class="status-block">
               <h4>在线状态</h4>
               <div class="presence-editor">
+                <div class="row-sub" id="presenceActual" hidden></div>
                 <div class="mode-seg" id="modeSeg" role="group" aria-label="在线状态">
                   <button type="button" data-mode="auto" aria-pressed="true">自动</button>
                   <button type="button" data-mode="busy" aria-pressed="false">忙</button>
@@ -514,6 +522,10 @@ const esc = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&a
 
 let DATA = null
 let presenceDraft = 'auto'
+// 用户是否明确点过在线状态按钮；睡眠/午休时不要把表单静默显示成别的模式。
+let presenceTouched = false
+// 主动联系面板里带设置表单：用户动过还没保存时，自动刷新不要覆盖。
+let proactiveTouched = false
 
 /* ── 小工具 ─────────────────────────────────────────────── */
 function icon(name) {
@@ -596,16 +608,114 @@ async function load() {
   const data = await res.json()
   if (!data.ok) throw new Error(data.reject || '读取失败')
   DATA = data
+  presenceTouched = false
+  proactiveTouched = false
   render()
+}
+
+/* ── 自动刷新 ──────────────────────────────────────────────
+   后台反思和模型写入会在页面打开期间改档案、书架、待审；页面不能只靠手动刷新。
+   每 15 秒做一次只读 GET，内容指纹变了才重排；有未保存的编辑时跳过这一拍。
+   GET 只读（服务端不写文件），页面也永远不自动收下/丢弃候选。 */
+const REFRESH_MS = 15000
+// 档案内容：后台反思/模型写入会改，变了必须重排。
+const REFRESH_FIELDS = ['profile', 'relation', 'habits', 'library', 'episodes', 'promises',
+  'boundaries', 'pinned', 'context', 'conflicts', 'pending', 'style', 'reflection', 'rejectedCount']
+let refreshBusy = false
+
+const roundValue = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : null
+
+// 身体/生活/在线状态是按时间推出来的投影：只取页面实际展示的取整值。
+// 不按 updatedAt/awakeMinutes 比较，否则每 15 秒都会重排一次。
+function runtimeSignature(data) {
+  const body = data.body ?? {}
+  const presence = data.effectivePresence ?? null
+  const life = data.life ?? null
+  const journal = data.journal ?? null
+  return {
+    body: data.body ? {
+      energy: roundValue(body.energy), fatigue: roundValue(body.fatigue),
+      joy: roundValue(body.joy), anger: roundValue(body.anger),
+      sorrow: roundValue(body.sorrow), fear: roundValue(body.fear),
+      sleepDebt: Number.isFinite(Number(body.sleepDebt)) ? Math.round(Number(body.sleepDebt) / 6) / 10 : null,
+      sleepPressure: body.sleepPressure === null || body.sleepPressure === undefined ? null : roundValue(body.sleepPressure),
+    } : null,
+    presence: presence ? { mode: presence.mode, reason: presence.reason ?? '' } : null,
+    // startedAt 是每次 GET 按当前时间重算的展示值（存档里的生活状态不因读取而变），
+    // 不放进指纹，否则每一拍都会重排。
+    life: life ? { day: life.day, kind: life.kind, source: life.source, description: life.description,
+      modelPlan: life.modelPlan ? { description: life.modelPlan.description, expiresAt: life.modelPlan.expiresAt } : null } : null,
+    journal: journal ? { day: journal.day, text: journal.text } : null,
+    // 主动联系面板的状态/计数/最近记录：有变化才变。
+    proactive: data.proactive ?? null,
+  }
+}
+
+function contentSignature(data) {
+  if (!data) return ''
+  const picked = {}
+  for (const key of REFRESH_FIELDS) picked[key] = data[key] ?? null
+  picked.runtime = runtimeSignature(data)
+  return JSON.stringify(picked)
+}
+
+// 对话框打开或输入框聚焦时算“正在编辑”：这一拍不重排，免得覆盖没保存的值。
+function editingInPage() {
+  if (dialog?.open) return true
+  const active = document.activeElement
+  return Boolean(active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName))
+}
+
+function markLoaded(text, kind = 'ok') {
+  const host = $('#status')
+  if (!host) return
+  host.className = `status ${kind}`
+  host.innerHTML = `<i></i><span>${esc(text)}</span>`
+}
+
+async function refreshNow() {
+  // 首屏没读到、上一拍还没回来、或用户在编辑：这一拍什么都不做。
+  if (!DATA || refreshBusy || $('#app')?.hidden) return false
+  if (editingInPage()) return false
+  refreshBusy = true
+  try {
+    const res = await fetch('./api/person', { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`读取失败（HTTP ${res.status}）`)
+    const data = await res.json()
+    if (!data || data.ok !== true) throw new Error(data?.reject || '读取失败')
+    if (contentSignature(data) === contentSignature(DATA)) {
+      // 上一拍失败过就恢复“已加载”；否则保留已有的“几点刷新”提示，不来回跳。
+      if ($('#status')?.className.includes('bad')) markLoaded('本地档案 · 已加载')
+      return false
+    }
+    DATA = data
+    // 内容栏 + 只读状态块（身体/心情/主动联系/她今天/处境/反思）一起重排；
+    // 「在线状态」编辑表单不在这里动，免得覆盖没保存的输入。
+    renderContent()
+    renderRuntime()
+    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    markLoaded(`本地档案 · ${time} 已刷新`)
+    return true
+  } catch {
+    // 刷新失败只提示，继续用上次读到的档案；下一拍会再试。
+    markLoaded('刷新失败，仍显示上次读到的档案', 'bad')
+    return false
+  } finally {
+    refreshBusy = false
+  }
 }
 
 /* ── 渲染 ───────────────────────────────────────────────── */
 function render() {
   $('#boot').hidden = true
   $('#app').hidden = false
-  $('#status').className = 'status ok'
-  $('#status').innerHTML = '<i></i><span>本地档案 · 已加载</span>'
+  markLoaded('本地档案 · 已加载')
+  renderContent()
+  renderStatus()
+}
 
+// 自动刷新只走这里：目录/统计/各栏目/待审提示，不碰状态区的编辑表单。
+function renderContent() {
   $('#identityText').textContent = DATA.profile.identity
   const mode = DATA.effectivePresence?.mode || 'normal'
   const reason = DATA.effectivePresence?.reason || ''
@@ -614,6 +724,7 @@ function render() {
   $('#lastSeen').textContent = relTime(DATA.lastUserAt)
 
   const activeStyles = DATA.style.filter(item => item.status === 'active').length
+  const pendingStyles = DATA.style.filter(item => item.status === 'pending').length
   $('#stats').innerHTML = [
     ['纪念日', DATA.relation.milestones.length],
     ['习惯', DATA.habits.length],
@@ -633,7 +744,10 @@ function render() {
   $('#navStyle').textContent = activeStyles
   $('#pendingCount').textContent = `${DATA.pending.length} 条`
   $('#styleCount').textContent = `${DATA.style.length} 条`
+  $('#stylePendingCount').hidden = pendingStyles === 0
+  $('#stylePendingCount').textContent = `${pendingStyles} 条待审`
 
+  renderPendingBanner()
   renderConflicts()
   renderProfile()
   renderMilestones()
@@ -644,7 +758,25 @@ function render() {
   renderLibrary()
   renderPending()
   renderStyles()
-  renderStatus()
+}
+
+// 待审不写进档案、说法不生效前，页顶要让人一眼看到有几条、去哪收；都 0 条时整块隐藏。
+function renderPendingBanner() {
+  const pending = DATA.pending.length
+  const pendingStyles = DATA.style.filter(item => item.status === 'pending').length
+  const total = pending + pendingStyles
+  const host = $('#pendingBanner')
+  if (!host) return
+  host.hidden = total === 0
+  if (!total) return
+  const parts = []
+  if (pending) parts.push(`${pending} 条待审候选`)
+  if (pendingStyles) parts.push(`${pendingStyles} 条说法候选`)
+  const links = []
+  if (pending) links.push('<a href="#sec-pending">待审区</a>')
+  if (pendingStyles) links.push('<a href="#sec-style">说法区</a>')
+  $('#pendingBannerCount').textContent = total
+  $('#pendingBannerText').innerHTML = `有 ${parts.join('、')} 还没生效；去${links.join('或')}收下后才生效，丢掉则不会写入。`
 }
 
 function renderConflicts() {
@@ -923,13 +1055,48 @@ function renderStyles() {
 }
 
 function renderStatus() {
-  presenceDraft = ['auto', 'busy', 'away'].includes(DATA.presence.mode) ? DATA.presence.mode : 'auto'
+  renderPresenceEditor()
+  renderRuntime()
+}
+
+// 在线状态编辑表单：只在首屏和保存后重画；自动刷新不碰它，免得覆盖没保存的值。
+function renderPresenceEditor() {
+  const effectiveMode = DATA.effectivePresence?.mode || 'normal'
+  const sleeping = effectiveMode === 'sleep' || effectiveMode === 'nap'
+  const stored = ['auto', 'busy', 'away'].includes(DATA.presence.mode) ? DATA.presence.mode : 'auto'
+  // 睡觉/午休是自动推出来的，不能把编辑表单静默勾成「自动」；等用户明确点选再显示。
+  if (!presenceTouched) presenceDraft = sleeping ? 'auto' : stored
+  const selected = !sleeping || presenceTouched
   for (const button of document.querySelectorAll('#modeSeg button')) {
-    button.setAttribute('aria-pressed', String(button.dataset.mode === presenceDraft))
+    button.setAttribute('aria-pressed', String(selected && button.dataset.mode === presenceDraft))
   }
   $('#presenceReason').value = DATA.presence.reason || ''
   $('#presenceUntil').value = toLocalInput(DATA.presence.until)
+}
 
+// 只读状态块：睡眠状态/身体/心情/主动联系/她今天/处境/反思。自动刷新会重画这里。
+function renderRuntime() {
+  renderPresenceStatus()
+  renderBodyMeters()
+  // 主动联系面板里含设置表单：用户动过还没保存时，刷新不要覆盖输入。
+  if (!proactiveTouched) renderProactive()
+  renderLife()
+  renderRecentState()
+}
+
+// 睡眠/午休是自动推导出来的真实模式：只读显示，别让编辑表单看起来像「自动」。
+function renderPresenceStatus() {
+  const mode = DATA.effectivePresence?.mode || 'normal'
+  const sleeping = mode === 'sleep' || mode === 'nap'
+  const host = $('#presenceActual')
+  if (!host) return
+  host.hidden = !sleeping
+  host.innerHTML = sleeping
+    ? `<span class="chip warn">${esc(PRESENCE_LABEL[mode] || mode)}</span><span class="muted">这是按时间和睡眠记录推导的状态；发消息会叫醒她，不用手动切回「自动」。</span>`
+    : ''
+}
+
+function renderBodyMeters() {
   const body = DATA.body
   const awake = Number.isFinite(body.awakeMinutes)
     ? `<div class="row-sub">已醒 ${Math.floor(body.awakeMinutes / 60)} 小时 ${body.awakeMinutes % 60} 分</div>` : ''
@@ -945,7 +1112,9 @@ function renderStatus() {
 
   const axes = [['开心', body.joy], ['烦躁', body.anger], ['低落', body.sorrow], ['不安', body.fear]]
   $('#moodMeters').innerHTML = axes.map(([label, value]) => `<div><div class="meter-top"><span>${label}</span><b>${Math.round(value * 10) / 10}</b></div><div class="bar"><i style="width:${pct(value, 10)}%"></i></div></div>`).join('')
+}
 
+function renderProactive() {
   const proactive = DATA.proactive
   if (!proactive) {
     $('#proactiveBody').innerHTML = `<div class="empty">主动 worker 还没有接线。</div>`
@@ -1040,7 +1209,9 @@ function renderStatus() {
       ${archives.length ? `<div class="row-sub" style="margin-top:10px">账本归档（压缩前的完整事件，原始 JSONL）</div><div class="archive-list">${archives.map(item => `<a class="chip" href="./api/person/archives/${encodeURIComponent(item.name)}" download title="${esc(item.name)}">${esc(item.name.replace(/^person-events\.archive-/, '').replace(/\.jsonl$/, ''))} · ${Math.max(1, Math.round(item.size / 1024))}KB</a>`).join('')}</div>` : ''}
     `
   }
+}
 
+function renderLife() {
   const lifeLabels = { reading: '在读', resting: '休息', idle: '日常', chatting: '聊天', improvised: '即兴' }
   $('#lifeBody').innerHTML = DATA.life?.description
     ? `<div class="row-title">${esc(DATA.life.description)}</div>
@@ -1050,7 +1221,6 @@ function renderStatus() {
        ${DATA.journal?.text ? `<blockquote class="quote">今天的小日记：${esc(DATA.journal.text)}</blockquote>` : ''}`
     : `<div class="empty">现在没有记录。她可能只是没在做什么特别的事。</div>`
 
-  renderRecentState()
 }
 
 function renderRecentState() {
@@ -1071,11 +1241,19 @@ function renderRecentState() {
   })()
   const todayReflects = reflection.day === todayKey ? Number(reflection.reflectCallsToday) || 0 : 0
   const todayStyles = reflection.day === todayKey ? Number(reflection.styleCallsToday) || 0 : 0
+  // 后台反思关着时摘要不会自己更新：不能把旧摘要当成“上次刚整理过”。
+  const proactive = DATA.proactive
+  const backgroundOff = Boolean(proactive)
+    && (proactive.effective?.backgroundLlm === false || proactive.settings?.backgroundLlm !== true)
+  const lastReflect = reflection.lastAt
+    ? `${formatDateTime(reflection.lastAt)}（${relAgo(reflection.lastAt)}）`
+    : ''
   $('#reflectionBody').innerHTML = `<div class="row-sub">${esc(reflection.lastSummary || '还没有跑过反思。')}</div>
+    ${backgroundOff ? '<div class="row-sub">后台反思已关闭，摘要不会自动更新。要它更新，在「主动联系」里打开「后台生活与反思」。</div>' : ''}
     <div class="row-meta">
       <span class="chip">今天反思 ${todayReflects} 次</span>
       <span class="chip">说法 ${todayStyles} 次</span>
-      ${reflection.lastAt ? `<span>上次反思 ${esc(formatDateTime(reflection.lastAt))}</span>` : '<span>上次反思时间未知</span>'}
+      ${reflection.lastAt ? `<span>上次反思 ${esc(lastReflect)}</span>` : '<span>上次反思时间未知</span>'}
     </div>`
 }
 
@@ -1089,6 +1267,17 @@ function formatDateTime(iso) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+// 相对时间：跨天时只给日期会让人以为摘要停在那天，补一句“几天前”更直观。
+function relAgo(iso) {
+  const then = new Date(iso)
+  if (!iso || Number.isNaN(then.getTime())) return ''
+  const ms = Date.now() - then.getTime()
+  if (ms < 60000) return '刚刚'
+  if (ms < 3600000) return `${Math.floor(ms / 60000)} 分钟前`
+  if (ms < 86400000) return `${Math.floor(ms / 3600000)} 小时前`
+  return `${Math.floor(ms / 86400000)} 天前`
 }
 
 function toLocalInput(iso) {
@@ -1500,7 +1689,8 @@ document.addEventListener('click', async (event) => {
       return
     }
     if (act === 'presence-save') {
-      const mode = presenceDraft
+      // 睡眠/午休时没点过任何按钮，保存仍按「自动」处理——但这是用户显式动作，不是表单静默改值。
+      const mode = presenceDraft || 'auto'
       const reason = $('#presenceReason').value.trim()
       const untilValue = $('#presenceUntil').value
       const until = mode === 'auto' || !untilValue ? '' : new Date(untilValue).toISOString()
@@ -1517,6 +1707,7 @@ document.addEventListener('click', async (event) => {
 $('#modeSeg').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-mode]')
   if (!button) return
+  presenceTouched = true
   presenceDraft = button.dataset.mode
   for (const item of document.querySelectorAll('#modeSeg button')) {
     item.setAttribute('aria-pressed', String(item.dataset.mode === presenceDraft))
@@ -1524,9 +1715,14 @@ $('#modeSeg').addEventListener('click', (event) => {
 })
 
 document.addEventListener('input', (event) => {
+  if (event.target.closest?.('#proactiveBody')) proactiveTouched = true
   if (event.target.id !== 'f-lprogress') return
   const label = $('#progressValue')
   if (label) label.textContent = `${event.target.value}%`
+})
+
+document.addEventListener('change', (event) => {
+  if (event.target.closest?.('#proactiveBody')) proactiveTouched = true
 })
 
 /* ── 主题 ───────────────────────────────────────────────── */
@@ -1549,6 +1745,8 @@ $('#themeToggle').addEventListener('click', () => {
 /* ── 启动 ───────────────────────────────────────────────── */
 // 只刷新时间标签，不重置正在编辑的状态表单，也不发后台请求。
 setInterval(() => { if (DATA) renderRecentState() }, 30000)
+// 后台反思/模型写入随时可能改档案；每 15 秒只读拉一次，内容指纹变了才重排。
+setInterval(() => { refreshNow() }, REFRESH_MS)
 load().catch((err) => {
   $('#boot').innerHTML = `<b>读不到档案</b><br>${esc(err.message)}<br><br><button class="btn secondary" id="retry">重试</button>`
   $('#status').className = 'status bad'

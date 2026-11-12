@@ -40,7 +40,7 @@ import { hasNativeTimeContext } from './lib/request-clock.js'
 import { createRequestContext, createPromptGuard } from './lib/request-context.js'
 import { applyCompanion } from './lib/companion.js'
 import { loadCompanionState, saveCompanionState, timeLine, inClassWindow, advanceLife, lifeLine, advanceJournal } from './lib/companion-state.js'
-import { advanceBody } from './lib/body-state.js'
+import { advanceBody, stateToneLines } from './lib/body-state.js'
 import { settleSleep } from './lib/sleep-runtime.js'
 import { loadSleepLedger } from './lib/sleep-ledger.js'
 import { withOperationId } from './lib/tool-operations.js'
@@ -248,13 +248,13 @@ const health = { rules: 'unknown', rulesAt: '', stateAt: '', lastError: startupE
 
 const lastAssistantBySession = new Map()
 
-const LESSON_NEXT = '沿着学生当前卡点选择小例子、画图、解释或提问；把建模的理由讲明白，何时继续或转练由回应决定。'
+const LESSON_NEXT = '沿着学生当前卡点选择小例子、画图、解释或提问；把建模的理由讲明白，何时继续或转练由回应决定。一次讲一个点，不铺「首先/其次」的讲义，不写总结段。'
 
 // workloadScoreFor lives in lib/workload.js so the background tick and the
 // conversation path use the same formula.
 
 // 动态材料只有这一处说明，不再追加另一份表演规则。
-const REPLY_STYLE = '- 这些是背景，不是新的话题或表演要求；回应他当前的话，讲题与闲聊保持同一个你。'
+const REPLY_STYLE = '- 这些是背景，不是新的话题或表演要求；回应他当前的话，讲题与闲聊保持同一个你。讲题一次讲一个点，跟着他最后一句走，别铺「首先/其次/综上所述」的讲义。'
 
 function loadMap() {
   const path = MAP_PATH()
@@ -2182,6 +2182,9 @@ function applyPersonaReview(ctx) {
   })
 }
 
+// 身体/心情/作息只影响语气和关注点：说清边界，避免模型拿情绪当判断或每轮播报。
+const STATE_TONE_HINT = '- 上面是你的身体、心情和作息：只影响你此刻的语气、关注点和要不要劝他休息；不改变训练判断、账本事实和工具参数，也不用每轮逐项播报，别为了表现情绪编造事件。'
+
 function registerStateHook(ctx, teaching, proactiveWorker = null) {
   const requestContext = createRequestContext(ctx, 'coach:state', 400)
   const guardPrompt = createPromptGuard(ctx)
@@ -2266,6 +2269,20 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
       // 一次工具调用的往返就多一份一模一样的状态。
       if (step !== 1 || decision.kind !== 'enter') return decision
 
+      // 真人消息把她叫醒了：显式 sleep/nap 要清回 auto。否则页面 pill 和下一轮
+      // 注入会继续说“正在睡”，而被打断的睡眠 episode 还会在宽限期后被后台
+      // 重新标成 active。放在 presenceDelay 之后：叫醒前那点“慢半拍”仍按
+      // 睡着的 presence 算；主动唤醒 / 阅读回合在上面已经提前返回，不受影响。
+      const explicitSleepPresence = ['sleep', 'nap'].includes(person?.presence?.mode)
+      const wokenThisTurn = hasUser && (explicitSleepPresence || ['sleep', 'nap'].includes(presenceNow.mode))
+      if (hasUser && explicitSleepPresence) {
+        // 保存失败不拦对话：注入仍按“被叫醒”处理，下一轮还有机会清。
+        try {
+          person.presence = { mode: 'auto', until: '', since: '', reason: '' }
+          savePerson(DATA_DIR, person)
+        } catch { /* 清 presence 失败不能拦这一轮 */ }
+      }
+
       const p = loadProgress()
       const cursor = String(p.cursor ?? '')
       const pending = p.pending
@@ -2315,6 +2332,8 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
         presenceSince: rawPresence.since ?? '',
         presenceUntil: rawPresence.until ?? '',
         sleepLedger, workloadScore,
+        // 社交情绪只在这一条真人消息上结算一次；工具体往返和后台 tick 不重复叠加。
+        userText: hasUser ? lastUserText : '',
       })
       // 状态维护挪到 60s 后台 tick（lib/life-tick.js）：那里有完整预算，
       // 不在对话回合里等模型，也不会因为一天没人说话就停更。
@@ -2351,6 +2370,14 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
       // 日常接话只取本地相关线索，跨会话主召回复用 Hindsight。
       const memoryLinesNow = memoryLines(person, now, { lastUserText })
 
+      // 身体/心情/作息：让语气和关注点跟着当下状态走。数值只作语气参考，
+      // 不改判断、账本和工具参数；下一行把这条边界说给模型。
+      // woken 只在这一处传：这一轮是被真人消息叫醒的，注入里不能说“正在睡”。
+      const stateTone = [
+        ...stateToneLines(body, { roleState: companion.roleState, sleepLedger, now, woken: wokenThisTurn }),
+        STATE_TONE_HINT,
+      ]
+
       // 课程可以先于游标存在；即使尚未布置动作，也要在新会话继续同一路线。
       let hasCurriculum = false
       try { hasCurriculum = Boolean(curriculum.load()) } catch { hasCurriculum = true }
@@ -2376,13 +2403,14 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
           ...personLinesNow,
           ...memoryLinesNow,
           ...companionLines,
+          ...stateTone,
           REPLY_STYLE,
           '</coach_state>']
       } else {
         const { byId } = loadMap()
         const nameOf = (id) => byId.get(String(id))?.name ?? String(id)
         const node = byId.get(cursor)
-        lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines]
+        lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines, ...stateTone]
         if (studentContextLine) lines.push(studentContextLine)
         if (!p.lesson) {
           lines.push(strategy.context())
@@ -2990,7 +3018,7 @@ function apply(ctx) {
   }))
   registerTool(ctx, defineTool({
     name: 'coach_note',
-    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课；续课笔记不算教学接触，开验证卷仍需 coach_lesson 或 coach_mark 的记录。' +
+    description: '读取、保存或更正简短续课笔记：讲到哪里、教练的判断、下次怎样接着讲。写具体卡点、试过的讲法和他的实际回应，不写「讲得很顺利」这类套话；更正请用 revise + noteId，不再追加一条互相矛盾的笔记。复用节点进度账本；不改掌握状态或自动决定下一课；续课笔记不算教学接触，开验证卷仍需 coach_lesson 或 coach_mark 的记录。' +
       'studentQuote 可选；提供时自动核对当前会话的学生原话，核对存在不代表已经理解。无回应依据时写明尚未核对，不编造表现。',
     parameters: {
       action: { type: 'string', enum: ['read', 'write', 'revise'], description: '默认 read；write 新增，revise 按 noteId 更正原笔记。' },
@@ -4154,6 +4182,7 @@ function apply(ctx) {
           'practice 开全新地图知识点时先讲的时间（分钟）；diagnostic/vp 不要求讲解。' +
           '不给会被拒绝 —— 直接扔题让他自己卡，那是给学过的人的练法。' +
           '讲多久**你自己定**（不参考任何固定值），看你判断他需要多少。' +
+          '实际讲多深还看他的回应：一次一个点，不按固定顺序铺讲义。' +
           '讲解预算为非负整数，整项动作不得超过960分钟。已经在学或学过的节点不用给。' +
           '这是计划时长，不能证明已经讲过或学生理解了。',
       },
@@ -4470,7 +4499,7 @@ function apply(ctx) {
   // 只记学生回应和结果；讲解深浅由教练根据当下回应决定。
   registerTool(ctx, defineTool({
     name: 'coach_lesson',
-    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。这条课堂记录算教学接触（不是掌握证据），可作为之后开验证卷的前提。',
+    description: '记录一节互动课的接续位置。advance 记真实回应，教练观察与学生原话分开；刚才记错时用 correct 更正上一条，不增加回应次数。end 用收课判断与可选 nextStep 写续课笔记，独立完成必须提供具体证据。单纯概念问答不必开课时。这条课堂记录算教学接触（不是掌握证据），可作为之后开验证卷的前提。讲课时跟着学生最后一句走、一次讲一个点，由他的回应决定讲多深；不套「首先/其次/综上所述」的讲义提纲，不写总结段和客服收尾，术语与代码保持准确。',
     parameters: {
       action: { type: 'string', required: true, enum: ['start', 'advance', 'correct', 'end', 'status'] },
       node: { type: 'string', description: 'start 必填：地图节点 id' },

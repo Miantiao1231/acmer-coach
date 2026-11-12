@@ -247,6 +247,7 @@ test('model shelf writes become pending candidates; the page still adopts them',
         ? { ok: true, studentEvidence: { quote, messageId: 'm1', seq: 1 } }
         : { ok: false, reject: 'no quote' },
     })
+    // 「我在读…」是学生自己的阅读，没明确说是给小鲸的：仍然只提候选。
     const proposed = await tool.execute({ action: 'library.add', title: '《海》', evidence: '我在读《海》' })
     assert.equal(proposed.ok, true, proposed.reject)
     assert.match(proposed.summary, /待审/)
@@ -257,6 +258,62 @@ test('model shelf writes become pending candidates; the page still adopts them',
     const accepted = await tool.execute({ action: 'pending.accept', id: pending.id }, { origin: 'human' })
     assert.equal(accepted.ok, true, accepted.reject)
     assert.equal(loadPerson(dir).library.length, 1)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('explicit role-directed quotes write preferences and the shelf directly; ambiguous quotes stay pending', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-person-directed-'))
+  try {
+    const quotes = new Set(['你以后喜欢被摸头吧', '我喜欢热可可，你记住了吗', '这本书你拿去读', '我在读《海》', '你在看什么书？'])
+    const tool = createCompanionTool(dir, {
+      verifyEvidence: async quote => quotes.has(quote)
+        ? { ok: true, studentEvidence: { quote, messageId: 'm-directed', seq: 1 } }
+        : { ok: false, reject: 'no quote' },
+    })
+    // 第二人称和偏好词在同一小句：按用户指令直写，不再堆成候选。
+    const direct = await tool.execute({ action: 'profile.set', likes: ['被摸头'], evidence: '你以后喜欢被摸头吧' })
+    assert.equal(direct.ok, true, direct.reject)
+    assert.doesNotMatch(direct.summary, /待审/)
+    assert.ok(loadPerson(dir).profile.likes.includes('被摸头'))
+    assert.equal(loadPerson(dir).pending.length, 0)
+    // 重复写同一条不重复追加。
+    assert.equal((await tool.execute({ action: 'profile.set', likes: ['被摸头'], evidence: '你以后喜欢被摸头吧' })).ok, true)
+    assert.equal(loadPerson(dir).profile.likes.filter(item => item === '被摸头').length, 1)
+
+    // 「我喜欢热可可，你记住了吗」主角仍是学生自己：即使句尾有「你」也只入待审。
+    const ambiguous = await tool.execute({ action: 'profile.set', dislikes: ['恐怖片'], evidence: '我喜欢热可可，你记住了吗' })
+    assert.equal(ambiguous.ok, true, ambiguous.reject)
+    assert.match(ambiguous.summary, /待审/)
+    assert.equal(loadPerson(dir).profile.dislikes.includes('恐怖片'), false)
+    assert.ok(loadPerson(dir).pending.some(item => item.kind === 'profile' && item.subject === 'role'))
+
+    // 书架同理：明确说给她读的直写；学生自己的书仍入待审。
+    const shelf = await tool.execute({ action: 'library.add', title: '海', evidence: '这本书你拿去读' })
+    assert.equal(shelf.ok, true, shelf.reject)
+    assert.doesNotMatch(shelf.summary, /待审/)
+    assert.deepEqual(loadPerson(dir).library.map(item => item.title), ['海'])
+    const ownBook = await tool.execute({ action: 'library.add', title: '算法导论', evidence: '我在读《海》' })
+    assert.equal(ownBook.ok, true, ownBook.reject)
+    assert.match(ownBook.summary, /待审/)
+    // 问她在读什么只是在打听，不等于把书给她；也不直写。
+    const asking = await tool.execute({ action: 'library.add', title: '算法竞赛入门', evidence: '你在看什么书？' })
+    assert.equal(asking.ok, true, asking.reject)
+    assert.match(asking.summary, /待审/)
+    assert.deepEqual(loadPerson(dir).library.map(item => item.title), ['海'])
+
+    // 身份/来历仍然只能由页面编辑；模型也不能靠直写清空列表。
+    assert.equal((await tool.execute({ action: 'profile.set', background: ['来自深海'], evidence: '你以后喜欢被摸头吧' })).ok, false)
+    assert.equal((await tool.execute({ action: 'profile.set', likes: [], evidence: '你以后喜欢被摸头吧' })).ok, false)
+    assert.deepEqual(loadPerson(dir).profile.background, [])
+
+    // 上限守卫在直写路径同样生效，且不会淘汰旧项。
+    const person = loadPerson(dir)
+    person.profile.likes = Array.from({ length: 12 }, (_, index) => `喜欢${index}`)
+    assert.equal(savePerson(dir, person), true)
+    const full = await tool.execute({ action: 'profile.set', likes: ['被摸头'], evidence: '你以后喜欢被摸头吧' })
+    assert.equal(full.ok, false)
+    assert.match(full.reject, /12/)
+    assert.equal(loadPerson(dir).profile.likes.length, 12)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
@@ -556,5 +613,43 @@ test('boundaries and pinned facts are bounded and require evidence', async () =>
     const loaded = loadPerson(dir, NOW)
     assert.equal((await tool.execute({ action: 'boundary.remove', id: loaded.boundaries[0].id, evidence: '取消这条称呼边界' })).ok, true)
     assert.equal((await tool.execute({ action: 'pin.remove', id: loaded.pinned[0].id, evidence: '这句不用置顶了' })).ok, true)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('pending candidates are surfaced once, not nagged every turn', () => {
+  const person = emptyPerson(NOW)
+  person.pending.push({ id: 'p1', kind: 'habit',
+    fields: { situation: '他卡住时', action: '先问想到哪一步', boundary: '' },
+    evidence: [{ handle: 's1', quote: '原话', time: '', messageId: '', seq: 1 }],
+    confidence: 0.8, createdAt: NOW.toISOString(), status: 'pending' })
+  const line = personLines(person, NOW).find(item => item.includes('待审候选'))
+  assert.ok(line, 'the prompt tells her candidates exist')
+  assert.match(line, /人格档案/)
+  assert.match(line, /别每轮催/)
+  assert.doesNotMatch(line, /他问起时再看，不主动念/)
+})
+
+test('question-like quotes never direct-write the role profile', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-person-question-'))
+  try {
+    const quotes = ['你叫外卖的时候，喜欢顺便买杯奶茶吗？', '你怕什么', '你平时喜欢什么', '你喜欢什么样的电影']
+    const tool = createCompanionTool(dir, {
+      verifyEvidence: async quote => quotes.includes(quote)
+        ? { ok: true, studentEvidence: { quote, messageId: 'm-question', seq: 1 } }
+        : { ok: false, reject: 'no quote' },
+    })
+    const cases = [
+      ['likes', '奶茶', quotes[0]],
+      ['quirks', '怕黑', quotes[1]],
+      ['likes', '逛街', quotes[2]],
+      ['dislikes', '苦情片', quotes[3]],
+    ]
+    for (const [field, value, quote] of cases) {
+      const result = await tool.execute({ action: 'profile.set', [field]: [value], evidence: quote })
+      assert.equal(result.ok, true, result.reject)
+      assert.match(result.summary, /待审/, `${quote} 只是在问/打听，必须只提候选`)
+      assert.equal(loadPerson(dir).profile[field].includes(value), false, `${quote} 不能直写进角色档案`)
+    }
+    assert.equal(loadPerson(dir).pending.filter(item => item.kind === 'profile').length, 4)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
