@@ -498,3 +498,158 @@ test('person API stores boundaries and pinned facts, and resolves identity confl
   assert.equal(read.profile.identity, '小鲸A')
   assert.equal(read.conflicts.length, 0)
 })
+
+test('person page polls the read-only API and only re-renders when its content changed', async () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const start = html.indexOf('/* ── 自动刷新')
+  const end = html.indexOf('/* ── 渲染')
+  assert.ok(start > 0 && end > start, 'the page has an auto-refresh section')
+  assert.match(html, /setInterval\(\(\) => \{ refreshNow\(\) \}, REFRESH_MS\)/, 'the page polls on a timer before the first draw')
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', hidden: false, className: '' })
+    return nodes.get(id)
+  }
+  const base = {
+    profile: { identity: '小鲸' }, relation: { milestones: [] }, habits: [], library: [], episodes: [],
+    promises: [], boundaries: [], pinned: [], context: null, conflicts: [], pending: [], style: [],
+    reflection: {}, rejectedCount: 0,
+    proactive: { enabled: false, settings: { backgroundLlm: false }, recentContacts: [] },
+  }
+  const rendered = []
+  let served = base
+  let fetches = 0
+  const sandbox = {
+    DATA: base, $: node, esc: value => String(value), document: { activeElement: null }, dialog: { open: false },
+    renderContent: () => rendered.push('content'), renderRecentState: () => rendered.push('recent'),
+    fetch: async () => { fetches += 1; return { ok: true, json: async () => ({ ok: true, ...served }) } },
+    Date,
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(html.slice(start, end), sandbox)
+
+  // 后台反思新增了书和待审候选：内容指纹变化，重排一次（只调一次 GET）。
+  served = { ...base, pending: [{ id: 'p-new', kind: 'library', subject: 'role', fields: { title: '海' }, confidence: 0.6, evidence: [] }],
+    library: [{ id: 'b1', title: '海' }] }
+  assert.equal(await sandbox.refreshNow(), true)
+  assert.deepEqual(rendered, ['content', 'recent'])
+  assert.equal(fetches, 1)
+  assert.match(node('#status').innerHTML, /已刷新/)
+
+  // 只有身体/生活这类按时间推出来的投影变化时不重排，页面不闪。
+  served = { ...served, body: { energy: 1 }, life: { description: '换了个姿势' } }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.equal(rendered.length, 2)
+
+  // 同一份数据再拉也不重排。
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.equal(rendered.length, 2)
+
+  // 对话框打开或输入框聚焦时这一拍跳过，完全不发请求。
+  sandbox.dialog.open = true
+  const beforeSkip = fetches
+  assert.equal(await sandbox.refreshNow(), false)
+  sandbox.dialog.open = false
+  sandbox.document.activeElement = { tagName: 'TEXTAREA' }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.equal(fetches, beforeSkip, 'editing never hits the API')
+
+  // 刷新失败只提示，继续用上次读到的数据。
+  sandbox.document.activeElement = null
+  sandbox.fetch = async () => { fetches += 1; return { ok: false, status: 500, json: async () => ({}) } }
+  assert.equal(await sandbox.refreshNow(), false)
+  assert.match(node('#status').innerHTML, /刷新失败/)
+  assert.equal(sandbox.DATA.library.length, 1, 'the last good data stays on screen')
+})
+
+test('person page surfaces pending candidates at the top and keeps the GET read-only', async t => {
+  const { dir, request } = await fixture(t)
+  const html = String((await request('/coach/person.html')).body)
+  assert.match(html, /id="pendingBanner"/)
+  assert.match(html, /href="#sec-pending"/)
+  assert.match(html, /收下后才生效/)
+  const before = JSON.parse(String((await request('/coach/api/person')).body))
+  assert.equal(before.pending.length, 0)
+  writeFileSync(join(dir, 'person.json'), JSON.stringify({
+    version: 1, revision: 0,
+    pending: [{
+      id: 'p-banner', kind: 'library', subject: 'role', fields: { title: '海' },
+      evidence: [{ handle: 'u1', quote: '这本书你拿去读' }], confidence: 0.6,
+      createdAt: new Date().toISOString(), status: 'pending',
+    }],
+  }, null, 2))
+  const snapshot = () => readdirSync(dir).sort().map(name => [name, readFileSync(join(dir, name), 'hex')])
+  const frozen = snapshot()
+  const after = JSON.parse(String((await request('/coach/api/person')).body))
+  assert.equal(after.pending.length, 1, 'the refresh source sees the new candidate')
+  assert.deepEqual(snapshot(), frozen, 'the page refresh GET writes nothing')
+
+  // 渲染函数：0 条时隐藏，>0 时显示数字和锚点提示。
+  const source = html.slice(html.indexOf('function renderPendingBanner()'), html.indexOf('function renderConflicts()'))
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', hidden: false })
+    return nodes.get(id)
+  }
+  const sandbox = { DATA: { pending: after.pending }, $: node }
+  vm.createContext(sandbox)
+  vm.runInContext(source, sandbox)
+  vm.runInContext('renderPendingBanner()', sandbox)
+  assert.equal(node('#pendingBanner').hidden, false)
+  assert.equal(node('#pendingBannerCount').textContent, 1)
+  assert.match(node('#pendingBannerText').innerHTML, /#sec-pending/)
+  vm.runInContext('DATA.pending = []\nrenderPendingBanner()', sandbox)
+  assert.equal(node('#pendingBanner').hidden, true)
+
+  // 自动刷新复用的内容渲染会同步目录/统计里的待审计数。
+  const content = html.slice(html.indexOf('function renderContent()'), html.indexOf('function renderPendingBanner()'))
+  assert.match(content, /\$\('#navPending'\)\.textContent = DATA\.pending\.length/)
+  assert.ok(content.includes("$('#pendingCount').textContent = `${DATA.pending.length} 条`"))
+  assert.match(content, /renderPendingBanner\(\)/)
+})
+
+test('person page marks a closed background reflection and shows how old the summary is', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const source = html.slice(html.indexOf('function renderStatus()'), html.indexOf('function toLocalInput('))
+  const nodes = new Map()
+  const node = id => {
+    if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '当前处境' })
+    return nodes.get(id)
+  }
+  let clock = new Date(2026, 10, 5, 18).getTime()
+  class Clock extends Date {
+    constructor(...args) { super(...(args.length ? args : [clock])) }
+    static now() { return clock }
+  }
+  const DATA = {
+    presence: { mode: 'auto' },
+    body: { energy: 50, fatigue: 10, sleepDebt: 0 },
+    proactive: { enabled: false, settings: { backgroundLlm: false }, effective: {} },
+    reflection: {
+      day: '2026-11-03', lastAt: new Date(2026, 9, 28, 8, 55).toISOString(),
+      lastSummary: '上次整理的摘要', reflectCallsToday: 2,
+    },
+  }
+  const sandbox = {
+    DATA, Date: Clock, $: node, document: { querySelectorAll: () => [] },
+    esc: value => String(value), pct: () => 0, toLocalInput: () => '',
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(source + '\nrenderStatus()', sandbox)
+  assert.match(node('#reflectionBody').innerHTML, /上次整理的摘要/)
+  assert.match(node('#reflectionBody').innerHTML, /后台反思已关闭，摘要不会自动更新/)
+  assert.match(node('#reflectionBody').innerHTML, /8 天前/, 'the panel shows a relative age, not just a date')
+  assert.match(node('#reflectionBody').innerHTML, /今天反思 0 次/)
+
+  // 环境变量强制关闭时 effective 与设置不一致，也要提示。
+  DATA.proactive = { enabled: false, settings: { backgroundLlm: true }, effective: { backgroundLlm: false } }
+  vm.runInContext('renderRecentState()', sandbox)
+  assert.match(node('#reflectionBody').innerHTML, /后台反思已关闭/)
+
+  // 真正开着时不吓人。
+  DATA.proactive = { enabled: false, settings: { backgroundLlm: true }, effective: { backgroundLlm: true } }
+  vm.runInContext('renderRecentState()', sandbox)
+  assert.doesNotMatch(node('#reflectionBody').innerHTML, /后台反思已关闭/)
+  assert.match(node('#reflectionBody').innerHTML, /上次反思/)
+  assert.match(node('#reflectionBody').innerHTML, /8 天前/)
+})

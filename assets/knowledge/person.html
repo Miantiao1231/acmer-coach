@@ -209,6 +209,7 @@ section[id]{scroll-margin-top:88px}
 .alert{padding:18px 24px;margin-bottom:20px;border-color:color-mix(in srgb,var(--tle) 40%,var(--stroke));background:linear-gradient(180deg,var(--tle-soft),transparent)}
 .alert h3{font-size:13.5px;color:var(--tle-text)}
 .alert p{margin-top:5px;color:var(--text-2);font-size:12.5px;line-height:1.65}
+.alert a{color:var(--brand-text);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 
 /* ── 对话框 / toast ───────────────────────────────────────── */
 .dlg{width:min(560px,calc(100% - 32px));max-height:86dvh;padding:0;border:1px solid var(--stroke-strong);border-radius:var(--radius-l);background:var(--bg-1);color:var(--text-1);box-shadow:var(--shadow-2)}
@@ -330,6 +331,12 @@ section[id]{scroll-margin-top:88px}
   <div id="boot" class="boot">正在读取她的档案…</div>
 
   <div id="app" hidden>
+    <div id="pendingBanner" class="panel alert" hidden>
+      <h3>有 <span id="pendingBannerCount">0</span> 条待审候选</h3>
+      <p id="pendingBannerText">这些候选还没写进她的档案或书架；去<a href="#sec-pending">待审区</a>收下后才生效，丢掉则不会写入。</p>
+      <div class="review-actions"><a class="btn primary sm" href="#sec-pending">去待审区收下</a></div>
+    </div>
+
     <section class="panel hero" aria-labelledby="identityText">
       <div class="hero-id">
         <div class="avatar" aria-hidden="true">
@@ -599,13 +606,84 @@ async function load() {
   render()
 }
 
+/* ── 自动刷新 ──────────────────────────────────────────────
+   后台反思和模型写入会在页面打开期间改档案、书架、待审；页面不能只靠手动刷新。
+   每 15 秒做一次只读 GET，内容指纹变了才重排；有未保存的编辑时跳过这一拍。
+   GET 只读（服务端不写文件），页面也永远不自动收下/丢弃候选。 */
+const REFRESH_MS = 15000
+// 只把后台会写、页面需要及时看到的内容算进指纹。身体/生活/在线状态是按时间推
+// 出来的投影，每次 GET 都会变一点，算进去会让页面每 15 秒重排一次。
+const REFRESH_FIELDS = ['profile', 'relation', 'habits', 'library', 'episodes', 'promises',
+  'boundaries', 'pinned', 'context', 'conflicts', 'pending', 'style', 'reflection', 'rejectedCount']
+let refreshBusy = false
+
+function contentSignature(data) {
+  if (!data) return ''
+  const picked = {}
+  for (const key of REFRESH_FIELDS) picked[key] = data[key] ?? null
+  const proactive = data.proactive
+  picked.proactive = proactive
+    ? { enabled: proactive.enabled, settings: proactive.settings ?? null, recent: proactive.recentContacts ?? null }
+    : null
+  return JSON.stringify(picked)
+}
+
+// 对话框打开或输入框聚焦时算“正在编辑”：这一拍不重排，免得覆盖没保存的值。
+function editingInPage() {
+  if (dialog?.open) return true
+  const active = document.activeElement
+  return Boolean(active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName))
+}
+
+function markLoaded(text, kind = 'ok') {
+  const host = $('#status')
+  if (!host) return
+  host.className = `status ${kind}`
+  host.innerHTML = `<i></i><span>${esc(text)}</span>`
+}
+
+async function refreshNow() {
+  // 首屏没读到、上一拍还没回来、或用户在编辑：这一拍什么都不做。
+  if (!DATA || refreshBusy || $('#app')?.hidden) return false
+  if (editingInPage()) return false
+  refreshBusy = true
+  try {
+    const res = await fetch('./api/person', { headers: { accept: 'application/json' } })
+    if (!res.ok) throw new Error(`读取失败（HTTP ${res.status}）`)
+    const data = await res.json()
+    if (!data || data.ok !== true) throw new Error(data?.reject || '读取失败')
+    if (contentSignature(data) === contentSignature(DATA)) {
+      // 上一拍失败过就恢复“已加载”；否则保留已有的“几点刷新”提示，不来回跳。
+      if ($('#status')?.className.includes('bad')) markLoaded('本地档案 · 已加载')
+      return false
+    }
+    DATA = data
+    // 只重排内容栏和状态摘要，不动「在线状态/身体」的编辑表单。
+    renderContent()
+    renderRecentState()
+    const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    markLoaded(`本地档案 · ${time} 已刷新`)
+    return true
+  } catch {
+    // 刷新失败只提示，继续用上次读到的档案；下一拍会再试。
+    markLoaded('刷新失败，仍显示上次读到的档案', 'bad')
+    return false
+  } finally {
+    refreshBusy = false
+  }
+}
+
 /* ── 渲染 ───────────────────────────────────────────────── */
 function render() {
   $('#boot').hidden = true
   $('#app').hidden = false
-  $('#status').className = 'status ok'
-  $('#status').innerHTML = '<i></i><span>本地档案 · 已加载</span>'
+  markLoaded('本地档案 · 已加载')
+  renderContent()
+  renderStatus()
+}
 
+// 自动刷新只走这里：目录/统计/各栏目/待审提示，不碰状态区的编辑表单。
+function renderContent() {
   $('#identityText').textContent = DATA.profile.identity
   const mode = DATA.effectivePresence?.mode || 'normal'
   const reason = DATA.effectivePresence?.reason || ''
@@ -634,6 +712,7 @@ function render() {
   $('#pendingCount').textContent = `${DATA.pending.length} 条`
   $('#styleCount').textContent = `${DATA.style.length} 条`
 
+  renderPendingBanner()
   renderConflicts()
   renderProfile()
   renderMilestones()
@@ -644,7 +723,17 @@ function render() {
   renderLibrary()
   renderPending()
   renderStyles()
-  renderStatus()
+}
+
+// 待审不写进档案前，页顶要让人一眼看到有几条、去哪收；0 条时整块隐藏。
+function renderPendingBanner() {
+  const count = DATA.pending.length
+  const host = $('#pendingBanner')
+  if (!host) return
+  host.hidden = count === 0
+  if (!count) return
+  $('#pendingBannerCount').textContent = count
+  $('#pendingBannerText').innerHTML = `这 ${count} 条候选还没写进她的档案或书架；去<a href="#sec-pending">待审区</a>收下后才生效，丢掉则不会写入。`
 }
 
 function renderConflicts() {
@@ -1071,11 +1160,19 @@ function renderRecentState() {
   })()
   const todayReflects = reflection.day === todayKey ? Number(reflection.reflectCallsToday) || 0 : 0
   const todayStyles = reflection.day === todayKey ? Number(reflection.styleCallsToday) || 0 : 0
+  // 后台反思关着时摘要不会自己更新：不能把旧摘要当成“上次刚整理过”。
+  const proactive = DATA.proactive
+  const backgroundOff = Boolean(proactive)
+    && (proactive.effective?.backgroundLlm === false || proactive.settings?.backgroundLlm !== true)
+  const lastReflect = reflection.lastAt
+    ? `${formatDateTime(reflection.lastAt)}（${relAgo(reflection.lastAt)}）`
+    : ''
   $('#reflectionBody').innerHTML = `<div class="row-sub">${esc(reflection.lastSummary || '还没有跑过反思。')}</div>
+    ${backgroundOff ? '<div class="row-sub">后台反思已关闭，摘要不会自动更新。要它更新，在「主动联系」里打开「后台生活与反思」。</div>' : ''}
     <div class="row-meta">
       <span class="chip">今天反思 ${todayReflects} 次</span>
       <span class="chip">说法 ${todayStyles} 次</span>
-      ${reflection.lastAt ? `<span>上次反思 ${esc(formatDateTime(reflection.lastAt))}</span>` : '<span>上次反思时间未知</span>'}
+      ${reflection.lastAt ? `<span>上次反思 ${esc(lastReflect)}</span>` : '<span>上次反思时间未知</span>'}
     </div>`
 }
 
@@ -1089,6 +1186,17 @@ function formatDateTime(iso) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+// 相对时间：跨天时只给日期会让人以为摘要停在那天，补一句“几天前”更直观。
+function relAgo(iso) {
+  const then = new Date(iso)
+  if (!iso || Number.isNaN(then.getTime())) return ''
+  const ms = Date.now() - then.getTime()
+  if (ms < 60000) return '刚刚'
+  if (ms < 3600000) return `${Math.floor(ms / 60000)} 分钟前`
+  if (ms < 86400000) return `${Math.floor(ms / 3600000)} 小时前`
+  return `${Math.floor(ms / 86400000)} 天前`
 }
 
 function toLocalInput(iso) {
@@ -1549,6 +1657,8 @@ $('#themeToggle').addEventListener('click', () => {
 /* ── 启动 ───────────────────────────────────────────────── */
 // 只刷新时间标签，不重置正在编辑的状态表单，也不发后台请求。
 setInterval(() => { if (DATA) renderRecentState() }, 30000)
+// 后台反思/模型写入随时可能改档案；每 15 秒只读拉一次，内容指纹变了才重排。
+setInterval(() => { refreshNow() }, REFRESH_MS)
 load().catch((err) => {
   $('#boot').innerHTML = `<b>读不到档案</b><br>${esc(err.message)}<br><br><button class="btn secondary" id="retry">重试</button>`
   $('#status').className = 'status bad'
