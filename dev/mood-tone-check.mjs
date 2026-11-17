@@ -280,3 +280,46 @@ test('persona tells her she has a schedule and should record sleep through the c
   assert.match(schedule, /醒来再改回 `auto`/)
   assert.doesNotMatch(schedule, /`online`|`offline`|`sleeping`|`napping`/, '作息段只能出现 presence.set 接受的枚举')
 })
+
+test('common study frustration moves the negative axes instead of leaving them at one', async (t) => {
+  const f = await fixture(t)
+  f.saveState(emptyBody(new Date()))
+  const text = await f.step('今天这题又不会做，烦死了，学不动了')
+  const body = JSON.parse(readFileSync(f.statePath, 'utf8')).body
+  assert.ok(body.anger >= 2.2, `一句常见的烦躁该让烦躁轴越过整数格：got ${body.anger}`)
+  assert.ok(body.sorrow >= 2.2, `不会做/学不动该让低落轴动起来：got ${body.sorrow}`)
+  assert.equal(Math.round(body.sorrow * 10) / 10 >= 2.2, true)
+  // 一句还没到「有点气」的阈值时也不能退回 1；下一条同向消息应把语气词推过去。
+  const next = await f.step('真的好烦')
+  assert.match(next, /心情：有点气/)
+})
+
+test('polite 麻烦 and calming 不难过 are not read as negative mood', async (t) => {
+  const f = await fixture(t)
+  f.saveState(emptyBody(new Date()))
+  await f.step('麻烦帮我看一下这道题，别担心，我不难过了')
+  const body = JSON.parse(readFileSync(f.statePath, 'utf8')).body
+  assert.equal(body.anger, 1, '麻烦/别担心不是发火')
+  assert.equal(body.sorrow, 1, '不难过不是低落')
+  assert.ok(body.joy <= 6.2, '客气话也不该被当成夸奖大幅加分')
+})
+
+test('one message cannot stack every negative cue into a ten', async (t) => {
+  const f = await fixture(t)
+  f.saveState(emptyBody(new Date()))
+  await f.step('烦死了气死了学不动了又WA了睡不着好焦虑想哭')
+  const body = JSON.parse(readFileSync(f.statePath, 'utf8')).body
+  for (const key of ['anger', 'sorrow', 'fear']) {
+    assert.ok(body[key] <= 3.3, `${key} 单条消息最多推 2.2，got ${body[key]}`)
+    assert.ok(body[key] > 1, `${key} 命中多个信号时该有可见变化`)
+  }
+})
+
+test('a temporary situation in the latest message gets a context-recording cue, ordinary chat does not', async (t) => {
+  const f = await fixture(t)
+  f.saveState(emptyBody(new Date()))
+  const situation = await f.step('明天有场比赛，晚上可能没空')
+  assert.match(situation, /coach_student_context set/, '面板里的处境要有新数据来源')
+  const ordinary = await f.step('陪我聊两句')
+  assert.doesNotMatch(ordinary, /coach_student_context set/, '普通闲聊不催模型写处境')
+})

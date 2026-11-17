@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/acmer-coach)](https://www.npmjs.com/package/acmer-coach)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A524-brightgreen)](https://nodejs.org)
-[![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.1--rc.2-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.2--rc.3-blueviolet)](https://github.com/deepseek-ai/deepseek-harness)
 
 一个给 ACMer 用的算法训练教练插件，跑在 [dsh](https://github.com/deepseek-ai/deepseek-harness) 上。
 
@@ -21,6 +21,14 @@
 带时间盒和交付物。
 
 ## 它到底做了什么
+
+### 2.13.1（适配 dsh 0.2.2）
+
+本版适配 dsh `0.2.2-rc.3`，并继续修复 issue #19：负面情绪数值看起来不动、上次反思摘要长期不更新。完整变化见 [发布记录](CHANGELOG.md)。
+
+- 小鲸预设按宿主新的 standard 快照同步，旧版引用已移除的 `list-agents` 子路径会让预设加载失败；本版同时补上 0.2.2 的委派、文件与办公工具配置。
+- 人格面板的自动刷新指纹改按页面显示的一位小数比较四轴，烦躁/低落/不安不再因为 `1.0 → 1.4` 不跨整数格而看起来不动；常见学习负面说法也纳入情绪识别。
+- 待反思消息落盘并支持每日补跑，人格面板显示「待反思 N 条」；学生当轮说到临时安排时，状态注入会提示模型按原话记录当前处境。
 
 ### 2.12.1（正式版）
 
@@ -331,7 +339,7 @@ VP 回放、知识地图和日程沿用 CompetitionWhale VP v5 的深蓝／浅�
 
 现在插件内置 `assets/persona/xiaojing-coach.md`，默认提供小鲸鱼娘的外观、性格、训练员称呼、语气词、颜文字和小动作。新用户安装后无需另建本机 `personas` 文件。互动、讲题、复盘和赛时都保留可爱风格，公式及代码内部保持干净。
 
-在 dsh `0.2.1-rc.2` 中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；教练工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
+在 dsh `0.2.2-rc.3` 中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；教练工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
 
 人设通过 dsh 已有 `systemPrompt.section()` 静态加载，位于宿主人设之前；当前用户偏好和宿主自定义风格优先。训练选题、长期计划、来源及验收继续遵循 `coach:rules`，不把旧人设里的 rating 门槛或固定工具步骤带回来，也不携带个人账号与训练记录。插件不会自行改写已有本机人设文件；如个人预设仍包含旧教学规则，需单独更新它的 `persona.config.prefix`，避免覆盖新版教练规则。
 
@@ -408,7 +416,7 @@ VP 增量同步会累计各分页记录，`hasMore` 告诉教练是否继续拉�
 
 ```bash
 # 1. 装 dsh（需要 Node ≥ 24）
-npm i -g @deepseek-ai/dsh@0.2.1-rc.2
+npm i -g @deepseek-ai/dsh@0.2.2-rc.3
 
 # 2. 装插件（二选一）
 dsh plugin --profile web add acmer-coach                        # 从 npm（推荐）

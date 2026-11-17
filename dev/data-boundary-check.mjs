@@ -49,6 +49,7 @@ const STORES = {
   'tasks.json': { domain: 'process', owner: 'lib/task-queue.js', readers: [] },
   'tool-operations.json': { domain: 'process', owner: 'lib/tool-operations.js', readers: [] },
   'reflection-batch.json': { domain: 'process', owner: 'lib/reflection-batch.js', readers: [] },
+  'reflection-window.json': { domain: 'process', owner: 'lib/reflection-runner.js', readers: [] },
   'reading-receipt.json': { domain: 'process', owner: 'lib/reading.js', readers: [] },
   'proactive-state.json': { domain: 'process', owner: 'lib/proactive-state.js', readers: [] },
   'screen-captures.json': { domain: 'process', owner: 'lib/screen-originals.js', readers: [] },

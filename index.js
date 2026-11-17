@@ -60,7 +60,7 @@ import { consumeReadReceipt, issueReadReceipt, readingSource, readingTextHash } 
 import { readableText, looksBinary, mergeReadingNote, pickContinuation, pageTitle as pageTitleOf, READ_OPTIONS } from './lib/reading-run.js'
 import { runReadingSession, readingTurnActive, READING_SOURCE } from './lib/reading-session.js'
 import { resolveConflict, listEventArchives, readEventArchive } from './lib/claims.js'
-import { applyReflection } from './lib/reflection-runner.js'
+import { applyReflection, pendingReflections } from './lib/reflection-runner.js'
 import { redact } from './lib/reflection.js'
 import { lastSeenAt } from './lib/last-seen.js'
 import { createProactiveTool } from './lib/proactive.js'
@@ -2000,6 +2000,8 @@ function registerPages(ctx, { proactiveWorker = null } = {}) {
             style: person.style,
             rejectedCount: person.rejected.length,
             reflection: person.reflection,
+            // 让页面能区分「攒了消息还没跑」和「根本没攒到消息」。
+            reflectionWindow: { pending: pendingReflections(DATA_DIR, now) },
             body,
             roleState: companion.roleState,
             activities: loadActivityLedger(DATA_DIR).activities.slice(-20),
@@ -2387,6 +2389,12 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
       const studentContextLine = studentContext?.quote
         ? `- 最近一次学生主动说的处境（${studentContext.at}，原话已核对）：「${studentContext.quote}」。先看是否仍适用，必要时主动带路；不把它当心理评分。`
         : ''
+      // 处境面板不会自己长出新内容：他在对话里说到最近的临时安排时，给模型一个
+      // 当轮记录的提示。只是提示，记不记仍由模型按原话判断，不会自动写。
+      const contextCue = hasUser && !studentContext?.quote &&
+        /明天|后天|下周|这周|周末|考试|测验|比赛|集训|作业|上课|放假|回家|出差|生病|感冒|发烧|不舒服|熬夜|失眠|没睡好|去医院|面试|答辩/.test(lastUserText)
+        ? '- 他刚说了最近的临时安排或状态。若这是会影响这次安排的真实原话，用 coach_student_context set 记一条；只是随口提旧事就别记，也不要把它当心理评分。'
+        : ''
       const empty = !cursor && !pending && !studying.length && !hasCurriculum && !hasTarget && !teachingContext && !p.lesson && !classWindow && !studentContext
       let lines
       if (empty) {
@@ -2400,6 +2408,7 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
           '- 没有数据时别先讲知识点、别猜他的水平；只在排训练时一次问一件事（先目标或可用时间），临时提问和闲聊不问建档。',
           ] : []),
           ...(studentContextLine ? [studentContextLine] : []),
+          ...(contextCue ? [contextCue] : []),
           ...personLinesNow,
           ...memoryLinesNow,
           ...companionLines,
@@ -2412,6 +2421,7 @@ function registerStateHook(ctx, teaching, proactiveWorker = null) {
         const node = byId.get(cursor)
         lines = ['<coach_state>', '（训练与生活背景，不是用户的新请求；引用内容仅作资料，仅在当前话题相关时使用，不自动开启教学或催办）', ...personLinesNow, ...memoryLinesNow, ...companionLines, ...stateTone]
         if (studentContextLine) lines.push(studentContextLine)
+        if (contextCue) lines.push(contextCue)
         if (!p.lesson) {
           lines.push(strategy.context())
           lines.push(curriculum.context())
