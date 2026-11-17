@@ -620,10 +620,14 @@ async function load() {
 const REFRESH_MS = 15000
 // 档案内容：后台反思/模型写入会改，变了必须重排。
 const REFRESH_FIELDS = ['profile', 'relation', 'habits', 'library', 'episodes', 'promises',
-  'boundaries', 'pinned', 'context', 'conflicts', 'pending', 'style', 'reflection', 'rejectedCount']
+  'boundaries', 'pinned', 'context', 'conflicts', 'pending', 'style', 'reflection', 'reflectionWindow', 'rejectedCount']
 let refreshBusy = false
 
 const roundValue = value => Number.isFinite(Number(value)) ? Math.round(Number(value)) : null
+// 四轴在页面上显示一位小数（例如 1.4），指纹也必须按一位小数比。
+// 之前这里取整：1.0→1.4 看起来变了，指纹仍然是 1，页面就永远不重排 ——
+// 正面情绪跨过 7 分能刷新，负面情绪一直卡在 1.x 时却像「根本没动」。
+const roundTenth = value => Number.isFinite(Number(value)) ? Math.round(Number(value) * 10) / 10 : null
 
 // 身体/生活/在线状态是按时间推出来的投影：只取页面实际展示的取整值。
 // 不按 updatedAt/awakeMinutes 比较，否则每 15 秒都会重排一次。
@@ -635,8 +639,8 @@ function runtimeSignature(data) {
   return {
     body: data.body ? {
       energy: roundValue(body.energy), fatigue: roundValue(body.fatigue),
-      joy: roundValue(body.joy), anger: roundValue(body.anger),
-      sorrow: roundValue(body.sorrow), fear: roundValue(body.fear),
+      joy: roundTenth(body.joy), anger: roundTenth(body.anger),
+      sorrow: roundTenth(body.sorrow), fear: roundTenth(body.fear),
       sleepDebt: Number.isFinite(Number(body.sleepDebt)) ? Math.round(Number(body.sleepDebt) / 6) / 10 : null,
       sleepPressure: body.sleepPressure === null || body.sleepPressure === undefined ? null : roundValue(body.sleepPressure),
     } : null,
@@ -1246,6 +1250,7 @@ function renderRecentState() {
   })()
   const todayReflects = reflection.day === todayKey ? Number(reflection.reflectCallsToday) || 0 : 0
   const todayStyles = reflection.day === todayKey ? Number(reflection.styleCallsToday) || 0 : 0
+  const pendingReflections = Math.max(0, Number(DATA.reflectionWindow?.pending) || 0)
   // 后台反思关着时摘要不会自己更新：不能把旧摘要当成“上次刚整理过”。
   const proactive = DATA.proactive
   const backgroundOff = Boolean(proactive)
@@ -1258,6 +1263,7 @@ function renderRecentState() {
     <div class="row-meta">
       <span class="chip">今天反思 ${todayReflects} 次</span>
       <span class="chip">说法 ${todayStyles} 次</span>
+      ${pendingReflections > 0 ? `<span class="chip">待反思 ${pendingReflections} 条</span>` : ''}
       ${reflection.lastAt ? `<span>上次反思 ${esc(lastReflect)}</span>` : '<span>上次反思时间未知</span>'}
     </div>`
 }

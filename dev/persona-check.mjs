@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse } from 'yaml'
 
 const personaPath = new URL('../assets/persona/xiaojing-coach.md', import.meta.url)
@@ -229,7 +229,24 @@ test('bundle declares a native 小鲸教练 preset with the stock standard capab
   assert.ok(!delegation.config.some(entry => ['tool-subagent-codex', 'tool-subagent-claude-code', 'tool-ralph'].includes(entry.id)))
   assert.equal(config.plugins.find(entry => entry.id === 'tool-bash').disabled, "process.platform === 'win32'")
   assert.equal(config.plugins.find(entry => entry.id === 'tool-pwsh').disabled, "process.platform !== 'win32'")
-  assert.equal(config.plugins.find(entry => entry.id === 'tool-plugin-manager').disabled, true)
+  // dsh 0.2.2's stock preset gates the plugin-manager tools on the profile
+  // context instead of disabling them unconditionally. Keep the native gate
+  // so the capability snapshot stays byte-for-byte comparable with the host.
+  assert.equal(config.plugins.find(entry => entry.id === 'tool-plugin-manager').disabled,
+    "!ctx.get('profileContext')")
+  const fsEntry = config.plugins.find(entry => entry.id === 'tool-fs')
+  assert.equal(fsEntry.config?.applyPatch, false, 'drop the native apply_patch tool beside edit')
+  assert.ok(!ids.includes('tool-subagent-list-agents'), '0.2.2 folded child discovery into tool-subagent-control')
+  const subagentControl = config.plugins.find(entry => entry.id === 'delegation')
+    .config.find(entry => entry.id === 'tool-subagent-control')
+  assert.equal(subagentControl.config?.interrupt, false, 'follow the stock 0.2.2 delegation gate')
+  const subagent = config.plugins.find(entry => entry.id === 'delegation')
+    .config.find(entry => entry.id === 'tool-subagent')
+  assert.equal(subagent.config?.modelSelection, true)
+  assert.equal(subagent.config?.modelDiscovery, true)
+  assert.equal(subagent.config?.modelSelectionSettings, undefined,
+    'modelSelectionSettings was replaced by modelSelection/modelDiscovery in 0.2.2')
+  assert.ok(ids.includes('tool-office'), '0.2.2 standard adds the office tool')
   assert.ok(!JSON.stringify(config).match(/[A-Z]:[\\/]|accountId|userId|handle|rating/), 'preset must contain no private profile paths or account data')
 })
 
@@ -250,17 +267,27 @@ test('packaged preset passes the installed native loader and configuration schem
   assert.ok(row)
   const config = presets.default.Config(row.config)
   assert.equal(registry.entryListProblem(config.plugins), undefined)
+  // `!!js` expressions survive composeEntries as `{__jsExpr}` nodes. Evaluate
+  // them with the same scope shape the loader supplies (baseUrl + ctx.get) so
+  // the native schemas see the values they will see in the running profile.
+  const scope = {
+    // The loader supplies the config file's directory as a URL ending in `/`.
+    baseUrl: pathToFileURL(dirname(fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))).href + '/',
+    get: () => ({}),
+  }
+  const interpolate = value => loader.interpolate(scope, value)
   const enabledShell = config.plugins.filter(entry => ['tool-bash', 'tool-pwsh'].includes(entry.id))
-    .filter(entry => !loader.interpolate({}, entry.disabled)).map(entry => entry.id)
+    .filter(entry => !interpolate(entry.disabled)).map(entry => entry.id)
   assert.deepEqual(enabledShell, [process.platform === 'win32' ? 'tool-pwsh' : 'tool-bash'])
   async function validate(rows) {
     for (const entry of rows) {
       if (entry.group) { await validate(entry.config); continue }
-      if (loader.interpolate({}, entry.disabled)) continue
+      if (interpolate(entry.disabled)) continue
       const plugin = await import(entry.name)
+      const values = interpolate(entry.config ?? {})
       const schema = plugin.Config ?? plugin.default?.Config
-      if (schema) assert.doesNotThrow(() => schema(entry.config ?? {}), entry.name)
-      if (plugin.resolveConfig) assert.doesNotThrow(() => plugin.resolveConfig(entry.config ?? {}), entry.name)
+      if (schema) assert.doesNotThrow(() => schema(values), entry.name)
+      if (plugin.resolveConfig) assert.doesNotThrow(() => plugin.resolveConfig(values), entry.name)
     }
   }
   await validate(config.plugins)
@@ -271,6 +298,14 @@ test('packaged preset passes the installed native loader and configuration schem
     const stock = boot.composeEntries([boot.loadOverlayPatches('dsh', standardPath)]).find(entry => entry.config?.id === 'standard')
     const actual = structuredClone(config.plugins)
     actual.find(entry => entry.id === 'persona').config.prefix = stock.config.plugins.find(entry => entry.id === 'persona').config.prefix
-    assert.deepEqual(actual, stock.config.plugins, 'stock capability snapshot differs only in the persona prefix')
+    // 宿主的 standard 在 web-app 包内用 baseUrl 解析 dsh-doc 技能目录；第三方 bundle
+    // 装在 profile 下时解析不到那个包。这里保留宿主机默认技能根，不复制一个可能不存在的路径。
+    const stockPlugins = structuredClone(stock.config.plugins)
+    for (const entry of [actual, stockPlugins]) {
+      const skill = entry.find(item => item.id === 'skill-filesystem')
+      if (skill.config?.customSkillDirs) delete skill.config.customSkillDirs
+      if (skill.config && Object.keys(skill.config).length === 0) delete skill.config
+    }
+    assert.deepEqual(actual, stockPlugins, 'stock capability snapshot differs only in the persona prefix and host-local skill roots')
   }
 })

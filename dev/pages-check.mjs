@@ -610,6 +610,25 @@ test('person page refresh ignores now-derived proactive fields', () => {
   assert.notEqual(sandbox.contentSignature(base), sandbox.contentSignature(off))
 })
 
+test('person page refresh fingerprint keeps the mood precision the page actually shows', () => {
+  const html = readFileSync(new URL('../assets/knowledge/person.html', import.meta.url), 'utf8')
+  const start = html.indexOf('const roundValue')
+  const end = html.indexOf('function contentSignature')
+  assert.ok(start > 0 && end > start)
+  const sandbox = {}
+  vm.createContext(sandbox)
+  vm.runInContext(html.slice(start, end), sandbox)
+  const body = { energy: 70, fatigue: 20, joy: 7.7, anger: 1, sorrow: 1, fear: 1, sleepDebt: 60 }
+  const before = { body }
+  const moved = { body: { ...body, anger: 1.4, sorrow: 1.2, fear: 1.1 } }
+  assert.notEqual(sandbox.runtimeSignature(before).body.anger, sandbox.runtimeSignature(moved).body.anger,
+    '1.0 -> 1.4 is visible on the page, so it must change the refresh fingerprint')
+  assert.notDeepEqual(sandbox.runtimeSignature(before), sandbox.runtimeSignature(moved))
+  // 页面显示整数（精力）时，不足一格的变化仍不该每拍重排。
+  assert.deepEqual(sandbox.runtimeSignature({ body: { ...body, energy: 70.2 } }),
+    sandbox.runtimeSignature({ body: { ...body, energy: 70.4 } }))
+})
+
 test('person page surfaces archive and style candidates at the top and keeps the GET read-only', async t => {
   const { dir, request } = await fixture(t)
   const html = String((await request('/coach/person.html')).body)
@@ -720,10 +739,12 @@ test('person page marks a closed background reflection and shows how old the sum
 
   // 真正开着时不吓人。
   DATA.proactive = { enabled: false, settings: { backgroundLlm: true }, effective: { backgroundLlm: true } }
+  DATA.reflectionWindow = { pending: 3 }
   vm.runInContext('renderRecentState()', sandbox)
   assert.doesNotMatch(node('#reflectionBody').innerHTML, /后台反思已关闭/)
   assert.match(node('#reflectionBody').innerHTML, /上次反思/)
   assert.match(node('#reflectionBody').innerHTML, /8 天前/)
+  assert.match(node('#reflectionBody').innerHTML, /待反思 3 条/, 'show that messages are queued, not lost')
 })
 
 test('person page shows the derived sleep mode without silently selecting auto', () => {

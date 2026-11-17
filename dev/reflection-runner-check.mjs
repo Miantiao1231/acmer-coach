@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadPerson, savePerson } from '../lib/person.js'
-import { applyReflection } from '../lib/reflection-runner.js'
+import { applyReflection, pendingReflections } from '../lib/reflection-runner.js'
 import { startBatch, markReceived, saveBatch } from '../lib/reflection-batch.js'
 
 const session = { id: 'session-reflect' }
@@ -16,6 +16,8 @@ const user = (index) => ({
   data: { message: { id: `m${index}`, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: `消息${index}` }] } },
 })
 const turnEnd = { type: 'turn/end', data: { reason: { kind: 'completed' } } }
+// 窗口会丢掉 7 天前的消息；新用例必须用“刚刚”的时间，别复用固定的旧夹具。
+const recentUser = (index) => ({ ...user(index), time: new Date(Date.now() - (10 - index) * 60000).toISOString() })
 
 test('recovered reflection summary keeps its original batch time and does not replace a newer pair', () => {
   for (const newer of [false, true]) {
@@ -215,5 +217,55 @@ test('style runner stores pending notes after enough samples', async () => {
     assert.equal(person.style.length, 1)
     assert.equal(person.style[0].status, 'pending')
     assert.equal(person.style[0].evidence[0].quote, '消息0')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('the pending reflection window survives a restart and a stale summary catches up after four messages', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-reflect-window-'))
+  try {
+    const quiet = fakeCtx('', 'text')
+    applyReflection(quiet, dir, { allowModel: () => false })
+    const quietHandler = quiet.handlers.get('session/event')[0]
+    for (let i = 0; i < 2; i++) quietHandler(session, recentUser(i))
+    quietHandler(session, turnEnd)
+    assert.equal(pendingReflections(dir), 2, 'two messages are persisted even without a model route')
+
+    // 新进程：只带回 2 条；再来 2 条正好到 4 条。摘要已过期，应在这一轮补跑。
+    const response = JSON.stringify({ summary: '重启后补上的摘要', proposals: [] })
+    const ctx = fakeCtx(response)
+    applyReflection(ctx, dir, {
+      allowModel: () => true, reflectEvery: 40, styleEvery: 100, staleMs: 0, maxTokens: 512,
+    })
+    const handler = ctx.handlers.get('session/event')[0]
+    handler(session, route)
+    for (let i = 2; i < 4; i++) handler(session, recentUser(i))
+    handler(session, turnEnd)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const person = loadPerson(dir)
+    assert.equal(person.reflection.lastSummary, '重启后补上的摘要')
+    assert.ok(person.reflection.lastAt, 'the refreshed summary records when it ran')
+    assert.equal(pendingReflections(dir), 0, 'processed messages leave the window after a successful write')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('a fresh summary is not re-run just because four messages accumulated', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'coach-reflect-fresh-'))
+  try {
+    const person = loadPerson(dir)
+    person.reflection.lastAt = new Date().toISOString()
+    person.reflection.lastSummary = '刚刚整理过'
+    assert.equal(savePerson(dir, person), true)
+    let calls = 0
+    const ctx = fakeCtx('{"summary":"不该跑","proposals":[]}')
+    ctx.get = name => name === 'llm' ? { async *stream() { calls += 1 } } : undefined
+    applyReflection(ctx, dir, { allowModel: () => true, reflectEvery: 40, styleEvery: 100, maxTokens: 512 })
+    const handler = ctx.handlers.get('session/event')[0]
+    handler(session, route)
+    for (let i = 0; i < 4; i++) handler(session, recentUser(i))
+    handler(session, turnEnd)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    assert.equal(calls, 0, 'the daily fallback waits for the stale interval')
+    assert.equal(loadPerson(dir).reflection.lastSummary, '刚刚整理过')
+    assert.equal(pendingReflections(dir), 4, 'the window keeps accumulating for the normal threshold')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
