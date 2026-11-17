@@ -303,7 +303,8 @@ test('packaged preset passes the installed native loader and configuration schem
     const stockPlugins = structuredClone(stock.config.plugins)
     for (const entry of [actual, stockPlugins]) {
       const skill = entry.find(item => item.id === 'skill-filesystem')
-      delete skill.config
+      if (skill.config?.customSkillDirs) delete skill.config.customSkillDirs
+      if (skill.config && Object.keys(skill.config).length === 0) delete skill.config
     }
     assert.deepEqual(actual, stockPlugins, 'stock capability snapshot differs only in the persona prefix and host-local skill roots')
   }
