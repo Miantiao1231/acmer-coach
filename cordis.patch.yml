@@ -7,7 +7,8 @@
     - id: acmer-coach
       name: 'acmer-coach'
 
-# 原生 standard 预设配置快照（dsh 0.2.2-rc.3）；升级宿主时同步清单。
+# 原生 standard 预设配置快照（dsh 0.2.2-rc.5）；升级宿主时同步清单。
+# devDependencies 固定同一版宿主包，发版门禁会跑宿主 loader 校验这份快照。
 # 只改人格前缀；其余文件、终端、联网、计划、委派、压缩与插槽保持宿主默认。
 # 宿主 standard 的 skill-filesystem.customSkillDirs 在 web-app 包内用 baseUrl 解析，
 # 第三方 bundle 装在 profile 下时解析不到那个包；这里保留宿主机默认技能根。

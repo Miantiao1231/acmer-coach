@@ -250,7 +250,7 @@ test('bundle declares a native 小鲸教练 preset with the stock standard capab
   assert.ok(!JSON.stringify(config).match(/[A-Z]:[\\/]|accountId|userId|handle|rating/), 'preset must contain no private profile paths or account data')
 })
 
-test('packaged preset passes the installed native loader and configuration schemas', async t => {
+test('packaged preset passes the installed native loader and configuration schemas', async () => {
   let boot, presets, registry, loader
   try {
     [boot, presets, registry, loader] = await Promise.all([
@@ -259,8 +259,9 @@ test('packaged preset passes the installed native loader and configuration schem
     ])
   } catch (error) {
     if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error
-    t.skip('native preset packages are supplied by the dsh host; portable bundle checks still run')
-    return
+    // 发版门禁必须真的跑到宿主 loader。缺包时静默跳过，等于把 2.13.0 的
+    // 「预设里留着已删除子路径」再放回去，所以这里直接失败。
+    assert.fail(`宿主包未安装，无法校验预设激活（${error.message.split('\n')[0]}）；先 npm install，devDependencies 固定了宿主版本`)
   }
   const entries = boot.composeEntries([boot.loadOverlayPatches('dsh', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))])
   const row = entries.find(entry => entry.config?.id === 'acmer-coach-xiaojing')
@@ -291,21 +292,18 @@ test('packaged preset passes the installed native loader and configuration schem
     }
   }
   await validate(config.plugins)
-  let standardPath
-  try { standardPath = join(dirname(fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-web-app/package.json'))), 'presets', 'standard.patch.yml') }
-  catch (error) { if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error }
-  if (standardPath && fs.existsSync(standardPath)) {
-    const stock = boot.composeEntries([boot.loadOverlayPatches('dsh', standardPath)]).find(entry => entry.config?.id === 'standard')
-    const actual = structuredClone(config.plugins)
-    actual.find(entry => entry.id === 'persona').config.prefix = stock.config.plugins.find(entry => entry.id === 'persona').config.prefix
-    // 宿主的 standard 在 web-app 包内用 baseUrl 解析 dsh-doc 技能目录；第三方 bundle
-    // 装在 profile 下时解析不到那个包。这里保留宿主机默认技能根，不复制一个可能不存在的路径。
-    const stockPlugins = structuredClone(stock.config.plugins)
-    for (const entry of [actual, stockPlugins]) {
-      const skill = entry.find(item => item.id === 'skill-filesystem')
-      if (skill.config?.customSkillDirs) delete skill.config.customSkillDirs
-      if (skill.config && Object.keys(skill.config).length === 0) delete skill.config
-    }
-    assert.deepEqual(actual, stockPlugins, 'stock capability snapshot differs only in the persona prefix and host-local skill roots')
+  const standardPath = join(dirname(fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-web-app/package.json'))), 'presets', 'standard.patch.yml')
+  assert.ok(fs.existsSync(standardPath), `找不到宿主 standard 预设：${standardPath}`)
+  const stock = boot.composeEntries([boot.loadOverlayPatches('dsh', standardPath)]).find(entry => entry.config?.id === 'standard')
+  const actual = structuredClone(config.plugins)
+  actual.find(entry => entry.id === 'persona').config.prefix = stock.config.plugins.find(entry => entry.id === 'persona').config.prefix
+  // 宿主的 standard 在 web-app 包内用 baseUrl 解析 dsh-doc 技能目录；第三方 bundle
+  // 装在 profile 下时解析不到那个包。这里保留宿主机默认技能根，不复制一个可能不存在的路径。
+  const stockPlugins = structuredClone(stock.config.plugins)
+  for (const entry of [actual, stockPlugins]) {
+    const skill = entry.find(item => item.id === 'skill-filesystem')
+    if (skill.config?.customSkillDirs) delete skill.config.customSkillDirs
+    if (skill.config && Object.keys(skill.config).length === 0) delete skill.config
   }
+  assert.deepEqual(actual, stockPlugins, 'stock capability snapshot differs only in the persona prefix and host-local skill roots')
 })

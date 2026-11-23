@@ -11,6 +11,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 // 发布门禁不连真实记忆/后台模型；与 dev.sh 的环境隔离保持一致。
 const isolated = { COACH_HINDSIGHT: '0', COACH_BACKGROUND_LLM: '0', TZ: 'Asia/Shanghai' }
 const checks = [
+  // 预设引用的宿主包先解析一遍：2.13.0 就是死在这一步，而且它比全量验收快得多。
+  { name: 'preset-check', args: ['dev/preset-check.mjs'] },
   { name: 'verify', args: ['verify.mjs'], env: { CI: '1' } },
   { name: 'w1-check', args: ['dev/w1-check.mjs'] },
   { name: 'setup-check', args: ['dev/setup-check.mjs'] },
