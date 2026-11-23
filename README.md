@@ -339,7 +339,9 @@ VP 回放、知识地图和日程沿用 CompetitionWhale VP v5 的深蓝／浅�
 
 现在插件内置 `assets/persona/xiaojing-coach.md`，默认提供小鲸鱼娘的外观、性格、训练员称呼、语气词、颜文字和小动作。新用户安装后无需另建本机 `personas` 文件。互动、讲题、复盘和赛时都保留可爱风格，公式及代码内部保持干净。
 
-在 dsh `0.2.2-rc.3` 中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；教练工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
+在 dsh `0.2.2-rc.5` 中，安装并启用插件后，新会话的预设菜单可选择 **小鲸教练**（`acmer-coach-xiaojing`）。它沿用 dsh 标准预设的文件、终端、联网、技能、计划、委派和对话压缩；教练工具仍只注册一次。现有默认预设和个人 `xiaojing` 预设保留，插件不会自动改选默认。
+
+如果停用插件后新建会话报 `agent-preset/not-found: Unknown agent preset: acmer-coach-xiaojing`，那是 profile 的 `agent-preset-registry.selectedDefault` 仍指向插件预设。把 `~/.dsh/profiles/<profile>/cordis.patch.yml` 里的 `selectedDefault` 改回 `standard`，完全退出并重启 dsh；补丁只在启动时组合，改文件不重启不生效。
 
 人设通过 dsh 已有 `systemPrompt.section()` 静态加载，位于宿主人设之前；当前用户偏好和宿主自定义风格优先。训练选题、长期计划、来源及验收继续遵循 `coach:rules`，不把旧人设里的 rating 门槛或固定工具步骤带回来，也不携带个人账号与训练记录。插件不会自行改写已有本机人设文件；如个人预设仍包含旧教学规则，需单独更新它的 `persona.config.prefix`，避免覆盖新版教练规则。
 
